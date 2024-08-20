@@ -1,6 +1,6 @@
 <?php
 
-namespace SineMacula\ApiToolkit\Facades;
+namespace SineMacula\Exporter\Facades;
 
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Http\Resources\Json\ResourceCollection;
