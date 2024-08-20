@@ -30,18 +30,6 @@ abstract class Exporter
     }
 
     /**
-     * Get the default exporter configuration options.
-     *
-     * @return array
-     */
-    protected function getDefaultConfig(): array
-    {
-        return defined(static::class . '::DEFAULT_CONFIG')
-            ? static::DEFAULT_CONFIG
-            : [];
-    }
-
-    /**
      * Get the exporter configuration options.
      *
      * @return array
@@ -49,17 +37,6 @@ abstract class Exporter
     public function getConfig(): array
     {
         return $this->config;
-    }
-
-    /**
-     * Sets the configuration for the exporter.
-     *
-     * @param  array  $config
-     * @return void
-     */
-    private function setConfig(array $config): void
-    {
-        $this->config = $config;
     }
 
     /**
@@ -73,6 +50,18 @@ abstract class Exporter
         $this->ignored = is_array($fields) ? $fields : [$fields];
 
         return $this;
+    }
+
+    /**
+     * Get the default exporter configuration options.
+     *
+     * @return array
+     */
+    protected function getDefaultConfig(): array
+    {
+        return defined(static::class . '::DEFAULT_CONFIG')
+            ? static::DEFAULT_CONFIG
+            : [];
     }
 
     /**
@@ -98,5 +87,16 @@ abstract class Exporter
     protected function isStringable(mixed $value): bool
     {
         return is_scalar($value) || (is_object($value) && method_exists($value, '__toString'));
+    }
+
+    /**
+     * Sets the configuration for the exporter.
+     *
+     * @param  array  $config
+     * @return void
+     */
+    private function setConfig(array $config): void
+    {
+        $this->config = $config;
     }
 }

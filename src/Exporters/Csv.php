@@ -52,7 +52,7 @@ class Csv extends Exporter implements ExporterContract
 
             $data = $this->filterData($resource->toArray(Request::instance()));
 
-            $csv = $csv ?? $this->generateColumns(array_keys($data)) . "\n";
+            $csv ??= $this->generateColumns(array_keys($data)) . "\n";
 
             $csv .= !empty($data)
                 ? $this->generateRow($data) . "\n"
