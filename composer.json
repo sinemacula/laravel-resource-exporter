@@ -1,50 +1,52 @@
 {
-    "name": "sinemacula/laravel-resource-exporter",
-    "type": "library",
-    "description": "A versatile Laravel package for exporting JsonResource and JsonResourceCollection objects into various formats with customizable drivers.",
-    "keywords": [
-        "sine macula",
-        "laravel",
-        "resource",
-        "export",
-        "api"
-    ],
-    "license": "Apache-2.0",
-    "authors": [
-        {
-            "name": "Ben Carey",
-            "email": "bdmc@sinemacula.co.uk"
-        }
-    ],
-    "require": {
-        "php": "^8.3",
-        "ext-simplexml": "*",
-        "ext-dom": "*"
-    },
-    "require-dev": {
-        "laravel/framework": "*",
-        "phpunit/phpunit": "^11.0"
-    },
-    "autoload": {
-        "psr-4": {
-            "SineMacula\\Exporter\\": "src/"
-        }
-    },
-    "autoload-dev": {
-        "psr-4": {
-            "Tests\\": "tests/"
-        }
-    },
-    "config": {
-        "sort-packages": true
-    },
-    "minimum-stability": "dev",
-    "prefer-stable": true,
-    "extra": {
-        "laravel": {
-            "providers": [
-                "SineMacula\\Exporter\\ExporterServiceProvider"
-            ]
-        }
+  "name": "sinemacula/laravel-resource-exporter",
+  "type": "library",
+  "description": "A versatile Laravel package for exporting JsonResource and JsonResourceCollection objects into various formats with customizable drivers.",
+  "keywords": [
+    "sine macula",
+    "laravel",
+    "resource",
+    "export",
+    "api"
+  ],
+  "license": "Apache-2.0",
+  "authors": [
+    {
+      "name": "Ben Carey",
+      "email": "bdmc@sinemacula.co.uk"
     }
+  ],
+  "require": {
+    "php": "^8.3",
+    "ext-dom": "*",
+    "ext-simplexml": "*",
+    "illuminate/http": "*",
+    "illuminate/support": "*"
+  },
+  "require-dev": {
+    "laravel/framework": "*",
+    "phpunit/phpunit": "^11.0"
+  },
+  "autoload": {
+    "psr-4": {
+      "SineMacula\\Exporter\\": "src/"
+    }
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "Tests\\": "tests/"
+    }
+  },
+  "config": {
+    "sort-packages": true
+  },
+  "minimum-stability": "dev",
+  "prefer-stable": true,
+  "extra": {
+    "laravel": {
+      "providers": [
+        "SineMacula\\Exporter\\ExporterServiceProvider"
+      ]
+    }
+  }
 }
