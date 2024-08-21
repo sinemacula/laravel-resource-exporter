@@ -5,7 +5,7 @@ namespace SineMacula\Exporter\Exporters;
 use DOMDocument;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Http\Resources\Json\ResourceCollection;
-use Illuminate\Support\Facades\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use SimpleXMLElement;
 use SineMacula\Exporter\Contracts\Exporter as ExporterContract;
@@ -22,8 +22,11 @@ class Xml extends Exporter implements ExporterContract
     protected const array DEFAULT_CONFIG = [
         'root_element'          => null,
         'pretty_print'          => true,
-        'include_sub_resources' => true,
+        'include_sub_resources' => true
     ];
+
+    /** @var \SimpleXMLElement The xml object */
+    protected SimpleXMLElement $xml;
 
     /**
      * Export the given resource item.
@@ -33,15 +36,9 @@ class Xml extends Exporter implements ExporterContract
      */
     public function exportItem(JsonResource $resource): string
     {
-        $root = $this->config['root_element'] ?? $this->convertToPascalCase(class_basename($resource->resource));
+        $this->handleResourceItem($resource, $this->config['root_element']);
 
-        $xml = new SimpleXMLElement("<{$root}/>");
-
-        $data = $this->filterData($resource->toArray(Request::instance()));
-
-        $this->arrayToXml($data, $xml);
-
-        return $this->formatXml($xml);
+        return $this->formatXml($this->xml);
     }
 
     /**
@@ -52,18 +49,77 @@ class Xml extends Exporter implements ExporterContract
      */
     public function exportCollection(ResourceCollection $collection): string
     {
-        $root = $this->config['root_element'] ?? $this->convertToPascalCase(Str::plural(class_basename($collection->collects)));
+        $this->handleResourceCollection($collection, $this->config['root_element']);
 
-        $xml = new SimpleXMLElement("<{$root}/>");
+        return $this->formatXml($this->xml);
+    }
 
-        foreach ($collection as $resource) {
-            $data = $this->filterData($resource->toArray(Request::instance()));
-            $node = $xml->addChild($this->convertToPascalCase(class_basename($collection->collects)));
+    /**
+     * Handle the conversion of a JsonResource to XML.
+     *
+     * @param  \Illuminate\Http\Resources\Json\JsonResource  $resource
+     * @param  string|null  $key
+     * @param  \SimpleXMLElement|null  $xml
+     * @return void
+     */
+    protected function handleResourceItem(JsonResource $resource, ?string $key = null, ?SimpleXMLElement $xml = null): void
+    {
+        $key = $key ?? $this->convertToPascalCase(class_basename($resource->resource));
 
-            $this->arrayToXml($data, $node);
+        if (is_null($xml)) {
+            $this->xml = new SimpleXMLElement('<' . $key . '/>');
         }
 
-        return $this->formatXml($xml);
+        $node = !is_null($xml)
+            ? $xml->addChild($key)
+            : $this->xml;
+
+        $data = $this->filterData($resource->resolve());
+
+        $this->arrayToXml($data, $node);
+    }
+
+    /**
+     * Handle the conversion of a ResourceCollection to XML.
+     *
+     * @param  \Illuminate\Http\Resources\Json\ResourceCollection  $collection
+     * @param  string|null  $key
+     * @param  \SimpleXMLElement|null  $xml
+     * @return void
+     */
+    protected function handleResourceCollection(ResourceCollection $collection, ?string $key = null, ?SimpleXMLElement $xml = null): void
+    {
+        $key = $key ?? $this->getResourceNameFromCollection($collection);
+
+        if (is_null($xml)) {
+            $this->xml = new SimpleXMLElement('<' . $key . '/>');
+        }
+
+        $parent = !is_null($xml)
+            ? $xml->addChild($key)
+            : $this->xml;
+
+        foreach ($collection->resolve() as $item) {
+
+            $item  = $this->filterData($item);
+            $child = $parent->addChild($this->convertToPascalCase(Str::singular($key)));
+
+            $this->arrayToXml($item, $child);
+        }
+    }
+
+    /**
+     * Return the resource name from the given collection.
+     *
+     * @param  \Illuminate\Http\Resources\Json\ResourceCollection  $collection
+     * @return string
+     */
+    protected function getResourceNameFromCollection(ResourceCollection $collection): string
+    {
+        $resource = class_basename($collection->collects);
+        $name     = substr($resource, 0, strrpos($resource, 'Resource') ?: strlen($resource));
+
+        return $this->convertToPascalCase(Str::plural($name));
     }
 
     /**
@@ -91,15 +147,48 @@ class Xml extends Exporter implements ExporterContract
             $key = $this->convertToPascalCase($key);
 
             if (is_array($value)) {
-                $node = $xml->addChild($key);
-                $this->arrayToXml($value, $node);
+                $this->handleArrayValue($key, $value, $xml);
+            } elseif ($value instanceof ResourceCollection && $this->config['include_sub_resources']) {
+                $this->handleResourceCollection($value, $key, $xml);
             } elseif ($value instanceof JsonResource && $this->config['include_sub_resources']) {
-                $sub_data = $this->filterData($value->toArray(Request::instance()));
-                $node     = $xml->addChild($key);
-                $this->arrayToXml($sub_data, $node);
-            } else {
+                $this->handleResourceItem($value, $key, $xml);
+            } elseif ($value instanceof Collection) {
+                $this->handleCollectionValue($key, $value, $xml);
+            } elseif ($this->isStringable($value)) {
                 $xml->addChild($key, htmlspecialchars($value));
             }
+        }
+    }
+
+    /**
+     * Handle the conversion of an array value to XML.
+     *
+     * @param  string  $key
+     * @param  array  $value
+     * @param  \SimpleXMLElement  $xml
+     * @return void
+     */
+    protected function handleArrayValue(string $key, array $value, SimpleXMLElement $xml): void
+    {
+        $node = $xml->addChild($key);
+
+        $this->arrayToXml($value, $node);
+    }
+
+    /**
+     * Handle the conversion of a Collection to XML.
+     *
+     * @param  string  $key
+     * @param  \Illuminate\Support\Collection  $value
+     * @param  \SimpleXMLElement  $xml
+     * @return void
+     */
+    protected function handleCollectionValue(string $key, Collection $value, SimpleXMLElement $xml): void
+    {
+        $node = $xml->addChild($key);
+
+        foreach ($value as $item) {
+            $this->arrayToXml([Str::singular($key) => $item], $node);
         }
     }
 
@@ -123,5 +212,19 @@ class Xml extends Exporter implements ExporterContract
         }
 
         return $xml->asXML();
+    }
+
+    /**
+     * Filter the data array to exclude non-stringable values and ignored
+     * fields.
+     *
+     * @param  array  $data
+     * @return array
+     */
+    protected function filterData(array $data): array
+    {
+        return array_filter($data, function ($value, $key) {
+            return !in_array($key, $this->ignored);
+        }, ARRAY_FILTER_USE_BOTH);
     }
 }
