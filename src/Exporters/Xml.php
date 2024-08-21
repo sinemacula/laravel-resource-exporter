@@ -64,7 +64,7 @@ class Xml extends Exporter implements ExporterContract
      */
     protected function handleResourceItem(JsonResource $resource, ?string $key = null, ?SimpleXMLElement $xml = null): void
     {
-        $key = $key ?? $this->convertToPascalCase(class_basename($resource->resource));
+        $key ??= $this->convertToPascalCase(class_basename($resource->resource));
 
         if (is_null($xml)) {
             $this->xml = new SimpleXMLElement('<' . $key . '/>');
@@ -89,7 +89,7 @@ class Xml extends Exporter implements ExporterContract
      */
     protected function handleResourceCollection(ResourceCollection $collection, ?string $key = null, ?SimpleXMLElement $xml = null): void
     {
-        $key = $key ?? $this->getResourceNameFromCollection($collection);
+        $key ??= $this->getResourceNameFromCollection($collection);
 
         if (is_null($xml)) {
             $this->xml = new SimpleXMLElement('<' . $key . '/>');
