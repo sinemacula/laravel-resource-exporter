@@ -4,7 +4,6 @@ namespace SineMacula\Exporter\Exporters;
 
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Http\Resources\Json\ResourceCollection;
-use Illuminate\Support\Facades\Request;
 use Illuminate\Support\Str;
 use SineMacula\Exporter\Contracts\Exporter as ExporterContract;
 
@@ -30,7 +29,7 @@ class Csv extends Exporter implements ExporterContract
      */
     public function exportItem(JsonResource $resource): string
     {
-        $data = $this->filterData($resource->toArray(Request::instance()));
+        $data = $this->filterData($resource->resolve());
 
         return !empty($data)
             ? implode("\n", [
@@ -48,9 +47,9 @@ class Csv extends Exporter implements ExporterContract
      */
     public function exportCollection(ResourceCollection $collection): string
     {
-        foreach ($collection as $resource) {
+        foreach ($collection->resolve() as $resource) {
 
-            $data = $this->filterData($resource->toArray(Request::instance()));
+            $data = $this->filterData($resource);
 
             $csv ??= $this->generateColumns(array_keys($data)) . "\n";
 
@@ -110,5 +109,19 @@ class Csv extends Exporter implements ExporterContract
         $enclosure = $this->config['enclosure'];
 
         return $enclosure . str_replace($enclosure, $enclosure . $enclosure, $value) . $enclosure;
+    }
+
+    /**
+     * Filter the data array to exclude non-stringable values and ignored
+     * fields.
+     *
+     * @param  array  $data
+     * @return array
+     */
+    protected function filterData(array $data): array
+    {
+        return array_filter($data, function ($value, $key) {
+            return $this->isStringable($value) && !in_array($key, $this->ignored);
+        }, ARRAY_FILTER_USE_BOTH);
     }
 }
