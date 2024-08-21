@@ -65,20 +65,6 @@ abstract class Exporter
     }
 
     /**
-     * Filter the data array to exclude non-stringable values and ignored
-     * fields.
-     *
-     * @param  array  $data
-     * @return array
-     */
-    protected function filterData(array $data): array
-    {
-        return array_filter($data, function ($value, $key) {
-            return $this->isStringable($value) && !in_array($key, $this->ignored);
-        }, ARRAY_FILTER_USE_BOTH);
-    }
-
-    /**
      * Check if a value is stringable (can be safely converted to a string).
      *
      * @param  mixed  $value
@@ -86,7 +72,7 @@ abstract class Exporter
      */
     protected function isStringable(mixed $value): bool
     {
-        return is_scalar($value) || (is_object($value) && method_exists($value, '__toString'));
+        return is_scalar($value) || is_null($value) || (is_object($value) && method_exists($value, '__toString'));
     }
 
     /**
