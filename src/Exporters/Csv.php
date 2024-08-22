@@ -101,14 +101,14 @@ class Csv extends Exporter implements ExporterContract
     /**
      * Escape a CSV value by wrapping it in quotes and escaping existing quotes.
      *
-     * @param  string  $value
+     * @param  string|null  $value
      * @return string
      */
-    protected function escapeValue(string $value): string
+    protected function escapeValue(?string $value): string
     {
         $enclosure = $this->config['enclosure'];
 
-        return $enclosure . str_replace($enclosure, $enclosure . $enclosure, $value) . $enclosure;
+        return $enclosure . str_replace($enclosure, $enclosure . $enclosure, $value ?? '') . $enclosure;
     }
 
     /**
