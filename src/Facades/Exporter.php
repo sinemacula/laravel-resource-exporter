@@ -14,6 +14,7 @@ use SineMacula\Exporter\Contracts\Exporter as ExporterContract;
  * @method static ExporterContract format(string|null $format)
  * @method static array getConfig()
  * @method static ExporterContract withoutFields(string|array $fields)
+ * @method static string exportArray(array $rows)
  * @method static string exportItem(JsonResource $resource)
  * @method static string exportCollection(ResourceCollection $collection)
  *

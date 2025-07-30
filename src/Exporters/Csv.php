@@ -22,6 +22,36 @@ class Csv extends Exporter implements ExporterContract
     ];
 
     /**
+     * Export a raw array of associative arrays.
+     *
+     * @param  array  $rows
+     * @return string
+     */
+    public function exportArray(array $rows): string
+    {
+        if (empty($rows)) {
+            return '';
+        }
+
+        $csv = null;
+
+        foreach ($rows as $row) {
+
+            $data = $this->filterData($row);
+
+            if (!isset($csv)) {
+                $csv = $this->generateColumns(array_keys($data)) . "\n";
+            }
+
+            $csv .= !empty($data)
+                ? $this->generateRow($data) . "\n"
+                : '';
+        }
+
+        return $csv ?? '';
+    }
+
+    /**
      * Export the given resource item.
      *
      * @param  \Illuminate\Http\Resources\Json\JsonResource  $resource
