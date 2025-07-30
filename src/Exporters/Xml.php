@@ -29,6 +29,29 @@ class Xml extends Exporter implements ExporterContract
     protected SimpleXMLElement $xml;
 
     /**
+     * Export a raw array of associative arrays to XML.
+     *
+     * @param  array  $rows
+     * @param  string|null  $root
+     * @param  string|null  $item
+     * @return string
+     */
+    public function exportArray(array $rows, ?string $root = 'Items', ?string $item = 'Item'): string
+    {
+        $this->xml = new SimpleXMLElement("<{$root}/>");
+
+        foreach ($rows as $row) {
+
+            $data  = $this->filterData($row);
+            $child = $this->xml->addChild($item);
+
+            $this->arrayToXml($data, $child);
+        }
+
+        return $this->formatXml($this->xml);
+    }
+
+    /**
      * Export the given resource item.
      *
      * @param  \Illuminate\Http\Resources\Json\JsonResource  $resource
