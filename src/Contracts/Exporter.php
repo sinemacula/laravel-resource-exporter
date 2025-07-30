@@ -29,6 +29,14 @@ interface Exporter
     public function withoutFields(string|array $fields): static;
 
     /**
+     * Export the given data array.
+     *
+     * @param  array  $rows
+     * @return string
+     */
+    public function exportArray(array $rows): string;
+
+    /**
      * Export the given resource item.
      *
      * @param  \Illuminate\Http\Resources\Json\JsonResource  $resource
