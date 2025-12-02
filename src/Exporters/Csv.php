@@ -21,6 +21,21 @@ class Csv extends Exporter implements ExporterContract
         'enclosure' => '"'
     ];
 
+    /** @var bool Whether to include headers in the CSV file */
+    protected bool $includeHeaders = true;
+
+    /**
+     * Do not include headers in the CSV file.
+     *
+     * @return $this
+     */
+    public function withoutHeaders(): self
+    {
+        $this->includeHeaders = false;
+
+        return $this;
+    }
+
     /**
      * Export a raw array of associative arrays.
      *
@@ -99,6 +114,10 @@ class Csv extends Exporter implements ExporterContract
      */
     protected function generateColumns(array $keys): string
     {
+        if (!$this->includeHeaders) {
+            return '';
+        }
+
         $columns = array_map(function ($column) {
             return $this->convertToWords($column);
         }, $keys);
