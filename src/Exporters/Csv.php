@@ -21,9 +21,7 @@ class Csv extends Exporter implements ExporterContract
         'enclosure' => '"'
     ];
 
-    /**
-     * @var bool Whether to include headers in the CSV file
-     */
+    /** @var bool Whether to include headers in the CSV file */
     protected bool $includeHeaders = true;
 
     /**
