@@ -231,7 +231,7 @@ class Xml extends Exporter implements ExporterContract
      */
     protected function formatXml(\SimpleXMLElement $xml): string
     {
-        $xml_string = $xml->asXML();
+        $xml_string = $this->readXmlString($xml);
 
         if ($xml_string === false) {
             throw new XmlExportException('Failed to convert XML to string.');
@@ -239,7 +239,7 @@ class Xml extends Exporter implements ExporterContract
 
         if ($this->shouldPrettyPrint()) {
 
-            $dom                     = new \DOMDocument('1.0', 'UTF-8');
+            $dom                     = $this->createDomDocument();
             $dom->preserveWhiteSpace = false;
             $dom->formatOutput       = true;
 
@@ -247,7 +247,7 @@ class Xml extends Exporter implements ExporterContract
                 throw new XmlExportException('Failed to parse XML for formatting.');
             }
 
-            $formatted_xml = $dom->saveXML();
+            $formatted_xml = $this->saveDomDocument($dom);
 
             if ($formatted_xml === false) {
                 throw new XmlExportException('Failed to render formatted XML.');
@@ -257,6 +257,38 @@ class Xml extends Exporter implements ExporterContract
         }
 
         return $xml_string;
+    }
+
+    /**
+     * Create a DOMDocument instance for formatting XML output.
+     *
+     * @return \DOMDocument
+     */
+    protected function createDomDocument(): \DOMDocument
+    {
+        return new \DOMDocument('1.0', 'UTF-8');
+    }
+
+    /**
+     * Read the XML string from the provided XML element.
+     *
+     * @param  \SimpleXMLElement  $xml
+     * @return false|string
+     */
+    protected function readXmlString(\SimpleXMLElement $xml): false|string
+    {
+        return $xml->asXML();
+    }
+
+    /**
+     * Save XML from the given DOMDocument.
+     *
+     * @param  \DOMDocument  $dom
+     * @return false|string
+     */
+    protected function saveDomDocument(\DOMDocument $dom): false|string
+    {
+        return $dom->saveXML();
     }
 
     /**
@@ -313,8 +345,7 @@ class Xml extends Exporter implements ExporterContract
      */
     private function shouldIncludeSubResources(): bool
     {
-        $include = $this->config['include_sub_resources']
-            ?? self::DEFAULT_CONFIG['include_sub_resources'];
+        $include = $this->config['include_sub_resources'];
 
         return is_bool($include)
             ? $include
@@ -328,8 +359,7 @@ class Xml extends Exporter implements ExporterContract
      */
     private function shouldPrettyPrint(): bool
     {
-        $pretty_print = $this->config['pretty_print']
-            ?? self::DEFAULT_CONFIG['pretty_print'];
+        $pretty_print = $this->config['pretty_print'];
 
         return is_bool($pretty_print)
             ? $pretty_print
