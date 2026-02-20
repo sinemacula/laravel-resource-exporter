@@ -4,7 +4,10 @@ declare(strict_types = 1);
 
 namespace Tests\Integration;
 
+use Illuminate\Contracts\Config\Repository;
 use Illuminate\Foundation\Application;
+use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Http\Resources\Json\ResourceCollection;
 use Orchestra\Testbench\TestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use SineMacula\Exporter\Contracts\Exporter as ExporterContract;
@@ -91,6 +94,7 @@ final class ExporterPackageIntegrationTest extends TestCase
         $app     = $this->application();
         $manager = $this->manager($app);
         $config  = $this->config($app);
+
         $config->set('exporter.exporters.custom', ['driver' => 'custom']);
 
         $manager->extend(
@@ -150,7 +154,7 @@ final class ExporterPackageIntegrationTest extends TestCase
                  * @return string
                  */
                 #[\Override]
-                public function exportItem(\Illuminate\Http\Resources\Json\JsonResource $resource): string
+                public function exportItem(JsonResource $resource): string
                 {
                     return '';
                 }
@@ -162,7 +166,7 @@ final class ExporterPackageIntegrationTest extends TestCase
                  * @return string
                  */
                 #[\Override]
-                public function exportCollection(\Illuminate\Http\Resources\Json\ResourceCollection $collection): string
+                public function exportCollection(ResourceCollection $collection): string
                 {
                     return '';
                 }
@@ -241,10 +245,10 @@ final class ExporterPackageIntegrationTest extends TestCase
      * @param  \Illuminate\Foundation\Application  $app
      * @return \Illuminate\Contracts\Config\Repository
      */
-    private function config(Application $app): \Illuminate\Contracts\Config\Repository
+    private function config(Application $app): Repository
     {
         $config = $app->make('config');
-        assert($config instanceof \Illuminate\Contracts\Config\Repository);
+        assert($config instanceof Repository);
 
         return $config;
     }
