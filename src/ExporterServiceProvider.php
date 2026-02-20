@@ -9,7 +9,7 @@ use Illuminate\Support\ServiceProvider;
  * Exporter service provider.
  *
  * @author      Ben Carey <bdmc@sinemacula.co.uk>
- * @copyright   2024 Sine Macula Limited.
+ * @copyright   2026 Sine Macula Limited.
  */
 class ExporterServiceProvider extends ServiceProvider
 {
@@ -28,13 +28,36 @@ class ExporterServiceProvider extends ServiceProvider
      *
      * @return void
      */
+    #[\Override]
     public function register(): void
     {
         $this->mergeConfigFrom(
-            __DIR__ . '/../config/exporter.php', 'exporter'
+            __DIR__ . '/../config/exporter.php',
+            'exporter',
         );
 
         $this->registerManager();
+    }
+
+    /**
+     * Resolve the configuration publish path.
+     *
+     * @param  string  $path
+     * @return string
+     */
+    protected function resolveConfigPath(string $path): string
+    {
+        return config_path($path);
+    }
+
+    /**
+     * Determine if the config_path helper is available.
+     *
+     * @return bool
+     */
+    protected function hasConfigPathFunction(): bool
+    {
+        return function_exists('config_path');
     }
 
     /**
@@ -48,12 +71,12 @@ class ExporterServiceProvider extends ServiceProvider
             return;
         }
 
-        if (!function_exists('config_path')) {
+        if (!$this->hasConfigPathFunction()) {
             return;
         }
 
         $this->publishes([
-            __DIR__ . '/../config/exporter.php' => config_path('exporter.php')
+            __DIR__ . '/../config/exporter.php' => $this->resolveConfigPath('exporter.php'),
         ], 'config');
     }
 

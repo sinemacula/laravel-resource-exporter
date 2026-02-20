@@ -2,26 +2,23 @@
 
 namespace SineMacula\Exporter\Facades;
 
-use Illuminate\Http\Resources\Json\JsonResource;
-use Illuminate\Http\Resources\Json\ResourceCollection;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Facade;
-use SineMacula\Exporter\Contracts\Exporter as ExporterContract;
 
 /**
  * Exporter facade.
  *
- * @method static ExporterContract format(string|null $format)
- * @method static array getConfig()
- * @method static ExporterContract withoutFields(string|array $fields)
- * @method static string exportArray(array $rows)
- * @method static string exportItem(JsonResource $resource)
- * @method static string exportCollection(ResourceCollection $collection)
+ * @method static \SineMacula\Exporter\Contracts\Exporter format(string|null $format)
+ * @method static array<string, mixed> getConfig()
+ * @method static \SineMacula\Exporter\Contracts\Exporter withoutFields(string|array<int, string> $fields)
+ * @method static string exportArray(array<int, array<string, mixed> > $rows)
+ * @method static string exportItem(\Illuminate\Http\Resources\Json\JsonResource $resource)
+ * @method static string exportCollection(\Illuminate\Http\Resources\Json\ResourceCollection $collection)
  *
  * @see         \SineMacula\Exporter\Exporter
  *
  * @author      Ben Carey <bdmc@sinemacula.co.uk>
- * @copyright   2024 Sine Macula Limited.
+ * @copyright   2026 Sine Macula Limited.
  */
 class Exporter extends Facade
 {
@@ -30,8 +27,11 @@ class Exporter extends Facade
      *
      * @return string
      */
+    #[\Override]
     protected static function getFacadeAccessor(): string
     {
-        return Config::get('exporter.alias', 'exporter');
+        $accessor = Config::get('exporter.alias', 'exporter');
+
+        return is_string($accessor) ? $accessor : 'exporter';
     }
 }
