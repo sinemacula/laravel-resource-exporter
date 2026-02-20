@@ -9,7 +9,7 @@ use Illuminate\Support\ServiceProvider;
  * Exporter service provider.
  *
  * @author      Ben Carey <bdmc@sinemacula.co.uk>
- * @copyright   2024 Sine Macula Limited.
+ * @copyright   2026 Sine Macula Limited.
  */
 class ExporterServiceProvider extends ServiceProvider
 {
@@ -28,10 +28,12 @@ class ExporterServiceProvider extends ServiceProvider
      *
      * @return void
      */
+    #[\Override]
     public function register(): void
     {
         $this->mergeConfigFrom(
-            __DIR__ . '/../config/exporter.php', 'exporter'
+            __DIR__ . '/../config/exporter.php',
+            'exporter',
         );
 
         $this->registerManager();
@@ -53,7 +55,7 @@ class ExporterServiceProvider extends ServiceProvider
         }
 
         $this->publishes([
-            __DIR__ . '/../config/exporter.php' => config_path('exporter.php')
+            __DIR__ . '/../config/exporter.php' => config_path('exporter.php'),
         ], 'config');
     }
 

@@ -2,9 +2,7 @@
 
 namespace SineMacula\Exporter;
 
-use Closure;
 use Illuminate\Contracts\Foundation\Application;
-use InvalidArgumentException;
 use SineMacula\Exporter\Contracts\Exporter;
 use SineMacula\Exporter\Exporters\Csv;
 use SineMacula\Exporter\Exporters\Xml;
@@ -13,16 +11,16 @@ use SineMacula\Exporter\Exporters\Xml;
  * The export manager.
  *
  * @author      Ben Carey <bdmc@sinemacula.co.uk>
- * @copyright   2024 Sine Macula Limited.
+ * @copyright   2026 Sine Macula Limited.
  *
  * @mixin \SineMacula\Exporter\Contracts\Exporter
  */
 final class ExportManager
 {
-    /** @var array The array of resolved exporters */
+    /** @var array<string, \SineMacula\Exporter\Contracts\Exporter> Resolved exporters. */
     private array $exporters = [];
 
-    /** @var array The registered custom driver creators */
+    /** @var array<string, \Closure(\Illuminate\Contracts\Foundation\Application, array<string, mixed>): \SineMacula\Exporter\Contracts\Exporter> */
     private array $customCreators = [];
 
     /**
@@ -33,7 +31,7 @@ final class ExportManager
     public function __construct(
 
         /** The application instance */
-        public Application $app
+        public Application $app,
 
     ) {}
 
@@ -41,12 +39,18 @@ final class ExportManager
      * Dynamically call the default driver instance.
      *
      * @param  string  $method
-     * @param  array  $parameters
+     * @param  array<int, mixed>  $parameters
      * @return mixed
      */
     public function __call(string $method, array $parameters): mixed
     {
-        return $this->format()->{$method}(...$parameters);
+        $exporter = $this->format();
+
+        if (!is_callable([$exporter, $method])) {
+            throw new \InvalidArgumentException("Method [{$method}] is not supported.");
+        }
+
+        return call_user_func_array([$exporter, $method], $parameters);
     }
 
     /**
@@ -57,15 +61,15 @@ final class ExportManager
      */
     public function format(?string $name = null): Exporter
     {
-        $name = $name ?: $this->getDefaultDriver();
+        $name ??= $this->getDefaultDriver();
 
-        return $this->exporters[$name] = $this->get($name);
+        return $this->get($name);
     }
 
     /**
      * Build an on-demand exporter.
      *
-     * @param  array|null  $config
+     * @param  array<string, mixed>|null  $config
      * @return \SineMacula\Exporter\Contracts\Exporter
      */
     public function build(?array $config = null): Exporter
@@ -76,7 +80,7 @@ final class ExportManager
     /**
      * Create an instance of the CSV driver.
      *
-     * @param  array  $config
+     * @param  array<string, mixed>  $config
      * @return \SineMacula\Exporter\Contracts\Exporter
      */
     public function createCsvDriver(array $config): Exporter
@@ -87,7 +91,7 @@ final class ExportManager
     /**
      * Create an instance of the XML driver.
      *
-     * @param  array  $config
+     * @param  array<string, mixed>  $config
      * @return \SineMacula\Exporter\Contracts\Exporter
      */
     public function createXmlDriver(array $config): Exporter
@@ -122,7 +126,7 @@ final class ExportManager
     /**
      * Unset the given exporter instances.
      *
-     * @param  array|string  $exporter
+     * @param  array<int, string>|string  $exporter
      * @return $this
      */
     public function forgetExporter(array|string $exporter): self
@@ -151,10 +155,10 @@ final class ExportManager
      * Register a custom driver creator Closure.
      *
      * @param  string  $driver
-     * @param  \Closure  $callback
+     * @param  \Closure(\Illuminate\Contracts\Foundation\Application, array<string, mixed>): \SineMacula\Exporter\Contracts\Exporter  $callback
      * @return self
      */
-    public function extend(string $driver, Closure $callback): self
+    public function extend(string $driver, \Closure $callback): self
     {
         $this->customCreators[$driver] = $callback;
 
@@ -189,7 +193,7 @@ final class ExportManager
      * Resolve the given exporter.
      *
      * @param  string  $name
-     * @param  array|null  $config
+     * @param  array<string, mixed>|null  $config
      * @return \SineMacula\Exporter\Contracts\Exporter
      *
      * @throws \InvalidArgumentException
@@ -198,44 +202,58 @@ final class ExportManager
     {
         $config ??= $this->getConfig($name);
 
-        if (empty($config['driver'])) {
-            throw new InvalidArgumentException("Exporter [{$name}] does not have a configured driver.");
+        $driver = $config['driver'] ?? null;
+
+        if (!is_string($driver) || $driver === '') {
+            throw new \InvalidArgumentException("Exporter [{$name}] does not have a configured driver.");
         }
 
-        $name = $config['driver'];
-
-        if (isset($this->customCreators[$name])) {
+        if (isset($this->customCreators[$driver])) {
             return $this->callCustomCreator($config);
         }
 
-        $driver_method = 'create' . ucfirst($name) . 'Driver';
-
-        if (!method_exists($this, $driver_method)) {
-            throw new InvalidArgumentException("Driver [{$name}] is not supported.");
-        }
-
-        return $this->{$driver_method}($config);
+        return match ($driver) {
+            'csv'   => $this->createCsvDriver($config),
+            'xml'   => $this->createXmlDriver($config),
+            default => throw new \InvalidArgumentException("Driver [{$driver}] is not supported."),
+        };
     }
 
     /**
      * Call a custom driver creator.
      *
-     * @param  array  $config
+     * @param  array<string, mixed>  $config
      * @return \SineMacula\Exporter\Contracts\Exporter
      */
     private function callCustomCreator(array $config): Exporter
     {
-        return $this->customCreators[$config['driver']]($this->app, $config);
+        $driver = $config['driver'] ?? null;
+
+        if (!is_string($driver)) {
+            throw new \InvalidArgumentException('Custom driver key must be a string.');
+        }
+
+        if (!isset($this->customCreators[$driver])) {
+            throw new \InvalidArgumentException("Driver [{$driver}] is not supported.");
+        }
+
+        $creator = $this->customCreators[$driver];
+
+        return $creator($this->app, $config);
     }
 
     /**
      * Get the exporter configuration.
      *
      * @param  string  $name
-     * @return array
+     * @return array<string, mixed>
      */
     private function getConfig(string $name): array
     {
-        return $this->app['config']["exporter.exporters.{$name}"] ?: [];
+        $config = $this->app['config']["exporter.exporters.{$name}"];
+
+        return is_array($config)
+            ? $config
+            : [];
     }
 }

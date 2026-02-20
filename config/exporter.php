@@ -50,12 +50,12 @@ return [
     'exporters' => [
 
         'csv' => [
-            'driver' => 'csv'
+            'driver' => 'csv',
         ],
 
         'xml' => [
-            'driver' => 'xml'
-        ]
+            'driver' => 'xml',
+        ],
 
     ],
 
@@ -70,6 +70,6 @@ return [
     |
     */
 
-    'alias' => env('EXPORTER_ALIAS', 'exporter')
+    'alias' => env('EXPORTER_ALIAS', 'exporter'),
 
 ];

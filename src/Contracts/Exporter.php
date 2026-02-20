@@ -9,29 +9,29 @@ use Illuminate\Http\Resources\Json\ResourceCollection;
  * Exporter interface.
  *
  * @author      Ben Carey <bdmc@sinemacula.co.uk>
- * @copyright   2024 Sine Macula Limited.
+ * @copyright   2026 Sine Macula Limited.
  */
 interface Exporter
 {
     /**
      * Get the exporter configuration options.
      *
-     * @return array
+     * @return array<string, mixed>
      */
     public function getConfig(): array;
 
     /**
      * Ensure the export does not contain any of the given fields.
      *
-     * @param  string|array  $fields
+     * @param  array<int, string>|string  $fields
      * @return static
      */
-    public function withoutFields(string|array $fields): static;
+    public function withoutFields(array|string $fields): static;
 
     /**
      * Export the given data array.
      *
-     * @param  array  $rows
+     * @param  array<int, array<string, mixed>>  $rows
      * @return string
      */
     public function exportArray(array $rows): string;

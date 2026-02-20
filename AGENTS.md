@@ -2,19 +2,20 @@
 
 ## Project Overview
 
-Laravel AWS SNS Listener is Sine Macula's Laravel integration package for receiving and handling AWS SNS messages.
-It provides a Laravel-native integration for SNS subscription confirmation, signature validation, typed payload
-mapping, and event dispatch.
+Laravel Resource Exporter is Sine Macula's Laravel integration package for converting JsonResource and
+ResourceCollection data into exportable formats.
+It provides a Laravel-native integration for exporter configuration, driver resolution, typed contracts, and
+format-specific output generation.
 
 Current implementation includes:
 
-- Service provider registration and package configuration for SNS endpoint handling
-- Controller + middleware wiring for receiving and validating SNS requests
-- Message factory mapping from AWS SNS payloads into typed message entities
-- Event dispatch for generic and provider-specific SNS notifications (SES, S3, CloudWatch)
-- Topic management utilities for expected topics and subscription confirmation behavior
-- Per-file unit test structure that mirrors `src/` paths under `tests/Unit/`
-- Full PHPUnit coverage baseline at 100% classes, methods, and lines
+- Service provider registration and package configuration publishing for exporter defaults and alias binding
+- Export manager wiring for resolving configured drivers and building on-demand exporters
+- Contract + base exporter abstractions for shared configuration and field-exclusion behavior
+- Driver-based export implementations for CSV and XML output generation
+- Facade integration for convenient access to the export manager
+- Custom driver extension hooks for adding additional formats without changing core drivers
+- Foundational PHPUnit test suite scaffolding for unit and integration coverage growth
 
 This repository is intended to remain:
 
@@ -24,23 +25,22 @@ This repository is intended to remain:
 
 ## Namespace Structure
 
-- Root namespace: `SineMacula\Aws\Sns\`
-- Source: `src/` -> `SineMacula\Aws\Sns\`
+- Root namespace: `SineMacula\Exporter\`
+- Source: `src/` -> `SineMacula\Exporter\`
 - Tests: `tests/` -> `Tests\`
 
 ### Domain Scope
 
 The package currently centers around:
 
-- Service provider registration and configurable route handling for SNS callbacks
-- Signature validation middleware for trusted AWS SNS request verification
-- Message factory and typed entity modeling for SNS message categories
-- Domain entities and contracts for SES, S3, and CloudWatch notification payloads
-- Laravel event dispatch for notification processing and subscription confirmation flows
-- Compatibility behavior for Laravel event listeners consuming typed SNS messages
+- Service provider registration and configurable defaults for exporter selection and binding alias
+- Export manager resolution flow for default, named, and custom drivers
+- Contracts and entities for exporting arrays, JsonResource items, and ResourceCollection sets
+- Domain-specific formatting behavior for CSV and XML exporters
+- Compatibility behavior for Laravel JsonResource and ResourceCollection export pipelines
 
-This package is an integration layer. It must not become a generic AWS SDK wrapper, an infrastructure provisioning
-tool, or a Laravel fork.
+This package is an integration layer. It must not become a generic reporting engine, infrastructure provisioning tool,
+or a Laravel fork.
 
 ## Agent Role and Responsibility
 
@@ -76,8 +76,8 @@ The agent is **not** responsible for:
 - Use dedicated, domain-specific exceptions
 - Trust type declarations; avoid defensive verbosity
 - Maintain backward compatibility unless explicitly instructed otherwise
-- This repository must not implement provider SDK clients or workflow-specific business logic unless explicitly
-  requested and confirmed
+- This repository must not implement external provider SDK clients or application-specific business workflows
+  unless explicitly requested and confirmed
 
 ## Design Principles
 
@@ -85,7 +85,7 @@ The agent is **not** responsible for:
 - Apply DDD principles where appropriate (entities, value objects, services)
 - Follow Clean Code and SOLID principles
 - Depend on interfaces, not implementations
-- Preserve Laravel-facing contracts and SNS event-handling compatibility
+- Preserve Laravel-facing contracts and resource-export compatibility
 - Use `readonly` classes where immutability is appropriate
 
 ## Mandatory Skill Coverage
@@ -199,7 +199,7 @@ Manual approval is required for:
 ## Tests & Quality
 
 - Use `composer test` (parallel PHPUnit via Paratest) for deterministic local checks
-- Test signature verification, message mapping, event dispatch behavior, and contract stability
+- Test driver resolution, resource mapping, output formatting behavior, and contract stability
 - If code is not easily testable, propose refactoring before adding tests
 
 ### Test Writing
@@ -218,9 +218,9 @@ Manual approval is required for:
   - `refactor/`
 - Branch names SHOULD include the GitHub issue number when available Format:
   `<type>/issue-<number>-short-hyphenated-description` Example:
-  `feature/issue-123-add-sns-notification-event`
+  `feature/issue-123-add-json-export-driver`
 - If no issue exists, use a concise, hyphenated description Format: `<type>/short-hyphenated-description` Example:
-  `refactor/simplify-sns-message-factory`
+  `refactor/simplify-export-manager-driver-resolution`
 - Keep names lowercase, concise, and hyphenated
 
 ## Commit Message Guidelines

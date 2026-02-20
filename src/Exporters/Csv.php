@@ -6,19 +6,20 @@ use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Http\Resources\Json\ResourceCollection;
 use Illuminate\Support\Str;
 use SineMacula\Exporter\Contracts\Exporter as ExporterContract;
+use Stringable;
 
 /**
  * The CSV exporter.
  *
  * @author      Ben Carey <bdmc@sinemacula.co.uk>
- * @copyright   2024 Sine Macula Limited.
+ * @copyright   2026 Sine Macula Limited.
  */
 class Csv extends Exporter implements ExporterContract
 {
     /** @var array<string, mixed> The default configuration */
     protected const array DEFAULT_CONFIG = [
         'delimiter' => ',',
-        'enclosure' => '"'
+        'enclosure' => '"',
     ];
 
     /** @var bool Whether to include headers in the CSV file */
@@ -39,31 +40,13 @@ class Csv extends Exporter implements ExporterContract
     /**
      * Export a raw array of associative arrays.
      *
-     * @param  array  $rows
+     * @param  array<int, array<string, mixed>>  $rows
      * @return string
      */
+    #[\Override]
     public function exportArray(array $rows): string
     {
-        if (empty($rows)) {
-            return '';
-        }
-
-        $csv = null;
-
-        foreach ($rows as $row) {
-
-            $data = $this->filterData($row);
-
-            if (!isset($csv)) {
-                $csv = $this->generateColumns(array_keys($data)) . "\n";
-            }
-
-            $csv .= !empty($data)
-                ? $this->generateRow($data) . "\n"
-                : '';
-        }
-
-        return $csv ?? '';
+        return $this->exportRows($rows);
     }
 
     /**
@@ -72,16 +55,10 @@ class Csv extends Exporter implements ExporterContract
      * @param  \Illuminate\Http\Resources\Json\JsonResource  $resource
      * @return string
      */
+    #[\Override]
     public function exportItem(JsonResource $resource): string
     {
-        $data = $this->filterData($resource->resolve());
-
-        return !empty($data)
-            ? implode("\n", [
-                $this->generateColumns(array_keys($data)),
-                $this->generateRow($data) . "\n"
-            ])
-            : '';
+        return $this->exportRows([$resource->resolve()]);
     }
 
     /**
@@ -90,26 +67,16 @@ class Csv extends Exporter implements ExporterContract
      * @param  \Illuminate\Http\Resources\Json\ResourceCollection  $collection
      * @return string
      */
+    #[\Override]
     public function exportCollection(ResourceCollection $collection): string
     {
-        foreach ($collection->resolve() as $resource) {
-
-            $data = $this->filterData($resource);
-
-            $csv ??= $this->generateColumns(array_keys($data)) . "\n";
-
-            $csv .= !empty($data)
-                ? $this->generateRow($data) . "\n"
-                : '';
-        }
-
-        return $csv ?? '';
+        return $this->exportRows($collection->resolve());
     }
 
     /**
      * Generate the CSV columns from the keys of the first data array.
      *
-     * @param  array  $keys
+     * @param  array<int, string>  $keys
      * @return string
      */
     protected function generateColumns(array $keys): string
@@ -118,11 +85,9 @@ class Csv extends Exporter implements ExporterContract
             return '';
         }
 
-        $columns = array_map(function ($column) {
-            return $this->convertToWords($column);
-        }, $keys);
+        $columns = array_map(fn ($column) => $this->convertToWords($column), $keys);
 
-        return implode($this->config['delimiter'], array_map([$this, 'escapeValue'], $columns));
+        return implode($this->getDelimiter(), array_map([$this, 'escapeValue'], $columns));
     }
 
     /**
@@ -139,38 +104,147 @@ class Csv extends Exporter implements ExporterContract
     /**
      * Generate a row from the given data array.
      *
-     * @param  array  $data
+     * @param  array<int|string, scalar|null>  $data
      * @return string
      */
     protected function generateRow(array $data): string
     {
-        return implode($this->config['delimiter'], array_map([$this, 'escapeValue'], $data));
+        return implode($this->getDelimiter(), array_map([$this, 'escapeValue'], $data));
     }
 
     /**
      * Escape a CSV value by wrapping it in quotes and escaping existing quotes.
      *
-     * @param  string|null  $value
+     * @param  bool|float|int|string|null  $value
      * @return string
      */
-    protected function escapeValue(?string $value): string
+    protected function escapeValue(bool|float|int|string|null $value): string
     {
-        $enclosure = $this->config['enclosure'];
+        $enclosure = $this->getEnclosure();
+        $string    = is_null($value) ? '' : (string) $value;
 
-        return $enclosure . str_replace($enclosure, $enclosure . $enclosure, $value ?? '') . $enclosure;
+        return $enclosure . str_replace($enclosure, $enclosure . $enclosure, $string) . $enclosure;
     }
 
     /**
      * Filter the data array to exclude non-stringable values and ignored
      * fields.
      *
-     * @param  array  $data
-     * @return array
+     * @param  array<int|string, mixed>  $data
+     * @return array<string, scalar|null>
      */
     protected function filterData(array $data): array
     {
-        return array_filter($data, function ($value, $key) {
-            return $this->isStringable($value) && !in_array($key, $this->ignored);
-        }, ARRAY_FILTER_USE_BOTH);
+        $filtered = [];
+
+        foreach ($data as $key => $value) {
+
+            $field = is_int($key)
+                ? (string) $key
+                : $key;
+
+            if (in_array($field, $this->ignored, true)) {
+                continue;
+            }
+
+            if (is_scalar($value) || is_null($value)) {
+                $filtered[$field] = $value;
+                continue;
+            }
+
+            if ($value instanceof \Stringable) {
+                $filtered[$field] = (string) $value;
+            }
+        }
+
+        return $filtered;
+    }
+
+    /**
+     * Get the configured delimiter.
+     *
+     * @return string
+     */
+    private function getDelimiter(): string
+    {
+        $delimiter = $this->config['delimiter'] ?? self::DEFAULT_CONFIG['delimiter'];
+
+        return is_string($delimiter)
+            ? $delimiter
+            : self::DEFAULT_CONFIG['delimiter'];
+    }
+
+    /**
+     * Get the configured enclosure.
+     *
+     * @return string
+     */
+    private function getEnclosure(): string
+    {
+        $enclosure = $this->config['enclosure'] ?? self::DEFAULT_CONFIG['enclosure'];
+
+        return is_string($enclosure)
+            ? $enclosure
+            : self::DEFAULT_CONFIG['enclosure'];
+    }
+
+    /**
+     * Export an iterable set of row payloads.
+     *
+     * @param  iterable<int, array<int|string, mixed>>  $rows
+     * @return string
+     */
+    private function exportRows(iterable $rows): string
+    {
+        $lines   = [];
+        $headers = false;
+
+        foreach ($rows as $row) {
+
+            $data = $this->filterData($row);
+
+            if (empty($data)) {
+                continue;
+            }
+
+            $this->appendHeaderLine($lines, $headers, $data);
+            $lines[] = $this->generateRow($data);
+        }
+
+        return $this->buildCsvOutput($lines);
+    }
+
+    /**
+     * Append a header line when needed.
+     *
+     * @param  array<int, string>  $lines
+     * @param  bool  $headers
+     * @param  array<string, scalar|null>  $data
+     * @return void
+     */
+    private function appendHeaderLine(array &$lines, bool &$headers, array $data): void
+    {
+        if ($headers) {
+            return;
+        }
+
+        $columns = $this->generateColumns(array_keys($data));
+
+        if ($columns !== '') {
+            $lines[] = $columns;
+        }
+
+        $headers = true;
+    }
+
+    /**
+     * Build the final CSV output string.
+     *
+     * @param  array<int, string>  $lines
+     * @return string
+     */
+    private function buildCsvOutput(array $lines): string
+    {
+        return empty($lines) ? '' : implode("\n", $lines) . "\n";
     }
 }
