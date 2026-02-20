@@ -15,7 +15,8 @@ Current implementation includes:
 - Driver-based export implementations for CSV and XML output generation
 - Facade integration for convenient access to the export manager
 - Custom driver extension hooks for adding additional formats without changing core drivers
-- Foundational PHPUnit test suite scaffolding for unit and integration coverage growth
+- PHPUnit unit and integration test suites (including Laravel Testbench integration coverage)
+- A 100% coverage baseline across source classes, methods, and lines
 
 This repository is intended to remain:
 
@@ -38,6 +39,7 @@ The package currently centers around:
 - Contracts and entities for exporting arrays, JsonResource items, and ResourceCollection sets
 - Domain-specific formatting behavior for CSV and XML exporters
 - Compatibility behavior for Laravel JsonResource and ResourceCollection export pipelines
+- Integration coverage for service provider binding, facade access, and driver extension behavior
 
 This package is an integration layer. It must not become a generic reporting engine, infrastructure provisioning tool,
 or a Laravel fork.
@@ -192,9 +194,9 @@ Manual approval is required for:
 - Format code: `composer format`
 - Run tests: `composer test`
 - Run tests with coverage: `composer test-coverage`
-- Run a single test file: `vendor/bin/phpunit tests/Unit/ExampleTest.php`
+- Run a single test file: `vendor/bin/phpunit tests/Unit/ExportManagerTest.php`
 - Run a single test method:
-  `vendor/bin/phpunit --filter test_that_true_is_true tests/Unit/ExampleTest.php`
+  `vendor/bin/phpunit --filter testFormatResolvesDefaultAndNamedDrivers tests/Unit/ExportManagerTest.php`
 
 ## Tests & Quality
 
