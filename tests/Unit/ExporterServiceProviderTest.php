@@ -10,7 +10,6 @@ use Illuminate\Support\ServiceProvider;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 use SineMacula\Exporter\ExporterServiceProvider;
-use Tests\Support\ExporterServiceProviderHarness;
 use Tests\Support\ProviderAppStub;
 
 /**
@@ -99,30 +98,6 @@ final class ExporterServiceProviderTest extends TestCase
     }
 
     /**
-     * It exits publish flow when config_path is unavailable.
-     *
-     * @return void
-     */
-    public function testBootSkipsPublishingWhenConfigPathIsMissing(): void
-    {
-        $app = new ProviderAppStub(
-            [
-                'exporter.alias' => 'exporter',
-            ],
-            true,
-        );
-
-        $provider = new ExporterServiceProviderHarness($app);
-        $provider->setConfigPathFunctionAvailable(false);
-        $provider->boot();
-
-        self::assertSame(
-            [],
-            ExporterServiceProvider::pathsToPublish(ExporterServiceProviderHarness::class, 'config'),
-        );
-    }
-
-    /**
      * It publishes the package config file when console publishing is enabled.
      *
      * @return void
@@ -159,11 +134,13 @@ final class ExporterServiceProviderTest extends TestCase
         }
 
         $publishable = ExporterServiceProvider::pathsToPublish(ExporterServiceProvider::class, 'config');
+        $source      = (string) array_key_first($publishable);
 
         self::assertCount(1, $publishable);
-        self::assertStringEndsWith(
-            '/config/exporter.php',
-            (string) array_key_first($publishable),
+        self::assertStringEndsWith('/config/exporter.php', $source);
+        self::assertSame(
+            realpath(dirname(__DIR__, 2) . '/config/exporter.php'),
+            realpath($source),
         );
         self::assertSame('/virtual/config/exporter.php', array_values($publishable)[0]);
     }

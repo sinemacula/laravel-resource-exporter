@@ -9,7 +9,6 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use SineMacula\Exporter\Exceptions\XmlExportException;
 use SineMacula\Exporter\Exporters\Xml;
 use Tests\Support\Exporters\XmlPlainEntityCollection;
-use Tests\Support\Exporters\XmlTestHarness;
 use Tests\Support\Exporters\XmlUserResource;
 use Tests\Support\Exporters\XmlUserResourceCollection;
 use Tests\Support\ResourceTestCase;
@@ -23,7 +22,6 @@ use Tests\Support\ResourceTestCase;
  * @internal
  */
 #[CoversClass(Xml::class)]
-#[CoversClass(XmlExportException::class)]
 final class XmlTest extends ResourceTestCase
 {
     /** @var string */
@@ -59,6 +57,32 @@ final class XmlTest extends ResourceTestCase
         self::assertSame('Items', $xml->getName());
         self::assertSame('Alice', (string) $xml->Item->Name);
         self::assertFalse(isset($xml->Item->Ignored));
+    }
+
+    /**
+     * It honors valid custom root and item names instead of the defaults.
+     *
+     * @return void
+     */
+    public function testExportArrayUsesProvidedRootAndItemNames(): void
+    {
+        $exporter = new Xml([
+            'pretty_print' => false,
+        ]);
+
+        $xmlString = $exporter->exportArray(
+            [
+                ['name' => 'Alice'],
+            ],
+            'CustomRoot',
+            'CustomItem',
+        );
+
+        $xml = simplexml_load_string($xmlString);
+
+        self::assertInstanceOf(\SimpleXMLElement::class, $xml);
+        self::assertSame('CustomRoot', $xml->getName());
+        self::assertSame('Alice', (string) $xml->CustomItem->Name);
     }
 
     /**
@@ -117,13 +141,15 @@ final class XmlTest extends ResourceTestCase
      */
     public function testArrayToXmlHandlesArraysCollectionsResourcesAndScalars(): void
     {
-        $exporter = new XmlTestHarness([
+        $exporter = new Xml([
             'pretty_print' => false,
         ]);
 
         $xml = new \SimpleXMLElement(self::ROOT_NODE);
 
-        $exporter->exposeArrayToXml(
+        $this->invokePrivate(
+            $exporter,
+            'arrayToXml',
             [
                 'details'    => ['age' => 30],
                 'title'      => 'Matrix',
@@ -164,14 +190,16 @@ final class XmlTest extends ResourceTestCase
      */
     public function testArrayToXmlSkipsSubResourcesWhenDisabled(): void
     {
-        $exporter = new XmlTestHarness([
+        $exporter = new Xml([
             'include_sub_resources' => false,
             'pretty_print'          => false,
         ]);
 
         $xml = new \SimpleXMLElement(self::ROOT_NODE);
 
-        $exporter->exposeArrayToXml(
+        $this->invokePrivate(
+            $exporter,
+            'arrayToXml',
             [
                 'resource'  => new XmlUserResource(['name' => 'Neo']),
                 'resources' => new XmlUserResourceCollection([['name' => 'Morpheus']]),
@@ -190,19 +218,23 @@ final class XmlTest extends ResourceTestCase
      */
     public function testHandleResourceItemAndCollectionWithParentNode(): void
     {
-        $exporter = new XmlTestHarness([
+        $exporter = new Xml([
             'pretty_print' => false,
         ]);
 
         $xml = new \SimpleXMLElement(self::ROOT_NODE);
 
-        $exporter->exposeHandleResourceItem(
+        $this->invokePrivate(
+            $exporter,
+            'handleResourceItem',
             new XmlUserResource(['name' => 'Alice']),
             'item-node',
             $xml,
         );
 
-        $exporter->exposeHandleResourceCollection(
+        $this->invokePrivate(
+            $exporter,
+            'handleResourceCollection',
             new XmlUserResourceCollection([['name' => 'Bob']]),
             'collection-node',
             $xml,
@@ -219,31 +251,41 @@ final class XmlTest extends ResourceTestCase
      */
     public function testFilterDataAndKeyNormalizationHelpers(): void
     {
-        $exporter = new XmlTestHarness([]);
+        $exporter = new Xml([]);
         $exporter->withoutFields(['secret', '0']);
 
+        // Every kept field must be retained, not just the first one.
         self::assertSame(
-            ['name' => 'Alice'],
-            $exporter->exposeFilterData([
+            ['name' => 'Alice', 'role' => 'admin'],
+            $this->invokePrivate($exporter, 'filterData', [
                 0        => 'drop',
                 'name'   => 'Alice',
                 'secret' => 'hidden',
+                'role'   => 'admin',
             ]),
         );
 
         self::assertSame(
             'ValidName',
-            $exporter->exposeNormalizeXmlKey('valid-name'),
+            $this->invokePrivate($exporter, 'normalizeXmlKey', 'valid-name'),
         );
 
         self::assertSame(
             'Fallback',
-            $exporter->exposeNormalizeXmlKey('', 'Fallback'),
+            $this->invokePrivate($exporter, 'normalizeXmlKey', '', 'Fallback'),
         );
 
         self::assertSame(
             'Fallback',
-            $exporter->exposeNormalizeXmlKey('123-invalid', 'Fallback'),
+            $this->invokePrivate($exporter, 'normalizeXmlKey', '123-invalid', 'Fallback'),
+        );
+
+        // A key whose normalized form contains a character that is invalid in
+        // an XML element name (e.g. '@') must be rejected by the full-string
+        // pattern and fall back, even though it starts with a valid prefix.
+        self::assertSame(
+            'Fallback',
+            $this->invokePrivate($exporter, 'normalizeXmlKey', 'foo@bar', 'Fallback'),
         );
     }
 
@@ -296,13 +338,15 @@ final class XmlTest extends ResourceTestCase
      */
     public function testFormatXmlThrowsWhenSimpleXmlAsXmlFails(): void
     {
-        $exporter = new XmlTestHarness([]);
-        $exporter->setXmlStringOverride(false);
+        $exporter = new Xml(
+            [],
+            xmlReader: static fn (\SimpleXMLElement $xml): false => false,
+        );
 
         $this->expectException(XmlExportException::class);
         $this->expectExceptionMessage('Failed to convert XML to string.');
 
-        $exporter->exposeFormatXml(new \SimpleXMLElement(self::ROOT_NODE));
+        $this->invokePrivate($exporter, 'formatXml', new \SimpleXMLElement(self::ROOT_NODE));
     }
 
     /**
@@ -312,11 +356,12 @@ final class XmlTest extends ResourceTestCase
      */
     public function testFormatXmlThrowsWhenDomDocumentLoadFails(): void
     {
-        $exporter = new XmlTestHarness([
-            'pretty_print' => true,
-        ]);
-
-        $exporter->setXmlStringOverride('<broken');
+        $exporter = new Xml(
+            [
+                'pretty_print' => true,
+            ],
+            xmlReader: static fn (\SimpleXMLElement $xml): string => '<broken',
+        );
 
         $this->expectException(XmlExportException::class);
         $this->expectExceptionMessage('Failed to parse XML for formatting.');
@@ -324,7 +369,7 @@ final class XmlTest extends ResourceTestCase
         $previous = libxml_use_internal_errors(true);
 
         try {
-            $exporter->exposeFormatXml(new \SimpleXMLElement(self::ROOT_NODE));
+            $this->invokePrivate($exporter, 'formatXml', new \SimpleXMLElement(self::ROOT_NODE));
         } finally {
             libxml_clear_errors();
             libxml_use_internal_errors($previous);
@@ -338,7 +383,7 @@ final class XmlTest extends ResourceTestCase
      */
     public function testFormatXmlReturnsRawXmlWhenPrettyPrintIsDisabled(): void
     {
-        $exporter = new XmlTestHarness([
+        $exporter = new Xml([
             'pretty_print' => false,
         ]);
 
@@ -346,7 +391,7 @@ final class XmlTest extends ResourceTestCase
         $raw = $xml->asXML();
 
         self::assertIsString($raw);
-        self::assertSame($raw, $exporter->exposeFormatXml($xml));
+        self::assertSame($raw, $this->invokePrivate($exporter, 'formatXml', $xml));
     }
 
     /**
@@ -356,17 +401,45 @@ final class XmlTest extends ResourceTestCase
      */
     public function testFormatXmlReturnsPrettyPrintedOutputWhenEnabled(): void
     {
-        $exporter = new XmlTestHarness([
+        $exporter = new Xml([
             'pretty_print' => true,
         ]);
 
-        $formatted = $exporter->exposeFormatXml(
+        $formatted = $this->invokePrivate(
+            $exporter,
+            'formatXml',
             new \SimpleXMLElement('<Root><Name>Alice</Name></Root>'),
         );
 
+        self::assertIsString($formatted);
         self::assertStringStartsWith('<?xml version="1.0"', $formatted);
         self::assertStringContainsString("<Root>\n", $formatted);
         self::assertStringContainsString('<Name>Alice</Name>', $formatted);
+    }
+
+    /**
+     * It strips insignificant whitespace and re-indents when pretty printing.
+     *
+     * @return void
+     */
+    public function testFormatXmlNormalizesIrregularWhitespaceWhenPrettyPrinting(): void
+    {
+        $exporter = new Xml([
+            'pretty_print' => true,
+        ]);
+
+        $formatted = $this->invokePrivate(
+            $exporter,
+            'formatXml',
+            new \SimpleXMLElement('<Root>   <Group><Name>Alice</Name></Group>   </Root>'),
+        );
+
+        self::assertIsString($formatted);
+        // The irregular whitespace is dropped and the tree re-indented, which
+        // only happens because DOM whitespace preservation is disabled.
+        self::assertStringContainsString("<Root>\n", $formatted);
+        self::assertStringContainsString('    <Name>Alice</Name>', $formatted);
+        self::assertStringNotContainsString('<Root>   <Group>', $formatted);
     }
 
     /**
@@ -376,16 +449,17 @@ final class XmlTest extends ResourceTestCase
      */
     public function testFormatXmlThrowsWhenDomRenderingFails(): void
     {
-        $exporter = new XmlTestHarness([
-            'pretty_print' => true,
-        ]);
-
-        $exporter->forceDomSaveFailure();
+        $exporter = new Xml(
+            [
+                'pretty_print' => true,
+            ],
+            domSaver: static fn (\DOMDocument $dom): false => false,
+        );
 
         $this->expectException(XmlExportException::class);
         $this->expectExceptionMessage('Failed to render formatted XML.');
 
-        $exporter->exposeFormatXml(new \SimpleXMLElement(self::ROOT_NODE));
+        $this->invokePrivate($exporter, 'formatXml', new \SimpleXMLElement(self::ROOT_NODE));
     }
 
     /**
@@ -395,54 +469,43 @@ final class XmlTest extends ResourceTestCase
      */
     public function testGetResourceNameFromCollectionForMultipleClassShapes(): void
     {
-        $exporter = new XmlTestHarness([]);
+        $exporter = new Xml([]);
 
         self::assertSame(
             'XmlUsers',
-            $exporter->exposeGetResourceNameFromCollection(
+            $this->invokePrivate(
+                $exporter,
+                'getResourceNameFromCollection',
                 new XmlUserResourceCollection([['name' => 'Alice']]),
             ),
         );
 
         self::assertSame(
             'XmlPlainEntityJsons',
-            $exporter->exposeGetResourceNameFromCollection(
+            $this->invokePrivate(
+                $exporter,
+                'getResourceNameFromCollection',
                 new XmlPlainEntityCollection([['name' => 'Alice']]),
             ),
         );
 
-        self::assertSame('SampleValue', $exporter->exposeConvertToPascalCase('sample-value'));
+        self::assertSame('SampleValue', $this->invokePrivate($exporter, 'convertToPascalCase', 'sample-value'));
     }
 
     /**
-     * Invoke private methods for deterministic branch coverage.
+     * Invoke a non-public method on the exporter for direct assertions.
      *
      * @param  \SineMacula\Exporter\Exporters\Xml  $exporter
      * @param  string  $method
      * @param  mixed  ...$arguments
      * @return mixed
      *
-     * @throws \InvalidArgumentException
+     * @throws \ReflectionException
      */
     private function invokePrivate(Xml $exporter, string $method, mixed ...$arguments): mixed
     {
-        $invoker = \Closure::bind(
-            static function (Xml $instance, string $name): mixed {
-                return match ($name) {
-                    'shouldPrettyPrint'         => $instance->shouldPrettyPrint(),
-                    'shouldIncludeSubResources' => $instance->shouldIncludeSubResources(),
-                    'getXml'                    => $instance->getXml(),
-                    default                     => throw new \InvalidArgumentException("Unsupported private method [{$name}]."),
-                };
-            },
-            null,
-            Xml::class,
-        );
+        $reflection = new \ReflectionMethod(Xml::class, $method);
 
-        if ($arguments !== []) {
-            throw new \InvalidArgumentException('Arguments are not supported in this private invoker.');
-        }
-
-        return $invoker($exporter, $method);
+        return $reflection->invokeArgs($exporter, $arguments);
     }
 }
