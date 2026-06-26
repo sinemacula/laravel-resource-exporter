@@ -52,10 +52,13 @@ final class ExporterServiceProvider extends ServiceProvider
             return;
         }
 
+        // config_path() is always defined inside a booted Laravel app, so this
+        // defensive guard cannot be exercised without subclassing the provider.
+        // @codeCoverageIgnoreStart
         if (!function_exists('config_path')) {
             return;
         }
-
+        // @codeCoverageIgnoreEnd
         $this->publishes([
             __DIR__ . '/../config/exporter.php' => config_path('exporter.php'),
         ], 'config');
