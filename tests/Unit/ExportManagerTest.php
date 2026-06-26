@@ -127,6 +127,31 @@ final class ExportManagerTest extends TestCase
     }
 
     /**
+     * It purges only the named exporter, never the default driver entry.
+     *
+     * @return void
+     */
+    public function testPurgeRemovesOnlyTheExplicitlyNamedExporter(): void
+    {
+        $manager = $this->makeManager();
+
+        self::assertSame('csv', $manager->getDefaultDriver());
+
+        $cachedCsv = new ExportManagerFakeExporter(['driver' => 'csv']);
+        $cachedXml = new ExportManagerFakeExporter(['driver' => 'xml']);
+
+        $manager->set('csv', $cachedCsv);
+        $manager->set('xml', $cachedXml);
+
+        $manager->purge('xml');
+
+        // Only the named 'xml' cache entry is removed; the default 'csv' entry
+        // must survive (purging the default name instead would drop 'csv').
+        self::assertSame($cachedCsv, $manager->format('csv'));
+        self::assertNotSame($cachedXml, $manager->format('xml'));
+    }
+
+    /**
      * It resolves custom creators registered through extend.
      *
      * @return void

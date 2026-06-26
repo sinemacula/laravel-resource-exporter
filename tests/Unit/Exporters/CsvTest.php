@@ -101,6 +101,24 @@ final class CsvTest extends ResourceTestCase
     }
 
     /**
+     * It keeps exporting later rows after a row that filters to empty.
+     *
+     * @return void
+     */
+    public function testExportArraySkipsEmptyRowsWithoutStoppingLaterRows(): void
+    {
+        $exporter = new Csv([]);
+        $exporter->withoutHeaders();
+
+        $csv = $exporter->exportArray([
+            ['meta' => ['not exportable']],
+            ['name' => 'Alice'],
+        ]);
+
+        self::assertSame("\"Alice\"\n", $csv);
+    }
+
+    /**
      * It falls back to default delimiter and enclosure for invalid config.
      *
      * @return void
@@ -198,21 +216,39 @@ final class CsvTest extends ResourceTestCase
      */
     public function testProtectedHelpersConvertKeysAndFilterValues(): void
     {
+        $stringable = new class implements \Stringable {
+            /**
+             * Cast to a display value.
+             *
+             * @return string
+             */
+            #[\Override]
+            public function __toString(): string
+            {
+                return 'memo';
+            }
+        };
+
         $exporter = new Csv([]);
         $exporter->withoutFields(['secret', '0']);
 
-        $columns  = $this->invokePrivate($exporter, 'generateColumns', ['first-name', 'last_name']);
-        $row      = $this->invokePrivate($exporter, 'generateRow', ['A', 2, null]);
+        $columns = $this->invokePrivate($exporter, 'generateColumns', ['first-name', 'last_name']);
+        $row     = $this->invokePrivate($exporter, 'generateRow', ['A', 2, null]);
+
+        // The non-stringable payload is skipped (continue, not break) so the
+        // trailing stringable note is still reached, and that note must be
+        // cast to its string form rather than stored as the original object.
         $filtered = $this->invokePrivate($exporter, 'filterData', [
             0         => 'zero',
             'name'    => 'Alice',
             'secret'  => 'hidden',
             'payload' => new \stdClass,
+            'note'    => $stringable,
         ]);
 
         self::assertSame('"First Name","Last Name"', $columns);
         self::assertSame('"A","2",""', $row);
-        self::assertSame(['name' => 'Alice'], $filtered);
+        self::assertSame(['name' => 'Alice', 'note' => 'memo'], $filtered);
         self::assertSame('First Name', $this->invokePrivate($exporter, 'convertToWords', 'first-name'));
         self::assertSame('"say ""hi"""', $this->invokePrivate($exporter, 'escapeValue', 'say "hi"'));
     }

@@ -22,7 +22,6 @@ use Tests\Support\ResourceTestCase;
  * @internal
  */
 #[CoversClass(Xml::class)]
-#[CoversClass(XmlExportException::class)]
 final class XmlTest extends ResourceTestCase
 {
     /** @var string */
@@ -58,6 +57,32 @@ final class XmlTest extends ResourceTestCase
         self::assertSame('Items', $xml->getName());
         self::assertSame('Alice', (string) $xml->Item->Name);
         self::assertFalse(isset($xml->Item->Ignored));
+    }
+
+    /**
+     * It honors valid custom root and item names instead of the defaults.
+     *
+     * @return void
+     */
+    public function testExportArrayUsesProvidedRootAndItemNames(): void
+    {
+        $exporter = new Xml([
+            'pretty_print' => false,
+        ]);
+
+        $xmlString = $exporter->exportArray(
+            [
+                ['name' => 'Alice'],
+            ],
+            'CustomRoot',
+            'CustomItem',
+        );
+
+        $xml = simplexml_load_string($xmlString);
+
+        self::assertInstanceOf(\SimpleXMLElement::class, $xml);
+        self::assertSame('CustomRoot', $xml->getName());
+        self::assertSame('Alice', (string) $xml->CustomItem->Name);
     }
 
     /**
@@ -229,12 +254,14 @@ final class XmlTest extends ResourceTestCase
         $exporter = new Xml([]);
         $exporter->withoutFields(['secret', '0']);
 
+        // Every kept field must be retained, not just the first one.
         self::assertSame(
-            ['name' => 'Alice'],
+            ['name' => 'Alice', 'role' => 'admin'],
             $this->invokePrivate($exporter, 'filterData', [
                 0        => 'drop',
                 'name'   => 'Alice',
                 'secret' => 'hidden',
+                'role'   => 'admin',
             ]),
         );
 
@@ -251,6 +278,14 @@ final class XmlTest extends ResourceTestCase
         self::assertSame(
             'Fallback',
             $this->invokePrivate($exporter, 'normalizeXmlKey', '123-invalid', 'Fallback'),
+        );
+
+        // A key whose normalized form contains a character that is invalid in
+        // an XML element name (e.g. '@') must be rejected by the full-string
+        // pattern and fall back, even though it starts with a valid prefix.
+        self::assertSame(
+            'Fallback',
+            $this->invokePrivate($exporter, 'normalizeXmlKey', 'foo@bar', 'Fallback'),
         );
     }
 
@@ -380,6 +415,31 @@ final class XmlTest extends ResourceTestCase
         self::assertStringStartsWith('<?xml version="1.0"', $formatted);
         self::assertStringContainsString("<Root>\n", $formatted);
         self::assertStringContainsString('<Name>Alice</Name>', $formatted);
+    }
+
+    /**
+     * It strips insignificant whitespace and re-indents when pretty printing.
+     *
+     * @return void
+     */
+    public function testFormatXmlNormalizesIrregularWhitespaceWhenPrettyPrinting(): void
+    {
+        $exporter = new Xml([
+            'pretty_print' => true,
+        ]);
+
+        $formatted = $this->invokePrivate(
+            $exporter,
+            'formatXml',
+            new \SimpleXMLElement('<Root>   <Group><Name>Alice</Name></Group>   </Root>'),
+        );
+
+        self::assertIsString($formatted);
+        // The irregular whitespace is dropped and the tree re-indented, which
+        // only happens because DOM whitespace preservation is disabled.
+        self::assertStringContainsString("<Root>\n", $formatted);
+        self::assertStringContainsString('    <Name>Alice</Name>', $formatted);
+        self::assertStringNotContainsString('<Root>   <Group>', $formatted);
     }
 
     /**
