@@ -1,7 +1,9 @@
 .github export-ignore
+benchmarks export-ignore
 tests export-ignore
 
 phpunit.xml.dist export-ignore
+phpbench.json export-ignore
 infection.json5 export-ignore
 infection.full.json5 export-ignore
 .qlty export-ignore
