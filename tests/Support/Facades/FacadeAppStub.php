@@ -27,7 +27,6 @@ final class FacadeAppStub implements \ArrayAccess
 
         /** Configuration values for facade reads. */
         private array $config,
-
     ) {}
 
     /**
@@ -35,6 +34,8 @@ final class FacadeAppStub implements \ArrayAccess
      *
      * @param  string  $offset
      * @return bool
+     *
+     * @imperative
      */
     #[\Override]
     public function offsetExists(mixed $offset): bool

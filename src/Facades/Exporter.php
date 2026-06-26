@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types = 1);
+
 namespace SineMacula\Exporter\Facades;
 
 use Illuminate\Support\Facades\Config;
@@ -7,6 +9,11 @@ use Illuminate\Support\Facades\Facade;
 
 /**
  * Exporter facade.
+ *
+ * @author      Ben Carey <bdmc@sinemacula.co.uk>
+ * @copyright   2026 Sine Macula Limited.
+ *
+ * @inheritable
  *
  * @method static \SineMacula\Exporter\Contracts\Exporter format(string|null $format)
  * @method static array<string, mixed> getConfig()
@@ -16,9 +23,6 @@ use Illuminate\Support\Facades\Facade;
  * @method static string exportCollection(\Illuminate\Http\Resources\Json\ResourceCollection $collection)
  *
  * @see         \SineMacula\Exporter\Exporter
- *
- * @author      Ben Carey <bdmc@sinemacula.co.uk>
- * @copyright   2026 Sine Macula Limited.
  */
 class Exporter extends Facade
 {

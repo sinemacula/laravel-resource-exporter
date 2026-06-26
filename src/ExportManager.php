@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types = 1);
+
 namespace SineMacula\Exporter;
 
 use Illuminate\Contracts\Foundation\Application;
@@ -31,8 +33,7 @@ final class ExportManager
     public function __construct(
 
         /** The application instance */
-        public Application $app,
-
+        public Application $app, // phpcs:ignore SineMacula.Classes.RequireReadonlyPublicProperty.Mutable
     ) {}
 
     /**
@@ -41,6 +42,8 @@ final class ExportManager
      * @param  string  $method
      * @param  array<int, mixed>  $parameters
      * @return mixed
+     *
+     * @throws \InvalidArgumentException
      */
     public function __call(string $method, array $parameters): mixed
     {
@@ -224,6 +227,8 @@ final class ExportManager
      *
      * @param  array<string, mixed>  $config
      * @return \SineMacula\Exporter\Contracts\Exporter
+     *
+     * @throws \InvalidArgumentException
      */
     private function callCustomCreator(array $config): Exporter
     {

@@ -27,6 +27,7 @@ final class ExporterFacadeTest extends TestCase
      *
      * @return void
      */
+    #[\Override]
     protected function setUp(): void
     {
         parent::setUp();
@@ -40,6 +41,7 @@ final class ExporterFacadeTest extends TestCase
      *
      * @return void
      */
+    #[\Override]
     protected function tearDown(): void
     {
         Config::setFacadeApplication(null);

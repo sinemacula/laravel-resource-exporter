@@ -1,18 +1,21 @@
 <?php
 
+declare(strict_types = 1);
+
 namespace SineMacula\Exporter\Exporters;
 
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Http\Resources\Json\ResourceCollection;
 use Illuminate\Support\Str;
 use SineMacula\Exporter\Contracts\Exporter as ExporterContract;
-use Stringable;
 
 /**
  * The CSV exporter.
  *
  * @author      Ben Carey <bdmc@sinemacula.co.uk>
  * @copyright   2026 Sine Macula Limited.
+ *
+ * @inheritable
  */
 class Csv extends Exporter implements ExporterContract
 {
@@ -152,9 +155,11 @@ class Csv extends Exporter implements ExporterContract
                 continue;
             }
 
-            if ($value instanceof \Stringable) {
-                $filtered[$field] = (string) $value;
+            if (!$value instanceof \Stringable) {
+                continue;
             }
+
+            $filtered[$field] = (string) $value;
         }
 
         return $filtered;

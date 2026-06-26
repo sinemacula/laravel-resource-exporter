@@ -35,6 +35,7 @@ final class CsvTest extends ResourceTestCase
              *
              * @return string
              */
+            #[\Override]
             public function __toString(): string
             {
                 return 'memo';

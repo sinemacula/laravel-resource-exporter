@@ -29,6 +29,7 @@ final class ExporterServiceProviderTest extends TestCase
      *
      * @return void
      */
+    #[\Override]
     protected function setUp(): void
     {
         parent::setUp();
@@ -43,6 +44,7 @@ final class ExporterServiceProviderTest extends TestCase
      *
      * @return void
      */
+    #[\Override]
     protected function tearDown(): void
     {
         Config::setFacadeApplication(null);

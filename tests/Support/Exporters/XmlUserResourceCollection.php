@@ -15,7 +15,7 @@ use Illuminate\Http\Resources\Json\ResourceCollection;
  *
  * @internal
  */
-class XmlUserResourceCollection extends ResourceCollection
+final class XmlUserResourceCollection extends ResourceCollection
 {
     /** @var string */
     public $collects = XmlUserResource::class;

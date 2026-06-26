@@ -32,11 +32,8 @@ final class XmlTestHarness extends Xml
      * @param  \SimpleXMLElement|null  $xml
      * @return void
      */
-    public function exposeHandleResourceItem(
-        JsonResource $resource,
-        ?string $key = null,
-        ?\SimpleXMLElement $xml = null,
-    ): void {
+    public function exposeHandleResourceItem(JsonResource $resource, ?string $key = null, ?\SimpleXMLElement $xml = null): void
+    {
         $this->handleResourceItem($resource, $key, $xml);
     }
 
@@ -48,11 +45,8 @@ final class XmlTestHarness extends Xml
      * @param  \SimpleXMLElement|null  $xml
      * @return void
      */
-    public function exposeHandleResourceCollection(
-        ResourceCollection $collection,
-        ?string $key = null,
-        ?\SimpleXMLElement $xml = null,
-    ): void {
+    public function exposeHandleResourceCollection(ResourceCollection $collection, ?string $key = null, ?\SimpleXMLElement $xml = null): void
+    {
         $this->handleResourceCollection($collection, $key, $xml);
     }
 
@@ -137,12 +131,12 @@ final class XmlTestHarness extends Xml
     /**
      * Override XML-string source for parsing/serialization failure tests.
      *
-     * @param  false|string|null  $xml_string
+     * @param  false|string|null  $xmlString
      * @return void
      */
-    public function setXmlStringOverride(false|string|null $xml_string): void
+    public function setXmlStringOverride(false|string|null $xmlString): void
     {
-        $this->xmlStringOverride = $xml_string;
+        $this->xmlStringOverride = $xmlString;
     }
 
     /**

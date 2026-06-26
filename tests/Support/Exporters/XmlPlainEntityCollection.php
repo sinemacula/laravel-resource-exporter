@@ -15,7 +15,7 @@ use Illuminate\Http\Resources\Json\ResourceCollection;
  *
  * @internal
  */
-class XmlPlainEntityCollection extends ResourceCollection
+final class XmlPlainEntityCollection extends ResourceCollection
 {
     /** @var string */
     public $collects = XmlPlainEntityJson::class;

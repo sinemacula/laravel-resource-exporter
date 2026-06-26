@@ -27,7 +27,6 @@ final class ExportManagerFakeExporter implements ExporterContract
 
         /** @var array<string, mixed> */
         private array $config,
-
     ) {}
 
     /**

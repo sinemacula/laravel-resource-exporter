@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types = 1);
+
 namespace SineMacula\Exporter\Contracts;
 
 use Illuminate\Http\Resources\Json\JsonResource;

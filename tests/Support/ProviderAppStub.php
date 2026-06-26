@@ -32,11 +32,11 @@ final class ProviderAppStub implements \ArrayAccess
      */
     public function __construct(
 
+        // Configuration values for the stub repository.
         array $config = [],
 
-        // Whether the app is running in console.
+        /** Whether the app is running in console. */
         private bool $runningInConsole = true,
-
     ) {
         $this->repository = new Repository($config);
     }
@@ -71,6 +71,8 @@ final class ProviderAppStub implements \ArrayAccess
      * Determine whether the app is in console mode.
      *
      * @return bool
+     *
+     * @imperative
      */
     public function runningInConsole(): bool
     {
@@ -102,6 +104,8 @@ final class ProviderAppStub implements \ArrayAccess
      *
      * @param  mixed  $offset
      * @return bool
+     *
+     * @imperative
      */
     #[\Override]
     public function offsetExists(mixed $offset): bool

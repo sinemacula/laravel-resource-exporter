@@ -4,6 +4,7 @@ declare(strict_types = 1);
 
 namespace Tests\Unit;
 
+use Illuminate\Contracts\Config\Repository;
 use Orchestra\Testbench\TestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use SineMacula\Exporter\Contracts\Exporter as ExporterContract;
@@ -87,12 +88,12 @@ final class ExportManagerTest extends TestCase
      */
     public function testSetAndForgetExporterCacheEntries(): void
     {
-        $manager       = $this->makeManager();
-        $fake_exporter = new ExportManagerFakeExporter(['driver' => 'fake']);
+        $manager      = $this->makeManager();
+        $fakeExporter = new ExportManagerFakeExporter(['driver' => 'fake']);
 
-        $manager->set('csv', $fake_exporter);
+        $manager->set('csv', $fakeExporter);
 
-        self::assertSame($fake_exporter, $manager->format('csv'));
+        self::assertSame($fakeExporter, $manager->format('csv'));
 
         $manager->forgetExporter('csv');
 
@@ -112,17 +113,17 @@ final class ExportManagerTest extends TestCase
         $manager->format('xml');
         $manager->forgetExporter(['csv', 'xml']);
 
-        $first_csv = $manager->format('csv');
+        $firstCsv = $manager->format('csv');
         $manager->purge('csv');
-        $second_csv = $manager->format('csv');
+        $secondCsv = $manager->format('csv');
 
-        self::assertNotSame($first_csv, $second_csv);
+        self::assertNotSame($firstCsv, $secondCsv);
 
-        $first_default = $manager->format();
+        $firstDefault = $manager->format();
         $manager->purge();
-        $second_default = $manager->format();
+        $secondDefault = $manager->format();
 
-        self::assertNotSame($first_default, $second_default);
+        self::assertNotSame($firstDefault, $secondDefault);
     }
 
     /**
@@ -195,15 +196,15 @@ final class ExportManagerTest extends TestCase
      */
     public function testPrivateCallCustomCreatorValidationPaths(): void
     {
-        $manager             = $this->makeManager();
-        $call_custom_creator = \Closure::bind(
+        $manager           = $this->makeManager();
+        $callCustomCreator = \Closure::bind(
             static fn (ExportManager $instance, array $config): mixed => $instance->callCustomCreator($config),
             null,
             ExportManager::class,
         );
 
         try {
-            $call_custom_creator($manager, ['driver' => ['bad']]);
+            $callCustomCreator($manager, ['driver' => ['bad']]);
             self::fail('Expected string validation exception.');
         } catch (\InvalidArgumentException $exception) {
             self::assertSame('Custom driver key must be a string.', $exception->getMessage());
@@ -212,7 +213,7 @@ final class ExportManagerTest extends TestCase
         $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage('Driver [missing-custom] is not supported.');
 
-        $call_custom_creator($manager, ['driver' => 'missing-custom']);
+        $callCustomCreator($manager, ['driver' => 'missing-custom']);
     }
 
     /**
@@ -263,12 +264,12 @@ final class ExportManagerTest extends TestCase
      *
      * @return \Illuminate\Contracts\Config\Repository
      */
-    private function configRepository(): \Illuminate\Contracts\Config\Repository
+    private function configRepository(): Repository
     {
         self::assertNotNull($this->app);
 
         $repository = $this->app->make('config');
-        self::assertInstanceOf(\Illuminate\Contracts\Config\Repository::class, $repository);
+        self::assertInstanceOf(Repository::class, $repository);
 
         return $repository;
     }
