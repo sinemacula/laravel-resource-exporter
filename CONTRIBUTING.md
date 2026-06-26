@@ -10,8 +10,8 @@ Contributions are welcome via GitHub pull requests. This guide covers the expect
 ## Getting Started
 
 ```bash
-git clone git@github.com:sinemacula/laravel-log-cloudwatch.git
-cd laravel-log-cloudwatch
+git clone git@github.com:sinemacula/laravel-resource-exporter.git
+cd laravel-resource-exporter
 composer install
 ```
 
@@ -34,9 +34,9 @@ Branch from `master` using the appropriate prefix:
 This project uses [Conventional Commits](https://www.conventionalcommits.org/). Prefix your commit messages accordingly:
 
 ```text
-feat: support configurable log stream naming
-fix: fall back to default retention when config is non-numeric
-test: cover the configured logging level
+feat: support a configurable xml root element
+fix: fall back to the default delimiter when csv config is invalid
+test: cover collection export with excluded fields
 chore: update qlty configuration
 ```
 
@@ -62,8 +62,8 @@ composer test:coverage   # With clover coverage report
 Single test file or method:
 
 ```bash
-vendor/bin/phpunit tests/Unit/CloudWatchLoggerTest.php
-vendor/bin/phpunit --filter testInvokeReturnsLoggerInstance tests/Unit/CloudWatchLoggerTest.php
+vendor/bin/phpunit tests/Unit/ExportManagerTest.php
+vendor/bin/phpunit --filter testFormatResolvesDefaultAndNamedDrivers tests/Unit/ExportManagerTest.php
 ```
 
 ### Standards
