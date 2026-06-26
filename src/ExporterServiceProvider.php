@@ -12,10 +12,8 @@ use Illuminate\Support\ServiceProvider;
  *
  * @author      Ben Carey <bdmc@sinemacula.co.uk>
  * @copyright   2026 Sine Macula Limited.
- *
- * @inheritable
  */
-class ExporterServiceProvider extends ServiceProvider
+final class ExporterServiceProvider extends ServiceProvider
 {
     /**
      * Bootstrap any application services.
@@ -44,27 +42,6 @@ class ExporterServiceProvider extends ServiceProvider
     }
 
     /**
-     * Resolve the configuration publish path.
-     *
-     * @param  string  $path
-     * @return string
-     */
-    protected function resolveConfigPath(string $path): string
-    {
-        return config_path($path);
-    }
-
-    /**
-     * Determine if the config_path helper is available.
-     *
-     * @return bool
-     */
-    protected function hasConfigPathFunction(): bool
-    {
-        return function_exists('config_path');
-    }
-
-    /**
      * Publish any package specific configuration and assets.
      *
      * @return void
@@ -75,12 +52,12 @@ class ExporterServiceProvider extends ServiceProvider
             return;
         }
 
-        if (!$this->hasConfigPathFunction()) {
+        if (!function_exists('config_path')) {
             return;
         }
 
         $this->publishes([
-            __DIR__ . '/../config/exporter.php' => $this->resolveConfigPath('exporter.php'),
+            __DIR__ . '/../config/exporter.php' => config_path('exporter.php'),
         ], 'config');
     }
 

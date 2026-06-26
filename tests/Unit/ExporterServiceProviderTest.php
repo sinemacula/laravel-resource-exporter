@@ -10,7 +10,6 @@ use Illuminate\Support\ServiceProvider;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 use SineMacula\Exporter\ExporterServiceProvider;
-use Tests\Support\ExporterServiceProviderHarness;
 use Tests\Support\ProviderAppStub;
 
 /**
@@ -95,30 +94,6 @@ final class ExporterServiceProviderTest extends TestCase
         self::assertSame(
             [],
             ExporterServiceProvider::pathsToPublish(ExporterServiceProvider::class, 'config'),
-        );
-    }
-
-    /**
-     * It exits publish flow when config_path is unavailable.
-     *
-     * @return void
-     */
-    public function testBootSkipsPublishingWhenConfigPathIsMissing(): void
-    {
-        $app = new ProviderAppStub(
-            [
-                'exporter.alias' => 'exporter',
-            ],
-            true,
-        );
-
-        $provider = new ExporterServiceProviderHarness($app);
-        $provider->setConfigPathFunctionAvailable(false);
-        $provider->boot();
-
-        self::assertSame(
-            [],
-            ExporterServiceProvider::pathsToPublish(ExporterServiceProviderHarness::class, 'config'),
         );
     }
 

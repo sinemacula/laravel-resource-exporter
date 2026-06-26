@@ -8,7 +8,6 @@ use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Http\Resources\Json\ResourceCollection;
 use PHPUnit\Framework\Attributes\CoversClass;
 use SineMacula\Exporter\Exporters\Csv;
-use Tests\Support\Exporters\CsvTestHarness;
 use Tests\Support\ResourceTestCase;
 
 /**
@@ -108,13 +107,13 @@ final class CsvTest extends ResourceTestCase
      */
     public function testInvalidDelimiterAndEnclosureConfigFallBackToDefaults(): void
     {
-        $exporter = new CsvTestHarness([
+        $exporter = new Csv([
             'delimiter' => 123,
             'enclosure' => true,
         ]);
 
-        self::assertSame('"a","b"', $exporter->exposeGenerateRow(['a', 'b']));
-        self::assertSame('"A"', $exporter->exposeGenerateColumns(['a']));
+        self::assertSame('"a","b"', $this->invokePrivate($exporter, 'generateRow', ['a', 'b']));
+        self::assertSame('"A"', $this->invokePrivate($exporter, 'generateColumns', ['a']));
     }
 
     /**
@@ -124,12 +123,12 @@ final class CsvTest extends ResourceTestCase
      */
     public function testCustomDelimiterAndEnclosureAreUsed(): void
     {
-        $exporter = new CsvTestHarness([
+        $exporter = new Csv([
             'delimiter' => ';',
             'enclosure' => '\'',
         ]);
 
-        self::assertSame('\'a\';\'b\'', $exporter->exposeGenerateRow(['a', 'b']));
+        self::assertSame('\'a\';\'b\'', $this->invokePrivate($exporter, 'generateRow', ['a', 'b']));
     }
 
     /**
@@ -199,12 +198,12 @@ final class CsvTest extends ResourceTestCase
      */
     public function testProtectedHelpersConvertKeysAndFilterValues(): void
     {
-        $exporter = new CsvTestHarness([]);
+        $exporter = new Csv([]);
         $exporter->withoutFields(['secret', '0']);
 
-        $columns  = $exporter->exposeGenerateColumns(['first-name', 'last_name']);
-        $row      = $exporter->exposeGenerateRow(['A', 2, null]);
-        $filtered = $exporter->exposeFilterData([
+        $columns  = $this->invokePrivate($exporter, 'generateColumns', ['first-name', 'last_name']);
+        $row      = $this->invokePrivate($exporter, 'generateRow', ['A', 2, null]);
+        $filtered = $this->invokePrivate($exporter, 'filterData', [
             0         => 'zero',
             'name'    => 'Alice',
             'secret'  => 'hidden',
@@ -214,8 +213,8 @@ final class CsvTest extends ResourceTestCase
         self::assertSame('"First Name","Last Name"', $columns);
         self::assertSame('"A","2",""', $row);
         self::assertSame(['name' => 'Alice'], $filtered);
-        self::assertSame('First Name', $exporter->exposeConvertToWords('first-name'));
-        self::assertSame('"say ""hi"""', $exporter->exposeEscapeValue('say "hi"'));
+        self::assertSame('First Name', $this->invokePrivate($exporter, 'convertToWords', 'first-name'));
+        self::assertSame('"say ""hi"""', $this->invokePrivate($exporter, 'escapeValue', 'say "hi"'));
     }
 
     /**
@@ -225,9 +224,26 @@ final class CsvTest extends ResourceTestCase
      */
     public function testGenerateColumnsReturnsEmptyStringWhenHeadersAreDisabled(): void
     {
-        $exporter = new CsvTestHarness([]);
+        $exporter = new Csv([]);
         $exporter->withoutHeaders();
 
-        self::assertSame('', $exporter->exposeGenerateColumns(['name']));
+        self::assertSame('', $this->invokePrivate($exporter, 'generateColumns', ['name']));
+    }
+
+    /**
+     * Invoke a protected method on the exporter for direct assertions.
+     *
+     * @param  \SineMacula\Exporter\Exporters\Csv  $exporter
+     * @param  string  $method
+     * @param  mixed  ...$arguments
+     * @return mixed
+     *
+     * @throws \ReflectionException
+     */
+    private function invokePrivate(Csv $exporter, string $method, mixed ...$arguments): mixed
+    {
+        $reflection = new \ReflectionMethod(Csv::class, $method);
+
+        return $reflection->invokeArgs($exporter, $arguments);
     }
 }

@@ -13,8 +13,6 @@ use Illuminate\Support\Facades\Facade;
  * @author      Ben Carey <bdmc@sinemacula.co.uk>
  * @copyright   2026 Sine Macula Limited.
  *
- * @inheritable
- *
  * @method static \SineMacula\Exporter\Contracts\Exporter format(string|null $format)
  * @method static array<string, mixed> getConfig()
  * @method static \SineMacula\Exporter\Contracts\Exporter withoutFields(string|array<int, string> $fields)
@@ -24,7 +22,7 @@ use Illuminate\Support\Facades\Facade;
  *
  * @see         \SineMacula\Exporter\Exporter
  */
-class Exporter extends Facade
+final class Exporter extends Facade
 {
     /**
      * Get the registered name of the component.

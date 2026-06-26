@@ -8,7 +8,6 @@ use Illuminate\Support\Facades\Config;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 use SineMacula\Exporter\Facades\Exporter as ExporterFacade;
-use Tests\Support\Facades\ExporterFacadeProbe;
 use Tests\Support\Facades\FacadeAppStub;
 
 /**
@@ -63,7 +62,7 @@ final class ExporterFacadeTest extends TestCase
             ]),
         );
 
-        self::assertSame('custom-exporter', ExporterFacadeProbe::accessor());
+        self::assertSame('custom-exporter', $this->invokeFacadeAccessor());
     }
 
     /**
@@ -79,6 +78,24 @@ final class ExporterFacadeTest extends TestCase
             ]),
         );
 
-        self::assertSame('exporter', ExporterFacadeProbe::accessor());
+        self::assertSame('exporter', $this->invokeFacadeAccessor());
+    }
+
+    /**
+     * Invoke the protected facade accessor on the real facade.
+     *
+     * @return string
+     *
+     * @throws \ReflectionException
+     */
+    private function invokeFacadeAccessor(): string
+    {
+        $method = new \ReflectionMethod(ExporterFacade::class, 'getFacadeAccessor');
+
+        $accessor = $method->invoke(null);
+
+        self::assertIsString($accessor);
+
+        return $accessor;
     }
 }
