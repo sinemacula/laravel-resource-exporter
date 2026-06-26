@@ -7,7 +7,6 @@ namespace Tests\Unit\Exporters;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use SineMacula\Exporter\Exporters\Exporter as BaseExporter;
-use Stringable;
 use Tests\Support\Exporters\ExporterTestHarness;
 use Tests\Support\ResourceTestCase;
 
@@ -62,23 +61,6 @@ final class ExporterTest extends ResourceTestCase
     }
 
     /**
-     * It identifies values that can be string-cast safely.
-     *
-     * @param  mixed  $value
-     * @param  bool  $expected
-     * @return void
-     */
-    #[DataProvider('stringableProvider')]
-    public function testIsStringableHandlesSupportedAndUnsupportedValues(
-        mixed $value,
-        bool $expected,
-    ): void {
-        $exporter = new ExporterTestHarness([]);
-
-        self::assertSame($expected, $exporter->exposeIsStringable($value));
-    }
-
-    /**
      * Provide stringable and non-stringable values.
      *
      * @return iterable<string, array{0: mixed, 1: bool}>
@@ -97,6 +79,7 @@ final class ExporterTest extends ResourceTestCase
                  *
                  * @return string
                  */
+                #[\Override]
                 public function __toString(): string
                 {
                     return 'value';
@@ -106,5 +89,20 @@ final class ExporterTest extends ResourceTestCase
         ];
         yield 'array' => [['value'], false];
         yield 'object' => [new \stdClass, false];
+    }
+
+    /**
+     * It identifies values that can be string-cast safely.
+     *
+     * @param  mixed  $value
+     * @param  bool  $expected
+     * @return void
+     */
+    #[DataProvider('stringableProvider')]
+    public function testIsStringableHandlesSupportedAndUnsupportedValues(mixed $value, bool $expected): void
+    {
+        $exporter = new ExporterTestHarness([]);
+
+        self::assertSame($expected, $exporter->exposeIsStringable($value));
     }
 }

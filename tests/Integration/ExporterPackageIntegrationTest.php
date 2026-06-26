@@ -71,13 +71,13 @@ final class ExporterPackageIntegrationTest extends TestCase
         $app     = $this->application();
         $manager = $this->manager($app);
 
-        $xml_string = $manager->format('xml')->exportArray([
+        $xmlString = $manager->format('xml')->exportArray([
             [
                 'name' => 'Alice',
             ],
         ]);
 
-        $xml = simplexml_load_string($xml_string);
+        $xml = simplexml_load_string($xmlString);
 
         self::assertInstanceOf(\SimpleXMLElement::class, $xml);
         self::assertSame('Items', $xml->getName());
@@ -109,7 +109,6 @@ final class ExporterPackageIntegrationTest extends TestCase
 
                     /** @var array<string, mixed> */
                     private array $config,
-
                 ) {}
 
                 /**

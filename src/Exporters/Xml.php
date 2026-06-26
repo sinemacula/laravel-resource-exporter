@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types = 1);
+
 namespace SineMacula\Exporter\Exporters;
 
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -14,6 +16,8 @@ use SineMacula\Exporter\Exceptions\XmlExportException;
  *
  * @author      Ben Carey <bdmc@sinemacula.co.uk>
  * @copyright   2026 Sine Macula Limited.
+ *
+ * @inheritable
  */
 class Xml extends Exporter implements ExporterContract
 {
@@ -38,16 +42,16 @@ class Xml extends Exporter implements ExporterContract
     #[\Override]
     public function exportArray(array $rows, ?string $root = 'Items', ?string $item = 'Item'): string
     {
-        $root_name = $this->normalizeXmlKey($root ?? 'Items', 'Items');
-        $item_name = $this->normalizeXmlKey($item ?? 'Item', 'Item');
+        $rootName = $this->normalizeXmlKey($root ?? 'Items', 'Items');
+        $itemName = $this->normalizeXmlKey($item ?? 'Item', 'Item');
 
-        $xml       = new \SimpleXMLElement("<{$root_name}/>");
+        $xml       = new \SimpleXMLElement("<{$rootName}/>");
         $this->xml = $xml;
 
         foreach ($rows as $row) {
 
             $data  = $this->filterData($row);
-            $child = $xml->addChild($item_name);
+            $child = $xml->addChild($itemName);
 
             $this->arrayToXml($data, $child);
         }
@@ -130,12 +134,12 @@ class Xml extends Exporter implements ExporterContract
             ? $xml->addChild($key)
             : $this->xml;
 
-        foreach ($collection->resolve() as $resolved_item) {
+        foreach ($collection->resolve() as $resolvedItem) {
 
-            $item_data = $this->filterData($resolved_item);
-            $child     = $parent->addChild($this->normalizeXmlKey(Str::singular($key)));
+            $itemData = $this->filterData($resolvedItem);
+            $child    = $parent->addChild($this->normalizeXmlKey(Str::singular($key)));
 
-            $this->arrayToXml($item_data, $child);
+            $this->arrayToXml($itemData, $child);
         }
     }
 
@@ -186,7 +190,7 @@ class Xml extends Exporter implements ExporterContract
             } elseif ($value instanceof Collection) {
                 $this->handleCollectionValue($key, $value, $xml);
             } elseif ($this->isStringable($value)) {
-                $xml->addChild($key, htmlspecialchars($value));
+                $xml->addChild($key, htmlspecialchars((string) $value));
             }
         }
     }
@@ -228,12 +232,14 @@ class Xml extends Exporter implements ExporterContract
      *
      * @param  \SimpleXMLElement  $xml
      * @return string
+     *
+     * @throws \SineMacula\Exporter\Exceptions\XmlExportException
      */
     protected function formatXml(\SimpleXMLElement $xml): string
     {
-        $xml_string = $this->readXmlString($xml);
+        $xmlString = $this->readXmlString($xml);
 
-        if ($xml_string === false) {
+        if ($xmlString === false) {
             throw new XmlExportException('Failed to convert XML to string.');
         }
 
@@ -243,20 +249,20 @@ class Xml extends Exporter implements ExporterContract
             $dom->preserveWhiteSpace = false;
             $dom->formatOutput       = true;
 
-            if (!$dom->loadXML($xml_string)) {
+            if (!$dom->loadXML($xmlString)) {
                 throw new XmlExportException('Failed to parse XML for formatting.');
             }
 
-            $formatted_xml = $this->saveDomDocument($dom);
+            $formattedXml = $this->saveDomDocument($dom);
 
-            if ($formatted_xml === false) {
+            if ($formattedXml === false) {
                 throw new XmlExportException('Failed to render formatted XML.');
             }
 
-            return $formatted_xml;
+            return $formattedXml;
         }
 
-        return $xml_string;
+        return $xmlString;
     }
 
     /**
@@ -359,10 +365,10 @@ class Xml extends Exporter implements ExporterContract
      */
     private function shouldPrettyPrint(): bool
     {
-        $pretty_print = $this->config['pretty_print'];
+        $prettyPrint = $this->config['pretty_print'];
 
-        return is_bool($pretty_print)
-            ? $pretty_print
+        return is_bool($prettyPrint)
+            ? $prettyPrint
             : self::DEFAULT_CONFIG['pretty_print'];
     }
 
@@ -370,6 +376,8 @@ class Xml extends Exporter implements ExporterContract
      * Get the current XML instance.
      *
      * @return \SimpleXMLElement
+     *
+     * @throws \SineMacula\Exporter\Exceptions\XmlExportException
      */
     private function getXml(): \SimpleXMLElement
     {

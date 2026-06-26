@@ -91,6 +91,7 @@ package_filters = ["slevomat", "dealerdirect", "sinemacula"]
 
 [[plugin]]
 name = "php-cs-fixer"
+version = "3.89.0"
 package_file = "composer.json"
 package_filters = ["sinemacula"]
 

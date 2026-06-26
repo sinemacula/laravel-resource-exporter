@@ -14,7 +14,7 @@ use Illuminate\Http\Resources\Json\JsonResource;
  *
  * @internal
  */
-class XmlUserResource extends JsonResource
+final class XmlUserResource extends JsonResource
 {
     /**
      * Convert the resource payload to array.

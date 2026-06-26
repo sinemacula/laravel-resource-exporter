@@ -1,7 +1,35 @@
 <?xml version="1.0"?>
 <ruleset name="Project">
 
-    <rule ref="SineMacula"/>
+    <rule ref="SineMaculaLaravelPackage"/>
+
+    <!--
+        A ResourceCollection's `$collects` property overrides the untyped
+        `Illuminate\Http\Resources\Json\ResourceCollection::$collects`, so PHP
+        forbids giving it a native type (it would fatal at class load). Treat it
+        as a framework-magic property, exactly like `$table`, `$fillable`, etc.
+    -->
+    <rule ref="SineMaculaLaravel.TypeHints.PropertyTypeHint">
+        <properties>
+            <property name="magicProperties" type="array" extend="true">
+                <element value="collects"/>
+            </property>
+        </properties>
+    </rule>
+
+    <!--
+        This package is a serializer of arbitrary resource data, so the `mixed`
+        type is inherent across the exporter contract, manager, drivers, facade
+        and the test doubles that mirror their signatures. Exempt those files
+        from DisallowMixedTypeHint rather than scattering inline suppressions.
+    -->
+    <rule ref="SlevomatCodingStandard.TypeHints.DisallowMixedTypeHint">
+        <exclude-pattern>src/Contracts/Exporter.php</exclude-pattern>
+        <exclude-pattern>src/ExportManager.php</exclude-pattern>
+        <exclude-pattern>src/Exporters/*</exclude-pattern>
+        <exclude-pattern>src/Facades/Exporter.php</exclude-pattern>
+        <exclude-pattern>tests/*</exclude-pattern>
+    </rule>
 
     <file>src</file>
     <file>tests</file>

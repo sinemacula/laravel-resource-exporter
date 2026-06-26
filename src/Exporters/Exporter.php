@@ -1,8 +1,8 @@
 <?php
 
-namespace SineMacula\Exporter\Exporters;
+declare(strict_types = 1);
 
-use Stringable;
+namespace SineMacula\Exporter\Exporters;
 
 /**
  * The base exporter driver.
@@ -72,6 +72,8 @@ abstract class Exporter
      *
      * @param  mixed  $value
      * @return bool
+     *
+     * @phpstan-assert-if-true scalar|\Stringable|null $value
      */
     protected function isStringable(mixed $value): bool
     {

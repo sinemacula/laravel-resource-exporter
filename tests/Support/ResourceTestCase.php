@@ -23,6 +23,7 @@ abstract class ResourceTestCase extends TestCase
      *
      * @return void
      */
+    #[\Override]
     protected function setUp(): void
     {
         parent::setUp();
@@ -38,6 +39,7 @@ abstract class ResourceTestCase extends TestCase
      *
      * @return void
      */
+    #[\Override]
     protected function tearDown(): void
     {
         Container::setInstance(null);

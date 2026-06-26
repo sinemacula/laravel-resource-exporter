@@ -42,7 +42,7 @@ final class XmlTest extends ResourceTestCase
 
         $exporter->withoutFields('ignored');
 
-        $xml_string = $exporter->exportArray(
+        $xmlString = $exporter->exportArray(
             [
                 [
                     'name'    => 'Alice',
@@ -53,7 +53,7 @@ final class XmlTest extends ResourceTestCase
             '',
         );
 
-        $xml = simplexml_load_string($xml_string);
+        $xml = simplexml_load_string($xmlString);
 
         self::assertInstanceOf(\SimpleXMLElement::class, $xml);
         self::assertSame('Items', $xml->getName());
@@ -73,11 +73,11 @@ final class XmlTest extends ResourceTestCase
             'pretty_print' => false,
         ]);
 
-        $xml_string = $exporter->exportItem(
+        $xmlString = $exporter->exportItem(
             new XmlUserResource(['name' => 'Alice']),
         );
 
-        $xml = simplexml_load_string($xml_string);
+        $xml = simplexml_load_string($xmlString);
 
         self::assertInstanceOf(\SimpleXMLElement::class, $xml);
         self::assertSame('CustomRoot', $xml->getName());
@@ -95,14 +95,14 @@ final class XmlTest extends ResourceTestCase
             'pretty_print' => false,
         ]);
 
-        $xml_string = $exporter->exportCollection(
+        $xmlString = $exporter->exportCollection(
             new XmlUserResourceCollection([
                 ['name' => 'Alice'],
                 ['name' => 'Bob'],
             ]),
         );
 
-        $xml = simplexml_load_string($xml_string);
+        $xml = simplexml_load_string($xmlString);
 
         self::assertInstanceOf(\SimpleXMLElement::class, $xml);
         self::assertSame('XmlUsers', $xml->getName());
@@ -136,6 +136,7 @@ final class XmlTest extends ResourceTestCase
                      *
                      * @return string
                      */
+                    #[\Override]
                     public function __toString(): string
                     {
                         return 'cast-value';
@@ -257,12 +258,12 @@ final class XmlTest extends ResourceTestCase
             'pretty_print'          => 'invalid',
             'include_sub_resources' => 'invalid',
         ]);
-        $fallback_exporter = new Xml([]);
+        $fallbackExporter = new Xml([]);
 
         self::assertTrue((bool) $this->invokePrivate($exporter, 'shouldPrettyPrint'));
         self::assertTrue((bool) $this->invokePrivate($exporter, 'shouldIncludeSubResources'));
-        self::assertTrue((bool) $this->invokePrivate($fallback_exporter, 'shouldPrettyPrint'));
-        self::assertTrue((bool) $this->invokePrivate($fallback_exporter, 'shouldIncludeSubResources'));
+        self::assertTrue((bool) $this->invokePrivate($fallbackExporter, 'shouldPrettyPrint'));
+        self::assertTrue((bool) $this->invokePrivate($fallbackExporter, 'shouldIncludeSubResources'));
 
         $this->expectException(XmlExportException::class);
         $this->expectExceptionMessage('XML document has not been initialized.');
@@ -420,6 +421,8 @@ final class XmlTest extends ResourceTestCase
      * @param  string  $method
      * @param  mixed  ...$arguments
      * @return mixed
+     *
+     * @throws \InvalidArgumentException
      */
     private function invokePrivate(Xml $exporter, string $method, mixed ...$arguments): mixed
     {
