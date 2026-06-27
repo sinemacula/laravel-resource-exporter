@@ -23,9 +23,10 @@ use SineMacula\Exporter\Jobs\ExportToDiskJob;
  * job is captured rather than run.
  *
  * Applications then assert against the ledger - assertDownloaded(),
- * assertStored(), assertQueued(), assertExportedRows(), assertNothingExported()
- * - mirroring the ergonomics of Storage::fake() and Bus::fake(). Each assertion
- * returns the fake so they can be chained.
+ * assertStored(), assertStringExported(), assertStreamedTo(), assertQueued(),
+ * assertExportedRows(), assertNothingExported() - mirroring the ergonomics of
+ * Storage::fake() and Bus::fake(). Each assertion returns the fake so they can
+ * be chained.
  *
  * @author      Ben Carey <bdmc@sinemacula.co.uk>
  * @copyright   2026 Sine Macula Limited.
@@ -37,9 +38,17 @@ final class ExporterFake
 
     /**
      * Create a new recording export double, capturing queued export jobs.
+     *
+     * The bus is only faked when it is not already - a test that called
+     * Bus::fake() before Exporter::fake() keeps its own fake (and any prior
+     * recorded dispatches) intact rather than having it silently replaced.
      */
     public function __construct()
     {
+        if (Bus::isFake()) {
+            return;
+        }
+
         Bus::fake([ExportToDiskJob::class]);
     }
 
@@ -176,6 +185,59 @@ final class ExporterFake
         );
 
         PHPUnit::assertNotEmpty($matches, 'Expected an export to be stored, but none matched.');
+
+        return $this;
+    }
+
+    /**
+     * Assert an export was buffered to a string, optionally of a given format.
+     *
+     * The mirror of recordString() - the assertion counterpart to toString().
+     *
+     * @param  string|null  $format
+     * @return $this
+     */
+    public function assertStringExported(?string $format = null): self
+    {
+        $matches = array_filter(
+            $this->exports,
+            static fn (RecordedExport $export): bool => $export->type === 'string'
+                && ($format === null || $export->format === $format),
+        );
+
+        PHPUnit::assertNotEmpty(
+            $matches,
+            $format === null
+                ? 'Expected an export to be buffered to a string, but none were.'
+                : "Expected an export to be buffered to a string as [{$format}], but none were.",
+        );
+
+        return $this;
+    }
+
+    /**
+     * Assert an export was streamed to a resource, optionally of the given
+     * format.
+     *
+     * The mirror of recordStream() - the assertion counterpart to toStream().
+     *
+     * @param  string|null  $format
+     * @return $this
+     */
+    public function assertStreamedTo(?string $format = null): self
+    {
+        $matches = array_filter(
+            $this->exports,
+            static fn (RecordedExport $export): bool => $export->type === 'stream'
+                && ($format === null || $export->format === $format),
+        );
+
+        PHPUnit::assertNotEmpty(
+            $matches,
+            $format === null
+                ? 'Expected an export to be streamed to a resource, but none were.'
+                : "Expected an export to be streamed to a resource as [{$format}], but none were.",
+        );
 
         return $this;
     }

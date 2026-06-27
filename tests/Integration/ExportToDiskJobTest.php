@@ -10,6 +10,7 @@ use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Log;
 use PHPUnit\Framework\Attributes\CoversClass;
 use SineMacula\Exporter\Events\ExportCompleted;
 use SineMacula\Exporter\Events\ExportFailed;
@@ -92,7 +93,8 @@ final class ExportToDiskJobTest extends QueuedExportTestCase
 
         Event::assertDispatched(
             ExportCompleted::class,
-            static fn (ExportCompleted $event): bool => $event->url === 'https://signed.example/exports/users.csv',
+            static fn (ExportCompleted $event): bool => $event->url === 'https://signed.example/exports/users.csv'
+                && $event->queued                                   === true,
         );
     }
 
@@ -121,6 +123,37 @@ final class ExportToDiskJobTest extends QueuedExportTestCase
             ExportCompleted::class,
             static fn (ExportCompleted $event): bool => $event->url === null && $event->rowCount === 2,
         );
+    }
+
+    /**
+     * It logs a warning carrying the disk, path and exception when generating
+     * the signed URL throws, rather than swallowing the failure to null.
+     *
+     * @return void
+     */
+    public function testLogsAWarningWhenSigningThrows(): void
+    {
+        $disk = $this->fakeDisk('exports');
+        $disk->buildTemporaryUrlsUsing(function (string $path, mixed $expiration): string {
+            throw new \RuntimeException('no signing');
+        });
+
+        Log::spy();
+        $this->seedUsers(2);
+
+        ExportToDiskJob::dispatchSync(
+            QueuedExport::forModel(User::class, UserResource::class)
+                ->toDisk('exports', 'exports/users.csv')
+                ->toSpecification(),
+        );
+
+        Log::shouldHaveReceived('warning') // @phpstan-ignore staticMethod.notFound
+            ->once()
+            ->withArgs(static fn (string $message, array $context): bool => $message === 'Unable to generate a signed temporary URL for the stored export.'
+                && $context['disk']                                                  === 'exports'
+                && $context['path']                                                  === 'exports/users.csv'
+                && $context['exception'] instanceof \Throwable
+                && $context['exception']->getMessage() === 'no signing');
     }
 
     /**

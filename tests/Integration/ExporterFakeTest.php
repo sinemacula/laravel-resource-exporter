@@ -5,6 +5,7 @@ declare(strict_types = 1);
 namespace Tests\Integration;
 
 use Illuminate\Http\Resources\Json\ResourceCollection;
+use Illuminate\Support\Facades\Bus;
 use PHPUnit\Framework\Assert as PHPUnit;
 use PHPUnit\Framework\AssertionFailedError;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -206,6 +207,96 @@ final class ExporterFakeTest extends QueuedExportTestCase
     }
 
     /**
+     * It asserts a buffered-to-string export, optionally of a given format.
+     *
+     * @return void
+     */
+    public function testAssertStringExported(): void
+    {
+        $this->seedUsers(2);
+
+        $fake = Exporter::fake();
+
+        Exporter::collection($this->collection())->format('csv')->toString();
+
+        $fake->assertStringExported()
+            ->assertStringExported('csv');
+
+        $this->assertFails(static fn (): mixed => $fake->assertStringExported('xlsx'));
+    }
+
+    /**
+     * It fails assertStringExported when only non-string exports were recorded.
+     *
+     * @return void
+     */
+    public function testAssertStringExportedFailsWhenNothingMatches(): void
+    {
+        $this->seedUsers(1);
+
+        $fake = Exporter::fake();
+
+        Exporter::collection($this->collection())->format('csv')->download();
+
+        $this->assertFails(static fn (): mixed => $fake->assertStringExported());
+    }
+
+    /**
+     * It asserts a streamed-to-resource export, optionally of a given format.
+     *
+     * @return void
+     */
+    public function testAssertStreamedTo(): void
+    {
+        $this->seedUsers(2);
+
+        $fake   = Exporter::fake();
+        $stream = fopen('php://temp', 'r+b');
+
+        self::assertIsResource($stream);
+
+        Exporter::collection($this->collection())->format('csv')->toStream($stream);
+
+        fclose($stream);
+
+        $fake->assertStreamedTo()
+            ->assertStreamedTo('csv');
+
+        $this->assertFails(static fn (): mixed => $fake->assertStreamedTo('xlsx'));
+    }
+
+    /**
+     * It fails assertStreamedTo when only non-stream exports were recorded.
+     *
+     * @return void
+     */
+    public function testAssertStreamedToFailsWhenNothingMatches(): void
+    {
+        $this->seedUsers(1);
+
+        $fake = Exporter::fake();
+
+        Exporter::collection($this->collection())->format('csv')->toString();
+
+        $this->assertFails(static fn (): mixed => $fake->assertStreamedTo());
+    }
+
+    /**
+     * It reuses a bus fake established before Exporter::fake(), rather than
+     * overwriting it and discarding what it had already recorded.
+     *
+     * @return void
+     */
+    public function testFakeReusesAPreExistingBusFake(): void
+    {
+        $bus = Bus::fake();
+
+        Exporter::fake();
+
+        self::assertSame($bus, Bus::getFacadeRoot());
+    }
+
+    /**
      * It records a queued export instead of dispatching the job for real.
      *
      * @return void
@@ -220,6 +311,7 @@ final class ExporterFakeTest extends QueuedExportTestCase
             ->schema(UserExportSchema::class)
             ->format('csv')
             ->toDisk('exports', 'exports/users.csv')
+            ->withoutAuthorization()
             ->queue();
 
         $disk->assertMissing('exports/users.csv');
@@ -242,6 +334,7 @@ final class ExporterFakeTest extends QueuedExportTestCase
 
         Exporter::queue(User::class, UserResource::class)
             ->toDisk('exports', 'exports/users.csv')
+            ->withoutAuthorization()
             ->queue();
 
         $this->assertFails(static fn (): mixed => $fake->assertQueued(static fn (ExportSpecification $spec): bool => $spec->format === 'xlsx'));
@@ -380,6 +473,7 @@ final class ExporterFakeTest extends QueuedExportTestCase
 
         Exporter::queue(User::class, UserResource::class)
             ->toDisk('exports', 'exports/users.csv')
+            ->withoutAuthorization()
             ->queue();
 
         $fake->assertExportedRows(0);

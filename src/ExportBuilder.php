@@ -5,22 +5,25 @@ declare(strict_types = 1);
 namespace SineMacula\Exporter;
 
 use Illuminate\Container\Container;
+use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Filesystem\Factory;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Foundation\Bus\PendingDispatch;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Http\Resources\Json\ResourceCollection;
 use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Log;
 use SineMacula\Exporter\Contracts\ProvidesTabularExport;
 use SineMacula\Exporter\Contracts\Sink;
+use SineMacula\Exporter\Events\StreamExportFailed;
 use SineMacula\Exporter\Exceptions\NoTabularRepresentation;
 use SineMacula\Exporter\Exceptions\SinkException;
 use SineMacula\Exporter\Export\ExportFilename;
 use SineMacula\Exporter\Export\HierarchicalRows;
-use SineMacula\Exporter\Export\QueuedExport;
 use SineMacula\Exporter\Http\MediaTypeRegistry;
 use SineMacula\Exporter\Schema\TabularSchema;
+use SineMacula\Exporter\Schema\WarningCollector;
 use SineMacula\Exporter\Sinks\DiskSink;
 use SineMacula\Exporter\Sinks\StreamedResponseSink;
 use SineMacula\Exporter\Sinks\StreamSink;
@@ -42,10 +45,19 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  *
  * The verbs are the community vocabulary: download() and toResponse() return a
  * streamed attachment response, store() writes to a Storage disk, toString()
- * buffers to a string, toStream() streams into a resource, and queue() hands a
- * full-set export to the queued-to-disk pipeline. While Exporter::fake() is
- * active every verb records what it would have exported instead of producing
- * bytes. The builder is request-explicit and holds no shared state.
+ * buffers to a string, and toStream() streams into a resource. A full-set
+ * queued export goes through the dedicated serializable door,
+ * Exporter::queue($model, $resource), whose constraint descriptors round-trip
+ * to the worker. While Exporter::fake() is active every verb records what it
+ * would have exported instead of producing bytes. The builder is
+ * request-explicit and holds no shared state.
+ *
+ * Two behaviours are by design. CSV/TSV stream at constant memory, but XLSX
+ * finalises on close and so buffers the whole workbook before the response
+ * flushes - a large XLSX served synchronously through download()/toResponse()
+ * holds the set in memory, so queue it (Exporter::queue()) when the set can be
+ * large. And an empty result set produces a header-less file (no rows means no
+ * header is written) rather than a lone column header.
  *
  * @author      Ben Carey <bdmc@sinemacula.co.uk>
  * @copyright   2026 Sine Macula Limited.
@@ -263,59 +275,6 @@ final class ExportBuilder
     }
 
     /**
-     * Hand a full-set export of the query subject to the queued-to-disk
-     * pipeline.
-     *
-     * Only a query subject can be queued, because the queue needs a
-     * serializable description: the model is derived from the query and the
-     * export is queued as the full set. A query that already carries
-     * constraints (which cannot serialize) is rejected in favour of
-     * Exporter::queue($model, $resource), whose verbs round-trip to the worker.
-     *
-     * @param  string  $disk
-     * @param  string  $path
-     * @return \Illuminate\Foundation\Bus\PendingDispatch
-     *
-     * @throws \LogicException
-     */
-    public function queue(string $disk, string $path): PendingDispatch
-    {
-        $subject = $this->subject;
-
-        if (!$subject instanceof Builder) {
-            throw new \LogicException('Only a query subject can be queued; use Exporter::queue($model, $resource) for queued exports.');
-        }
-
-        if ($subject->getQuery()->wheres !== []) {
-            throw new \LogicException('A live query with constraints cannot be queued; use Exporter::queue($model, $resource) so the constraints serialize.');
-        }
-
-        if ($this->schema instanceof TabularSchema) {
-            throw new \LogicException('A queued export needs a schema class-string, not a schema instance.');
-        }
-
-        $resource = $this->resourceClassOrNull();
-
-        if ($resource === null) {
-            throw new \LogicException('A queued export needs a resource class; pass it to Exporter::query($query, $resource).');
-        }
-
-        $queued = QueuedExport::forModel($subject->getModel()::class, $resource)
-            ->format($this->format)
-            ->toDisk($disk, $path);
-
-        if (is_string($this->schema)) {
-            $queued->schema($this->schema);
-        }
-
-        if ($this->filename !== null) {
-            $queued->as($this->filename);
-        }
-
-        return $queued->queue();
-    }
-
-    /**
      * Build a streamed attachment response for the given filename.
      *
      * @param  string  $filename
@@ -338,11 +297,50 @@ final class ExportBuilder
             return new StreamedResponse(static fn (): null => null, 200, $headers);
         }
 
+        $rows = 0;
+
         return (new StreamedResponseSink)->toResponse(
-            fn (Sink $sink): int => $this->writeInto($sink),
+            function (Sink $sink) use (&$rows): void {
+                try {
+                    $this->writeInto($sink, static function (int $count) use (&$rows): void {
+                        $rows = $count;
+                    });
+                } catch (\Throwable $exception) {
+                    $this->failStream($this->format, $rows, $exception);
+                }
+            },
             200,
             $headers,
         );
+    }
+
+    /**
+     * Handle a mid-stream failure after the status and bytes are committed.
+     *
+     * Mirrors the negotiated path: the writer has already flushed its
+     * documented truncation marker, so the stream stops cleanly here and the
+     * failure is surfaced through a StreamExportFailed event carrying the row
+     * context and logged. It is never re-thrown, because the 200 response can
+     * no longer become an error.
+     *
+     * @param  string  $format
+     * @param  int  $rows
+     * @param  \Throwable  $exception
+     * @return void
+     */
+    private function failStream(string $format, int $rows, \Throwable $exception): void
+    {
+        $user    = $this->currentRequest()->user();
+        $id      = $user instanceof Authenticatable ? $user->getAuthIdentifier() : null;
+        $actorId = is_int($id) || is_string($id) ? $id : null;
+
+        Event::dispatch(new StreamExportFailed($format, $rows, $actorId, $exception));
+
+        Log::warning('Resource export stream truncated after the response had begun.', [
+            'format'       => $format,
+            'rows_written' => $rows,
+            'exception'    => $exception,
+        ]);
     }
 
     /**
@@ -391,12 +389,17 @@ final class ExportBuilder
     /**
      * Stream the export into the given sink and return the row count.
      *
+     * An optional progress callback receives the running row count as each row
+     * is written, so a streaming caller can report how many rows reached the
+     * client at the point a mid-stream failure truncates the body.
+     *
      * @param  \SineMacula\Exporter\Contracts\Sink  $sink
+     * @param  (\Closure(int): void)|null  $onProgress
      * @return int
      *
      * @throws \SineMacula\Exporter\Exceptions\NoTabularRepresentation
      */
-    private function writeInto(Sink $sink): int
+    private function writeInto(Sink $sink, ?\Closure $onProgress = null): int
     {
         $rows    = 0;
         $request = $this->currentRequest();
@@ -410,11 +413,22 @@ final class ExportBuilder
                 throw NoTabularRepresentation::forResource($this->format);
             }
 
-            $counting = new CountingWriter($writer, static function (int $count) use (&$rows): void {
+            $counting = new CountingWriter($writer, static function (int $count) use (&$rows, $onProgress): void {
                 $rows = $count;
+
+                $onProgress?->__invoke($count);
             });
 
-            $this->engine->export($source, $this->resolveSchema(), $request, $counting, $sink);
+            $warnings = new WarningCollector;
+
+            $this->engine->export($source, $this->resolveSchema(), $request, $counting, $sink, $warnings);
+
+            if (!$warnings->isEmpty()) {
+                Log::warning('Resource export completed with warnings.', [
+                    'format'   => $this->format,
+                    'warnings' => $warnings->all(),
+                ]);
+            }
 
             return $rows;
         }
@@ -427,8 +441,10 @@ final class ExportBuilder
 
         $resolver = new HierarchicalRows($this->resourceClassOrNull());
 
-        $writer->write($resolver->resolve($source, $request, static function () use (&$rows): void {
+        $writer->write($resolver->resolve($source, $request, static function () use (&$rows, $onProgress): void {
             $rows++;
+
+            $onProgress?->__invoke($rows);
         }), $sink);
 
         return $rows;

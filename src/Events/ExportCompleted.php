@@ -19,6 +19,8 @@ use Carbon\CarbonInterface;
  * The delivery fields - disk, path, and the signed temporary URL - are present
  * only for the queued-to-disk path (a streamed response has no stored file) so
  * a listener can notify the actor where the finished export can be downloaded.
+ * The queued flag discriminates the two front doors directly, so a listener can
+ * branch on it without inferring the path from the presence of a disk.
  *
  * @author      Ben Carey <bdmc@sinemacula.co.uk>
  * @copyright   2026 Sine Macula Limited.
@@ -36,6 +38,7 @@ final readonly class ExportCompleted
      * @param  string|null  $disk
      * @param  string|null  $path
      * @param  string|null  $url
+     * @param  bool  $queued
      */
     public function __construct(
 
@@ -62,5 +65,8 @@ final readonly class ExportCompleted
 
         /** The signed temporary download URL (queued path, when supported). */
         public ?string $url = null,
+
+        /** Whether the export ran on a queue worker, not synchronously. */
+        public bool $queued = false,
     ) {}
 }

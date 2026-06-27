@@ -78,6 +78,28 @@ $csv = Exporter::format('csv')
     ->exportCollection(YourResource::collection($collection));
 ```
 
+### Tabular column visibility
+
+Tabular exports (CSV / TSV / XLSX) resolve each column straight off the raw model
+attribute via `data_get`. That read is deliberately fast and constant-memory, but
+it does **not** route through the resource's `toArray()` / `$hidden` / `when()`
+gating - so a `$hidden` attribute is still emitted, and field visibility is not
+inherited from the resource. Gating a field out of an export is the schema
+author's job, expressed with `->visible()` on the column:
+
+```php
+use SineMacula\Exporter\Schema\Column;
+use Illuminate\Http\Request;
+
+Column::make('salary', 'Salary')
+    ->visible(static fn (Request $request): bool => $request->user()?->isAdmin() ?? false);
+```
+
+A column whose `->visible()` gate returns `false` is dropped entirely - from the
+heading row and from every data row - so its value can never leak through any cell
+or aggregate path. The gate sees only the request (no row) and is evaluated once
+when the schema is built.
+
 ### On-demand exporters
 
 ```php

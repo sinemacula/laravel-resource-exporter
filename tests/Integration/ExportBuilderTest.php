@@ -4,26 +4,27 @@ declare(strict_types = 1);
 
 namespace Tests\Integration;
 
-use Illuminate\Foundation\Bus\PendingDispatch;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\ResourceCollection;
-use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use PHPUnit\Framework\Attributes\CoversClass;
+use SineMacula\Exporter\Events\StreamExportFailed;
 use SineMacula\Exporter\Exceptions\NoTabularRepresentation;
-use SineMacula\Exporter\Export\ExportSpecification;
 use SineMacula\Exporter\ExportBuilder;
 use SineMacula\Exporter\Facades\Exporter;
 use SineMacula\Exporter\Http\ExportFormat;
 use SineMacula\Exporter\Http\MediaTypeRegistry;
-use SineMacula\Exporter\Jobs\ExportToDiskJob;
 use SineMacula\Exporter\Schema\Column;
+use SineMacula\Exporter\Schema\Enums\Strictness;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Tests\Support\V3\ExporterTestCase;
 use Tests\Support\V3\Models\User;
 use Tests\Support\V3\Resources\PlainUserResource;
 use Tests\Support\V3\Resources\UserResource;
+use Tests\Support\V3\Schema\ExplodingExportSchema;
 use Tests\Support\V3\Schema\FlexibleSchema;
 use Tests\Support\V3\Schema\UserExportSchema;
 
@@ -156,54 +157,6 @@ final class ExportBuilderTest extends ExporterTestCase
     }
 
     /**
-     * It hands a full query subject to the queued-to-disk pipeline.
-     *
-     * @return void
-     */
-    public function testQueueDispatchesTheExportToDiskJob(): void
-    {
-        Bus::fake();
-
-        $dispatch = Exporter::query(User::query(), UserResource::class) // @phpstan-ignore staticMethod.dynamicCall
-            ->format('csv')
-            ->schema(UserExportSchema::class)
-            ->as('members')
-            ->queue('exports', 'exports/users.csv');
-
-        self::assertInstanceOf(PendingDispatch::class, $dispatch);
-
-        // The pending dispatch is flushed on destruction; release it so the job
-        // reaches the bus fake before the assertion runs.
-        unset($dispatch);
-
-        Bus::assertDispatched(ExportToDiskJob::class);
-    }
-
-    /**
-     * It forwards the builder state onto the queued export specification.
-     *
-     * @return void
-     */
-    public function testQueueForwardsTheBuilderStateToTheSpecification(): void
-    {
-        $fake = Exporter::fake();
-
-        Exporter::query(User::query(), UserResource::class) // @phpstan-ignore staticMethod.dynamicCall
-            ->format('csv')
-            ->schema(UserExportSchema::class)
-            ->as('members')
-            ->queue('exports', 'exports/users.csv');
-
-        $fake->assertQueued(static fn (ExportSpecification $spec): bool => $spec->model === User::class
-            && $spec->resource                                                          === UserResource::class
-            && $spec->schema                                                            === UserExportSchema::class
-            && $spec->format                                                            === 'csv'
-            && $spec->disk                                                              === 'exports'
-            && $spec->path                                                              === 'exports/users.csv'
-            && $spec->filename                                                          === 'members');
-    }
-
-    /**
      * It streams a hierarchical format and honours the chunk size.
      *
      * @return void
@@ -318,62 +271,6 @@ final class ExportBuilderTest extends ExporterTestCase
         $response = Exporter::collection($this->collection())->format('csv')->as('custom')->download();
 
         self::assertSame('attachment; filename=custom.csv', $response->headers->get('Content-Disposition'));
-    }
-
-    /**
-     * It refuses to queue when handed a schema instance instead of a class.
-     *
-     * @return void
-     */
-    public function testQueueRejectsASchemaInstance(): void
-    {
-        $this->expectException(\LogicException::class);
-        $this->expectExceptionMessage('A queued export needs a schema class-string, not a schema instance.');
-
-        Exporter::query(User::query(), UserResource::class) // @phpstan-ignore staticMethod.dynamicCall
-            ->schema(new UserExportSchema(Request::create('/')))
-            ->queue('exports', 'exports/users.csv');
-    }
-
-    /**
-     * It refuses to queue a query subject with no resource class.
-     *
-     * @return void
-     */
-    public function testQueueRejectsAQueryWithoutAResource(): void
-    {
-        $this->expectException(\LogicException::class);
-
-        Exporter::export(User::query())->queue('exports', 'exports/users.csv');
-    }
-
-    /**
-     * It refuses to queue a non-query subject.
-     *
-     * @return void
-     */
-    public function testQueueRejectsANonQuerySubject(): void
-    {
-        $this->seedUsers(1);
-
-        $this->expectException(\LogicException::class);
-        $this->expectExceptionMessage('Only a query subject can be queued; use Exporter::queue($model, $resource) for queued exports.');
-
-        Exporter::collection($this->collection())->queue('exports', 'exports/users.csv');
-    }
-
-    /**
-     * It refuses to queue a query that already carries constraints.
-     *
-     * @return void
-     */
-    public function testQueueRejectsAConstrainedQuery(): void
-    {
-        $this->expectException(\LogicException::class);
-        $this->expectExceptionMessage('A live query with constraints cannot be queued; use Exporter::queue($model, $resource) so the constraints serialize.');
-
-        Exporter::query(User::query()->where('active', true), UserResource::class) // @phpstan-ignore staticMethod.dynamicCall
-            ->queue('exports', 'exports/users.csv');
     }
 
     /**
@@ -543,6 +440,69 @@ final class ExportBuilderTest extends ExporterTestCase
         Exporter::query(User::query(), PlainUserResource::class) // @phpstan-ignore staticMethod.dynamicCall
             ->format('csv')
             ->toString();
+    }
+
+    /**
+     * It surfaces a mid-stream failure on the explicit download path through a
+     * StreamExportFailed event and a logged truncation warning, mirroring the
+     * negotiated path, rather than letting the throw escape the stream.
+     *
+     * @return void
+     */
+    public function testDownloadStreamFailureDispatchesStreamExportFailedAndLogs(): void
+    {
+        $this->seedUsers(2);
+
+        Event::fake([StreamExportFailed::class]);
+        Log::spy();
+
+        $response = Exporter::collection($this->collection())
+            ->schema(ExplodingExportSchema::class)
+            ->format('csv')
+            ->download();
+
+        $this->streamToString($response);
+
+        Event::assertDispatched(
+            StreamExportFailed::class,
+            static fn (StreamExportFailed $event): bool => $event->format === 'csv'
+                && $event->rowsWritten                                    === 0
+                && $event->exception->getMessage()                        === 'exploding column',
+        );
+
+        Log::shouldHaveReceived('warning') // @phpstan-ignore staticMethod.notFound
+            ->once()
+            ->withArgs(static fn (string $message, array $context): bool => $message === 'Resource export stream truncated after the response had begun.'
+                && $context['format']                                                === 'csv'
+                && $context['rows_written']                                          === 0
+                && $context['exception'] instanceof \Throwable);
+    }
+
+    /**
+     * It logs the warnings a lenient export collects once it completes cleanly,
+     * so a silently degraded column is visible to an operator.
+     *
+     * @return void
+     */
+    public function testLenientExportLogsCollectedWarnings(): void
+    {
+        $this->seedUsers(1);
+
+        Log::spy();
+
+        $schema = new FlexibleSchema(Request::create('/'), [
+            Column::make('id', 'ID'),
+            Column::make('broken', 'Broken')->cast('does-not-exist'),
+        ], strictness: Strictness::LENIENT);
+
+        Exporter::collection($this->collection())->schema($schema)->format('csv')->toString();
+
+        Log::shouldHaveReceived('warning') // @phpstan-ignore staticMethod.notFound
+            ->once()
+            ->withArgs(static fn (string $message, array $context): bool => $message === 'Resource export completed with warnings.'
+                && $context['format']                                                === 'csv'
+                && is_array($context['warnings'])
+                && $context['warnings'] !== []);
     }
 
     /**

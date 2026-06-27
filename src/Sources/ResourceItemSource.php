@@ -13,8 +13,10 @@ use SineMacula\Exporter\Contracts\Source;
  *
  * Normalises one JsonResource into a single-step stream of its underlying
  * domain item. The resource is never serialised through toArray()/resolve();
- * the raw underlying model (or value) is yielded so the schema can apply the
- * resource's request-aware accessors itself.
+ * the raw underlying model (or value) is yielded and the schema reads its raw
+ * attributes directly. Field visibility from the resource's toArray()/$hidden/
+ * when() gating is therefore NOT inherited; gate a column out of the export
+ * with the schema's ->visible().
  *
  * @author      Ben Carey <bdmc@sinemacula.co.uk>
  * @copyright   2026 Sine Macula Limited.

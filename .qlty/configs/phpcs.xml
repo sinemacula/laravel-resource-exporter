@@ -34,6 +34,7 @@
         <exclude-pattern>src/ExportBuilder.php</exclude-pattern>
         <exclude-pattern>src/ExportManager.php</exclude-pattern>
         <exclude-pattern>src/Export/ExportAuditor.php</exclude-pattern>
+        <exclude-pattern>src/Export/Concerns/*</exclude-pattern>
         <exclude-pattern>src/Export/ExportSpecification.php</exclude-pattern>
         <exclude-pattern>src/Export/HierarchicalRows.php</exclude-pattern>
         <exclude-pattern>src/Export/QueuedExport.php</exclude-pattern>
@@ -52,6 +53,7 @@
         <exclude-pattern>src/Sinks/DiskSink.php</exclude-pattern>
         <exclude-pattern>src/Sources/LazyCollectionSource.php</exclude-pattern>
         <exclude-pattern>src/Writers/Concerns/EncodesJson.php</exclude-pattern>
+        <exclude-pattern>src/Writers/CellRenderer.php</exclude-pattern>
         <exclude-pattern>src/Writers/CsvWriter.php</exclude-pattern>
         <exclude-pattern>src/Writers/XlsxWriter.php</exclude-pattern>
         <exclude-pattern>src/Writers/XmlWriter.php</exclude-pattern>

@@ -4,6 +4,7 @@ declare(strict_types = 1);
 
 namespace Tests\Integration;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use PHPUnit\Framework\Attributes\CoversClass;
 use SineMacula\Exporter\Engine;
@@ -13,6 +14,7 @@ use SineMacula\Exporter\Sinks\StringSink;
 use SineMacula\Exporter\Sources\QueryChunkSource;
 use SineMacula\Exporter\Writers\CsvWriter;
 use Tests\Support\V3\ExporterTestCase;
+use Tests\Support\V3\Models\HiddenAttributeUser;
 use Tests\Support\V3\Models\User;
 use Tests\Support\V3\Schema\FlexibleSchema;
 
@@ -87,6 +89,39 @@ final class ExportVisibilityTest extends ExporterTestCase
     }
 
     /**
+     * A $hidden model attribute is still emitted in tabular output by default.
+     *
+     * Export value resolution reads the raw model attribute via data_get, which
+     * does not consult the model's $hidden serialisation gating - so a value
+     * the model hides from toArray()/toJson() still reaches the export. This is
+     * the honest, intended behaviour (the D1 boundary): field gating in an
+     * export is the schema author's job via ->visible(), not an inherited side
+     * effect of the model or its resource.
+     *
+     * @return void
+     */
+    public function testHiddenModelAttributeIsStillEmittedByDefault(): void
+    {
+        $this->seedUsers(1);
+
+        $model = HiddenAttributeUser::query()->firstOrFail();
+
+        // The model hides the secret from its own array serialisation...
+        self::assertArrayNotHasKey('secret', $model->toArray());
+
+        // ...yet the raw-attribute tabular export still emits it by default.
+        $columns = [
+            Column::make('id', 'ID'),
+            Column::make('secret', 'Secret'),
+        ];
+
+        $csv = $this->exportToCsv(new FlexibleSchema(Request::create('/'), $columns), HiddenAttributeUser::query());
+
+        self::assertStringStartsWith("ID,Secret\n", $csv);
+        self::assertStringContainsString('secret-1', $csv);
+    }
+
+    /**
      * Seed one user with two orders and a known secret.
      *
      * @return void
@@ -116,16 +151,18 @@ final class ExportVisibilityTest extends ExporterTestCase
     }
 
     /**
-     * Export the schema over the full users query as CSV.
+     * Export the schema over the given query (the full users query by default)
+     * as CSV.
      *
      * @param  \SineMacula\Exporter\Schema\TabularSchema  $schema
+     * @param  \Illuminate\Database\Eloquent\Builder<\Illuminate\Database\Eloquent\Model>|null  $query
      * @return string
      */
-    private function exportToCsv(TabularSchema $schema): string
+    private function exportToCsv(TabularSchema $schema, ?Builder $query = null): string
     {
         $sink = new StringSink;
 
-        (new Engine)->export(new QueryChunkSource(User::query()), $schema, Request::create('/'), new CsvWriter, $sink);
+        (new Engine)->export(new QueryChunkSource($query ?? User::query()), $schema, Request::create('/'), new CsvWriter, $sink);
 
         return $sink->contents();
     }

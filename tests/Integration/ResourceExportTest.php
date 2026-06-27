@@ -4,7 +4,9 @@ declare(strict_types = 1);
 
 namespace Tests\Integration;
 
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Auth\GenericUser;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Event;
@@ -65,6 +67,7 @@ final class ResourceExportTest extends ExporterTestCase
         $response = ResourceExport::forQuery(User::query(), UserResource::class)
             ->perPage(10)
             ->chunk(10)
+            ->withoutAuthorization()
             ->paginatedJsonOrStreamedExport($this->exportRequest());
 
         self::assertInstanceOf(StreamedResponse::class, $response);
@@ -88,6 +91,7 @@ final class ResourceExportTest extends ExporterTestCase
 
         ResourceExport::forQuery(User::query(), UserResource::class)
             ->maxRows(2)
+            ->withoutAuthorization()
             ->paginatedJsonOrStreamedExport($this->exportRequest());
     }
 
@@ -103,6 +107,7 @@ final class ResourceExportTest extends ExporterTestCase
         $response = ResourceExport::forQuery(User::query(), UserResource::class)
             ->maxRows(2)
             ->unlimited()
+            ->withoutAuthorization()
             ->paginatedJsonOrStreamedExport($this->exportRequest());
 
         self::assertInstanceOf(StreamedResponse::class, $response);
@@ -126,6 +131,7 @@ final class ResourceExportTest extends ExporterTestCase
         $response = ResourceExport::forQuery(User::query(), UserResource::class)
             ->chunk(500)
             ->unlimited()
+            ->withoutAuthorization()
             ->paginatedJsonOrStreamedExport($this->exportRequest());
 
         self::assertInstanceOf(StreamedResponse::class, $response);
@@ -153,6 +159,7 @@ final class ResourceExportTest extends ExporterTestCase
         $captured = null;
 
         $response = ResourceExport::forQuery(User::query(), UserResource::class)
+            ->withoutAuthorization()
             ->auditUsing(static function (array $payload) use (&$captured): void {
                 $captured = $payload;
             })
@@ -183,6 +190,7 @@ final class ResourceExportTest extends ExporterTestCase
 
         ResourceExport::forQuery(User::query(), PlainUserResource::class)
             ->unlimited()
+            ->withoutAuthorization()
             ->paginatedJsonOrStreamedExport($this->exportRequest());
     }
 
@@ -237,10 +245,90 @@ final class ResourceExportTest extends ExporterTestCase
 
         $response = ResourceExport::forQuery(User::query(), UserResource::class)
             ->maxRows(5)
+            ->withoutAuthorization()
             ->paginatedJsonOrStreamedExport($this->exportRequest());
 
         self::assertInstanceOf(StreamedResponse::class, $response);
         self::assertCount(5, $this->dataLines($this->streamToString($response)));
+    }
+
+    /**
+     * It refuses to stream the full set without an explicit authorization
+     * decision - neither authorizeUsing() nor withoutAuthorization().
+     *
+     * @return void
+     */
+    public function testStreamingWithoutAnAuthorizationDecisionThrows(): void
+    {
+        $this->seedUsers(3);
+
+        $this->expectException(\LogicException::class);
+
+        ResourceExport::forQuery(User::query(), UserResource::class)
+            ->paginatedJsonOrStreamedExport($this->exportRequest());
+    }
+
+    /**
+     * It streams once the caller consciously opts out with
+     * withoutAuthorization().
+     *
+     * @return void
+     */
+    public function testWithoutAuthorizationPermitsStreaming(): void
+    {
+        $this->seedUsers(3);
+
+        $response = ResourceExport::forQuery(User::query(), UserResource::class)
+            ->withoutAuthorization()
+            ->paginatedJsonOrStreamedExport($this->exportRequest());
+
+        self::assertInstanceOf(StreamedResponse::class, $response);
+        self::assertCount(3, $this->dataLines($this->streamToString($response)));
+    }
+
+    /**
+     * It streams once a passing authorizeUsing() check is registered, and the
+     * check actually runs against the full-set query.
+     *
+     * @return void
+     */
+    public function testAuthorizeUsingPermitsStreaming(): void
+    {
+        $this->seedUsers(3);
+
+        $checked = false;
+
+        $response = ResourceExport::forQuery(User::query(), UserResource::class)
+            ->authorizeUsing(static function (Request $request, Builder $query) use (&$checked): void {
+                $checked = true;
+            })
+            ->paginatedJsonOrStreamedExport($this->exportRequest());
+
+        self::assertInstanceOf(StreamedResponse::class, $response);
+
+        $lines = $this->dataLines($this->streamToString($response));
+
+        self::assertTrue($checked, 'The registered full-set authorization check must run.');
+        self::assertCount(3, $lines);
+    }
+
+    /**
+     * It rejects a forbidden actor: a throwing authorizeUsing() check stops the
+     * export before any byte is streamed.
+     *
+     * @return void
+     */
+    public function testAuthorizeUsingRejectsAForbiddenActor(): void
+    {
+        $this->seedUsers(3);
+
+        $this->expectException(AuthorizationException::class);
+
+        ResourceExport::forQuery(User::query(), UserResource::class)
+            ->authorizeUsing(static function (Request $request, Builder $query): void {
+                throw new AuthorizationException('Full-set export denied.');
+            })
+            ->paginatedJsonOrStreamedExport($this->exportRequest());
     }
 
     /**
@@ -255,6 +343,7 @@ final class ResourceExportTest extends ExporterTestCase
         $this->seedUsers(3);
 
         $response = ResourceExport::forQuery(User::query(), UserResource::class)
+            ->withoutAuthorization()
             ->paginatedJsonOrStreamedExport($this->exportRequestAs(42));
 
         self::assertInstanceOf(StreamedResponse::class, $response);
@@ -264,7 +353,8 @@ final class ResourceExportTest extends ExporterTestCase
         Event::assertDispatched(ExportCompleted::class, static fn (ExportCompleted $event): bool => $event->actorId === 42
             && $event->rowCount                                                                                     === 3
             && $event->format                                                                                       === 'csv'
-            && $event->filename                                                                                     === 'users');
+            && $event->filename                                                                                     === 'users'
+            && $event->queued                                                                                       === false);
     }
 
     /**
@@ -279,6 +369,7 @@ final class ResourceExportTest extends ExporterTestCase
         $this->seedUsers(2);
 
         $response = ResourceExport::forQuery(User::query(), UserResource::class)
+            ->withoutAuthorization()
             ->paginatedJsonOrStreamedExport($this->exportRequestAs('user-7'));
 
         self::assertInstanceOf(StreamedResponse::class, $response);
@@ -300,6 +391,7 @@ final class ResourceExportTest extends ExporterTestCase
         $this->seedUsers(2);
 
         $response = ResourceExport::forQuery(User::query(), UserResource::class)
+            ->withoutAuthorization()
             ->paginatedJsonOrStreamedExport($this->exportRequest());
 
         self::assertInstanceOf(StreamedResponse::class, $response);

@@ -259,7 +259,10 @@ final class ExportNegotiationHttpTest extends ExporterTestCase
         Log::shouldHaveReceived('warning') // @phpstan-ignore staticMethod.notFound
             ->once()
             ->withArgs(static fn (string $message, array $context): bool => $message === 'Resource export stream truncated after the response had begun.'
-                && $context                                                          === ['format' => 'csv', 'rows_written' => 0, 'exception' => 'boom']);
+                && $context['format']                                                === 'csv'
+                && $context['rows_written']                                          === 0
+                && $context['exception'] instanceof \Throwable
+                && $context['exception']->getMessage() === 'boom');
     }
 
     /**

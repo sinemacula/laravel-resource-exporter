@@ -4,12 +4,14 @@ declare(strict_types = 1);
 
 namespace SineMacula\Exporter;
 
+use Carbon\CarbonImmutable;
 use Illuminate\Container\Container;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Config;
 use SineMacula\Exporter\Contracts\ProvidesTabularExport;
+use SineMacula\Exporter\Events\ExportCompleted;
 use SineMacula\Exporter\Exceptions\NoTabularRepresentation;
 use SineMacula\Exporter\Exceptions\RowLimitExceeded;
 use SineMacula\Exporter\Export\ExportAuditor;
@@ -29,10 +31,21 @@ use Symfony\Component\HttpFoundation\Response;
  *
  * Because the export path changes cardinality from a page to the full set, it
  * carries the safety rails that page-scoped responses do not need: a
- * configurable row cap (lifted with unlimited()), a full-set authorization
- * re-check, and an audit hook fired around the streamed export. The builder is
- * request-explicit and resolves the current request only as a convenience
- * default (Octane-safe).
+ * configurable row cap (lifted with unlimited()), an explicit full-set
+ * authorization decision, and an audit hook fired around the streamed export.
+ * The authorization is not an automatic re-check - the caller must either
+ * register one with authorizeUsing() or consciously opt out with
+ * withoutAuthorization(), and streaming without either throws a LogicException.
+ * The builder is request-explicit and resolves the current request only as a
+ * convenience default (Octane-safe).
+ *
+ * Two behaviours are by design. A streamed CSV/TSV export is genuinely
+ * constant-memory, but XLSX finalises on close and therefore buffers the whole
+ * workbook before the response flushes - so a large XLSX served synchronously
+ * over HTTP holds the set in memory; queue it (Exporter::queue()) when the set
+ * can be large. And an empty result set streams a header-less file (no rows
+ * means no header is written), so an empty export is a zero-byte body rather
+ * than a column header alone.
  *
  * @author      Ben Carey <bdmc@sinemacula.co.uk>
  * @copyright   2026 Sine Macula Limited.
@@ -56,6 +69,9 @@ final class ResourceExport
 
     /** @var (\Closure(array<string, mixed>): void)|null The audit hook fired around a streamed export */
     private ?\Closure $audit = null;
+
+    /** @var bool Whether the explicit full-set authorization requirement is waived */
+    private bool $withoutAuthorization = false;
 
     /**
      * Create a new query-aware export helper.
@@ -154,6 +170,22 @@ final class ResourceExport
     }
 
     /**
+     * Waive the explicit full-set authorization requirement for this export.
+     *
+     * A conscious opt-out, not a default: use it only when access to the full
+     * set is already enforced upstream (route middleware, a policy applied to
+     * the query). Streaming without either this or authorizeUsing() throws.
+     *
+     * @return $this
+     */
+    public function withoutAuthorization(): static
+    {
+        $this->withoutAuthorization = true;
+
+        return $this;
+    }
+
+    /**
      * Register the audit hook fired around a streamed export.
      *
      * @param  \Closure(array<string, mixed>): void  $callback
@@ -173,6 +205,7 @@ final class ResourceExport
      * @param  \Illuminate\Http\Request|null  $request
      * @return \Symfony\Component\HttpFoundation\Response
      *
+     * @throws \LogicException
      * @throws \SineMacula\Exporter\Exceptions\NoTabularRepresentation
      * @throws \SineMacula\Exporter\Exceptions\RowLimitExceeded
      */
@@ -227,6 +260,7 @@ final class ResourceExport
      * @param  \Illuminate\Http\Request  $request
      * @return \Symfony\Component\HttpFoundation\Response
      *
+     * @throws \LogicException
      * @throws \SineMacula\Exporter\Exceptions\NoTabularRepresentation
      * @throws \SineMacula\Exporter\Exceptions\RowLimitExceeded
      */
@@ -234,6 +268,7 @@ final class ResourceExport
     {
         $auditor = new ExportAuditor;
 
+        $this->guardAuthorizationDecision();
         $this->authorizeFullSet($auditor, $request);
         $this->enforceRowCap();
 
@@ -271,10 +306,35 @@ final class ResourceExport
     }
 
     /**
-     * Re-check authorization for the full dataset, not just the visible page.
+     * Require the caller to have made an explicit full-set authorization
+     * decision before any bytes stream.
+     *
+     * The full set is a different, larger response than the visible page, so
+     * the decision is never implicit: the caller must either register a
+     * re-check with authorizeUsing() or consciously opt out with
+     * withoutAuthorization(). Silence is not consent, so neither throws here.
+     *
+     * @return void
+     *
+     * @throws \LogicException
+     */
+    private function guardAuthorizationDecision(): void
+    {
+        if ($this->authorization !== null || $this->withoutAuthorization) {
+            return;
+        }
+
+        throw new \LogicException('A streamed full-set export must register an authorization check with authorizeUsing(), or explicitly opt out with withoutAuthorization().');
+    }
+
+    /**
+     * Run the registered full-set authorization check, if any.
      *
      * Routed through the shared auditor so the streamed path and the queued
-     * pipeline enforce full-set authorization at the same point.
+     * pipeline enforce full-set authorization at the same point. When the
+     * caller opted out with withoutAuthorization() no check is registered and
+     * this is a deliberate no-op - the guard upstream has already required that
+     * explicit decision.
      *
      * @param  \SineMacula\Exporter\Export\ExportAuditor  $auditor
      * @param  \Illuminate\Http\Request  $request
@@ -293,6 +353,13 @@ final class ResourceExport
 
     /**
      * Enforce the configured row cap before any bytes are streamed.
+     *
+     * This runs a COUNT over the (filtered) query before the export starts, so
+     * an oversized set is rejected up front rather than after streaming bytes.
+     * The COUNT is an extra round-trip whose cost grows with the result set and
+     * the query's complexity; lift the cap with unlimited() (or raise it with
+     * maxRows()) when the count is known to be safe and the round-trip is not
+     * wanted.
      *
      * @return void
      *
@@ -330,7 +397,13 @@ final class ResourceExport
     {
         $actorId = $this->actorId($request);
 
-        $auditor->completed($actorId, $rows, $schema->filename(), $format);
+        $auditor->completed(new ExportCompleted(
+            $actorId,
+            $rows,
+            $schema->filename(),
+            $format,
+            CarbonImmutable::now(),
+        ));
 
         if ($this->audit === null) {
             return;

@@ -38,6 +38,7 @@ final readonly class CsvWriter implements Writer
      * @param  bool  $bom
      * @param  bool  $escapeFormula
      * @param  int|null  $flushThreshold
+     * @param  \SineMacula\Exporter\Writers\CellRenderer  $cells
      */
     public function __construct(
 
@@ -61,6 +62,9 @@ final readonly class CsvWriter implements Writer
 
         /** The byte threshold at which the writer flushes, or null. */
         private ?int $flushThreshold = null,
+
+        /** The shared, stateless cell value coercion. */
+        private CellRenderer $cells = new CellRenderer,
     ) {}
 
     /**
@@ -226,58 +230,13 @@ final readonly class CsvWriter implements Writer
     {
         return match ($cell->type) {
             CellType::NULL    => '',
-            CellType::INTEGER => $this->renderInt($cell->raw),
-            CellType::FLOAT   => $this->renderFloat($cell->raw),
-            CellType::BOOLEAN => $this->renderBoolean($cell),
+            CellType::INTEGER => $this->cells->renderInt($cell->raw),
+            CellType::FLOAT   => $this->cells->renderFloat($cell->raw),
+            CellType::BOOLEAN => $this->cells->renderBoolean($cell),
             CellType::DATE,
             CellType::DATE_TIME => $this->renderDate($cell),
-            default             => $this->renderString($cell->raw),
+            default             => $this->cells->renderString($cell->raw),
         };
-    }
-
-    /**
-     * Render an integer cell to a native integer.
-     *
-     * @param  mixed  $raw
-     * @return int
-     */
-    private function renderInt(mixed $raw): int
-    {
-        if (is_int($raw)) {
-            return $raw;
-        }
-
-        return is_numeric($raw) ? (int) $raw : 0;
-    }
-
-    /**
-     * Render a float cell to a native float.
-     *
-     * @param  mixed  $raw
-     * @return float
-     */
-    private function renderFloat(mixed $raw): float
-    {
-        if (is_float($raw)) {
-            return $raw;
-        }
-
-        return is_numeric($raw) ? (float) $raw : 0.0;
-    }
-
-    /**
-     * Render a boolean cell to its configured label.
-     *
-     * @param  \SineMacula\Exporter\Schema\CellValue  $cell
-     * @return string
-     */
-    private function renderBoolean(CellValue $cell): string
-    {
-        $labels = $cell->format !== null && str_contains($cell->format, '|')
-            ? explode('|', $cell->format, 2)
-            : ['Yes', 'No'];
-
-        return $cell->raw ? $labels[0] : ($labels[1] ?? 'No');
     }
 
     /**
@@ -292,25 +251,6 @@ final readonly class CsvWriter implements Writer
             return $cell->raw->format($cell->format ?? 'Y-m-d');
         }
 
-        return $this->renderString($cell->raw);
-    }
-
-    /**
-     * Render an arbitrary value to its string representation.
-     *
-     * @param  mixed  $raw
-     * @return string
-     */
-    private function renderString(mixed $raw): string
-    {
-        if (is_string($raw)) {
-            return $raw;
-        }
-
-        if (is_scalar($raw) || $raw instanceof \Stringable) {
-            return (string) $raw;
-        }
-
-        return '';
+        return $this->cells->renderString($cell->raw);
     }
 }

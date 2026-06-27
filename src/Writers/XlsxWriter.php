@@ -50,11 +50,15 @@ final readonly class XlsxWriter implements Writer
      * Create a new XLSX writer.
      *
      * @param  string|null  $tempDirectory
+     * @param  \SineMacula\Exporter\Writers\CellRenderer  $cells
      */
     public function __construct(
 
         /** The directory the workbook is built in, or null for the default. */
         private ?string $tempDirectory = null,
+
+        /** The shared, stateless cell value coercion. */
+        private CellRenderer $cells = new CellRenderer,
     ) {}
 
     /**
@@ -314,12 +318,12 @@ final readonly class XlsxWriter implements Writer
     {
         return match ($cell->type) {
             CellType::NULL      => new EmptyCell(null, null),
-            CellType::INTEGER   => new NumericCell($this->renderInt($cell->raw), null),
-            CellType::FLOAT     => new NumericCell($this->renderFloat($cell->raw), null),
-            CellType::BOOLEAN   => new StringCell($this->renderBoolean($cell), null),
+            CellType::INTEGER   => new NumericCell($this->cells->renderInt($cell->raw), null),
+            CellType::FLOAT     => new NumericCell($this->cells->renderFloat($cell->raw), null),
+            CellType::BOOLEAN   => new StringCell($this->cells->renderBoolean($cell), null),
             CellType::DATE      => $this->dateCell($cell, $dateStyle),
             CellType::DATE_TIME => $this->dateCell($cell, $dateTimeStyle),
-            default             => new StringCell($this->renderString($cell->raw), null),
+            default             => new StringCell($this->cells->renderString($cell->raw), null),
         };
     }
 
@@ -337,70 +341,6 @@ final readonly class XlsxWriter implements Writer
             return new DateTimeCell($cell->raw, $style);
         }
 
-        return new StringCell($this->renderString($cell->raw), null);
-    }
-
-    /**
-     * Render an integer cell to a native integer.
-     *
-     * @param  mixed  $raw
-     * @return int
-     */
-    private function renderInt(mixed $raw): int
-    {
-        if (is_int($raw)) {
-            return $raw;
-        }
-
-        return is_numeric($raw) ? (int) $raw : 0;
-    }
-
-    /**
-     * Render a float cell to a native float.
-     *
-     * @param  mixed  $raw
-     * @return float
-     */
-    private function renderFloat(mixed $raw): float
-    {
-        if (is_float($raw)) {
-            return $raw;
-        }
-
-        return is_numeric($raw) ? (float) $raw : 0.0;
-    }
-
-    /**
-     * Render a boolean cell to its configured label.
-     *
-     * @param  \SineMacula\Exporter\Schema\CellValue  $cell
-     * @return string
-     */
-    private function renderBoolean(CellValue $cell): string
-    {
-        $labels = $cell->format !== null && str_contains($cell->format, '|')
-            ? explode('|', $cell->format, 2)
-            : ['Yes', 'No'];
-
-        return $cell->raw ? $labels[0] : ($labels[1] ?? 'No');
-    }
-
-    /**
-     * Render an arbitrary value to its string representation.
-     *
-     * @param  mixed  $raw
-     * @return string
-     */
-    private function renderString(mixed $raw): string
-    {
-        if (is_string($raw)) {
-            return $raw;
-        }
-
-        if (is_scalar($raw) || $raw instanceof \Stringable) {
-            return (string) $raw;
-        }
-
-        return '';
+        return new StringCell($this->cells->renderString($cell->raw), null);
     }
 }

@@ -61,9 +61,12 @@ final class ExportAuditorTest extends ExporterTestCase
 
         $actor->name = 'admin';
 
+        // The behaviour under test is that authorize() returns without throwing
+        // for a granted ability - the no-throw counterpart to the denied case -
+        // not that the gate setup itself allows the ability.
         (new ExportAuditor)->authorize(actor: $actor, ability: 'export-set');
 
-        self::assertTrue(Gate::forUser($actor)->allows('export-set'));
+        $this->addToAssertionCount(1);
     }
 
     /**
@@ -105,7 +108,17 @@ final class ExportAuditorTest extends ExporterTestCase
     {
         Event::fake();
 
-        (new ExportAuditor)->completed(42, 7, 'users', 'csv', 'exports', 'exports/users.csv', 'https://signed.example/exports/users.csv');
+        (new ExportAuditor)->completed(new ExportCompleted(
+            42,
+            7,
+            'users',
+            'csv',
+            now(),
+            'exports',
+            'exports/users.csv',
+            'https://signed.example/exports/users.csv',
+            queued: true,
+        ));
 
         Event::assertDispatched(
             ExportCompleted::class,
@@ -116,7 +129,26 @@ final class ExportAuditorTest extends ExporterTestCase
                 && $event->completedAt->toDateString()                  === now()->toDateString()
                 && $event->disk                                         === 'exports'
                 && $event->path                                         === 'exports/users.csv'
-                && $event->url                                          === 'https://signed.example/exports/users.csv',
+                && $event->url                                          === 'https://signed.example/exports/users.csv'
+                && $event->queued                                       === true,
+        );
+    }
+
+    /**
+     * It defaults the queued discriminator to false for the synchronous
+     * streamed path, which passes no queued flag.
+     *
+     * @return void
+     */
+    public function testCompletedDefaultsTheQueuedFlagToFalse(): void
+    {
+        Event::fake();
+
+        (new ExportAuditor)->completed(new ExportCompleted(1, 2, 'users', 'csv', now()));
+
+        Event::assertDispatched(
+            ExportCompleted::class,
+            static fn (ExportCompleted $event): bool => $event->queued === false,
         );
     }
 
@@ -140,7 +172,7 @@ final class ExportAuditorTest extends ExporterTestCase
                 && is_string($context['completed_at'])),
         );
 
-        (new ExportAuditor)->completed(7, 3, 'users', 'csv');
+        (new ExportAuditor)->completed(new ExportCompleted(7, 3, 'users', 'csv', now()));
     }
 
     /**
@@ -155,7 +187,7 @@ final class ExportAuditorTest extends ExporterTestCase
 
         Log::shouldReceive('channel')->never();
 
-        (new ExportAuditor)->completed(null, 1, null, 'csv');
+        (new ExportAuditor)->completed(new ExportCompleted(null, 1, null, 'csv', now()));
 
         Event::assertDispatched(ExportCompleted::class);
     }

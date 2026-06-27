@@ -350,10 +350,13 @@ final readonly class Engine
     }
 
     /**
-     * Build every shaped row for one parent against the expansion axis.
+     * Stream every shaped row for one parent against the expansion axis.
      *
-     * A parent with children yields one row per child; a childless parent
-     * yields a single blank-child row, or no rows when the axis drops empties.
+     * The axis children are iterated directly - never buffered into an
+     * intermediate list - so a parent with a million children fans out at
+     * constant memory. A parent with children yields one row per child; a
+     * childless parent yields a single blank-child row, or no rows when the
+     * axis drops empties.
      *
      * @param  array<array-key, mixed>|object  $item
      * @param  \SineMacula\Exporter\Schema\ExpandAxis  $axis
@@ -361,46 +364,26 @@ final readonly class Engine
      * @param  \Illuminate\Http\Request  $request
      * @param  \SineMacula\Exporter\Schema\Enums\Strictness  $strictness
      * @param  \SineMacula\Exporter\Schema\WarningCollector  $warnings
-     * @return list<array<string, \SineMacula\Exporter\Schema\CellValue>>
+     * @return \Generator<int, array<string, \SineMacula\Exporter\Schema\CellValue>>
      */
-    private function expandedRows(array|object $item, ExpandAxis $axis, array $columns, Request $request, Strictness $strictness, WarningCollector $warnings): array
-    {
-        $children = $this->childList($item, $axis);
-
-        if ($children === []) {
-            return $axis->dropWhenEmpty
-                ? []
-                : [$this->expandedRow($item, null, $columns, $request, $strictness, $warnings)];
-        }
-
-        $rows = [];
-
-        foreach ($children as $child) {
-            $rows[] = $this->expandedRow($item, $child, $columns, $request, $strictness, $warnings);
-        }
-
-        return $rows;
-    }
-
-    /**
-     * Materialise the expansion-axis children of a parent item into a list.
-     *
-     * @param  array<array-key, mixed>|object  $item
-     * @param  \SineMacula\Exporter\Schema\ExpandAxis  $axis
-     * @return list<mixed>
-     */
-    private function childList(array|object $item, ExpandAxis $axis): array
+    private function expandedRows(array|object $item, ExpandAxis $axis, array $columns, Request $request, Strictness $strictness, WarningCollector $warnings): \Generator
     {
         $children = data_get($item, $axis->relation);
-        $list     = [];
+        $expanded = false;
 
         if (is_iterable($children)) {
             foreach ($children as $child) {
-                $list[] = $child;
+                $expanded = true;
+
+                yield $this->expandedRow($item, $child, $columns, $request, $strictness, $warnings);
             }
         }
 
-        return $list;
+        if ($expanded || $axis->dropWhenEmpty) {
+            return;
+        }
+
+        yield $this->expandedRow($item, null, $columns, $request, $strictness, $warnings);
     }
 
     /**

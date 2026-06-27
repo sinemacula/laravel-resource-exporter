@@ -40,6 +40,59 @@ final class QueuedExportTest extends QueuedExportTestCase
 
         QueuedExport::forModel(User::class, UserResource::class)
             ->toDisk('exports', 'exports/users.csv')
+            ->withoutAuthorization()
+            ->queue();
+
+        Bus::assertDispatched(ExportToDiskJob::class);
+    }
+
+    /**
+     * It refuses to dispatch without an explicit full-set authorization
+     * decision - neither authorize() nor withoutAuthorization().
+     *
+     * @return void
+     */
+    public function testQueueWithoutAnAuthorizationDecisionThrows(): void
+    {
+        Bus::fake();
+
+        $this->expectException(\LogicException::class);
+
+        QueuedExport::forModel(User::class, UserResource::class)
+            ->toDisk('exports', 'exports/users.csv')
+            ->queue();
+    }
+
+    /**
+     * It dispatches once a gate ability is registered with authorize().
+     *
+     * @return void
+     */
+    public function testQueueWithAnAbilityDispatches(): void
+    {
+        Bus::fake();
+
+        QueuedExport::forModel(User::class, UserResource::class)
+            ->toDisk('exports', 'exports/users.csv')
+            ->authorize('export-users')
+            ->queue();
+
+        Bus::assertDispatched(ExportToDiskJob::class);
+    }
+
+    /**
+     * It dispatches once the caller consciously opts out with
+     * withoutAuthorization().
+     *
+     * @return void
+     */
+    public function testQueueWithWithoutAuthorizationDispatches(): void
+    {
+        Bus::fake();
+
+        QueuedExport::forModel(User::class, UserResource::class)
+            ->toDisk('exports', 'exports/users.csv')
+            ->withoutAuthorization()
             ->queue();
 
         Bus::assertDispatched(ExportToDiskJob::class);
@@ -446,6 +499,7 @@ final class QueuedExportTest extends QueuedExportTestCase
 
         QueuedExport::forModel(User::class, UserResource::class)
             ->toDisk('exports', 'exports/users.csv')
+            ->withoutAuthorization()
             ->queue();
 
         $fake->assertQueued(static fn (ExportSpecification $spec): bool => $spec->disk === 'exports'

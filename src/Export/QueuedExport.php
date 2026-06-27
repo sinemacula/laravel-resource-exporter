@@ -8,6 +8,7 @@ use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Bus\PendingDispatch;
 use Illuminate\Support\Facades\Config;
+use SineMacula\Exporter\Export\Concerns\BuildsQueryConstraints;
 use SineMacula\Exporter\Jobs\ExportToDiskJob;
 use SineMacula\Exporter\Testing\ExporterFake;
 
@@ -32,8 +33,7 @@ use SineMacula\Exporter\Testing\ExporterFake;
  */
 final class QueuedExport
 {
-    /** @var list<array<string, mixed>> The accumulated constraint descriptors */
-    private array $constraints = [];
+    use BuildsQueryConstraints;
 
     /** @var class-string<\SineMacula\Exporter\Schema\TabularSchema>|null The dedicated schema class */
     private ?string $schema = null;
@@ -58,6 +58,9 @@ final class QueuedExport
 
     /** @var string|null The gate ability re-checked against the full set */
     private ?string $ability = null;
+
+    /** @var bool Whether the explicit full-set authorization requirement is waived */
+    private bool $withoutAuthorization = false;
 
     /** @var int The keyset chunk size used while streaming */
     private int $chunkSize = 1000;
@@ -140,107 +143,6 @@ final class QueuedExport
     }
 
     /**
-     * Add a where constraint, defaulting the operator to equality.
-     *
-     * @param  string  $column
-     * @param  mixed  $operator
-     * @param  mixed  $value
-     * @return $this
-     */
-    public function where(string $column, mixed $operator = null, mixed $value = null): static
-    {
-        if (func_num_args() === 2) {
-            $value    = $operator;
-            $operator = '=';
-        }
-
-        $this->constraints[] = ['type' => 'where', 'column' => $column, 'operator' => $operator ?? '=', 'value' => $value];
-
-        return $this;
-    }
-
-    /**
-     * Add a where-in constraint.
-     *
-     * @param  string  $column
-     * @param  array<array-key, mixed>  $values
-     * @return $this
-     */
-    public function whereIn(string $column, array $values): static
-    {
-        $this->constraints[] = ['type' => 'whereIn', 'column' => $column, 'values' => $values];
-
-        return $this;
-    }
-
-    /**
-     * Add a where-null constraint.
-     *
-     * @param  string  $column
-     * @return $this
-     */
-    public function whereNull(string $column): static
-    {
-        $this->constraints[] = ['type' => 'whereNull', 'column' => $column];
-
-        return $this;
-    }
-
-    /**
-     * Add a where-not-null constraint.
-     *
-     * @param  string  $column
-     * @return $this
-     */
-    public function whereNotNull(string $column): static
-    {
-        $this->constraints[] = ['type' => 'whereNotNull', 'column' => $column];
-
-        return $this;
-    }
-
-    /**
-     * Add an order-by constraint.
-     *
-     * @param  string  $column
-     * @param  string  $direction
-     * @return $this
-     */
-    public function orderBy(string $column, string $direction = 'asc'): static
-    {
-        $this->constraints[] = ['type' => 'orderBy', 'column' => $column, 'direction' => $direction];
-
-        return $this;
-    }
-
-    /**
-     * Add a hard limit on the number of records exported.
-     *
-     * @param  int  $value
-     * @return $this
-     */
-    public function limit(int $value): static
-    {
-        $this->constraints[] = ['type' => 'limit', 'value' => $value];
-
-        return $this;
-    }
-
-    /**
-     * Apply a named Eloquent query scope.
-     *
-     * @param  string  $name
-     * @param  mixed  ...$arguments
-     * @return $this
-     */
-    public function scope(string $name, mixed ...$arguments): static
-    {
-        $this->constraints[] = ['type' => 'scope', 'name' => $name, 'arguments' => array_values($arguments)];
-
-        return $this;
-    }
-
-    /**
      * Set the download filename hint, without extension.
      *
      * @param  string  $filename
@@ -278,6 +180,22 @@ final class QueuedExport
     public function authorize(string $ability): static
     {
         $this->ability = $ability;
+
+        return $this;
+    }
+
+    /**
+     * Waive the explicit full-set authorization requirement for this export.
+     *
+     * A conscious opt-out, not a default: use it only when access to the full
+     * set is already enforced upstream. Dispatching without either this or
+     * authorize() throws.
+     *
+     * @return $this
+     */
+    public function withoutAuthorization(): static
+    {
+        $this->withoutAuthorization = true;
 
         return $this;
     }
@@ -355,9 +273,12 @@ final class QueuedExport
     /**
      * Dispatch the queued export job for the assembled specification.
      *
-     * While Exporter::fake() is active the specification is recorded instead of
-     * dispatched for real; the bus fake the double installs captures the job so
-     * it is never run, and the recording feeds the queued-export assertions.
+     * Requires an explicit full-set authorization decision first - a gate
+     * ability via authorize(), or a conscious withoutAuthorization() opt-out -
+     * throwing a LogicException otherwise. While Exporter::fake() is active the
+     * specification is recorded instead of dispatched for real; the bus fake
+     * the double installs captures the job so it is never run, and the
+     * recording feeds the queued-export assertions.
      *
      * @return \Illuminate\Foundation\Bus\PendingDispatch
      *
@@ -365,6 +286,10 @@ final class QueuedExport
      */
     public function queue(): PendingDispatch
     {
+        if ($this->ability === null && !$this->withoutAuthorization) {
+            throw new \LogicException('A queued export must register a full-set authorization ability with authorize(), or explicitly opt out with withoutAuthorization().');
+        }
+
         $specification = $this->toSpecification();
 
         ExporterFake::active()?->recordQueue($specification);

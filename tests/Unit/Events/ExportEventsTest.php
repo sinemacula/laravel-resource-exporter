@@ -71,7 +71,7 @@ final class ExportEventsTest extends TestCase
     public function testCompletedCarriesAuditPayload(): void
     {
         $at    = Carbon::parse('2026-06-27 10:00:00');
-        $event = new ExportCompleted('user-1', 1000, 'users', 'csv', $at, 'exports', 'reports/users.csv', 'https://signed.test/u');
+        $event = new ExportCompleted('user-1', 1000, 'users', 'csv', $at, 'exports', 'reports/users.csv', 'https://signed.test/u', queued: true);
 
         self::assertSame('user-1', $event->actorId);
         self::assertSame(1000, $event->rowCount);
@@ -81,6 +81,7 @@ final class ExportEventsTest extends TestCase
         self::assertSame('exports', $event->disk);
         self::assertSame('reports/users.csv', $event->path);
         self::assertSame('https://signed.test/u', $event->url);
+        self::assertTrue($event->queued);
 
         $streamed = new ExportCompleted(null, 5, null, 'csv', $at);
 
@@ -88,6 +89,7 @@ final class ExportEventsTest extends TestCase
         self::assertNull($streamed->disk);
         self::assertNull($streamed->path);
         self::assertNull($streamed->url);
+        self::assertFalse($streamed->queued);
     }
 
     /**

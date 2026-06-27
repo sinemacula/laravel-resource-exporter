@@ -285,6 +285,49 @@ final class EngineExpandRowsTest extends TestCase
     }
 
     /**
+     * A lazily-iterated child generator expands to the same rows as an array.
+     *
+     * The engine iterates the axis children directly rather than buffering them
+     * into an intermediate list, so a parent whose children arrive as a lazy
+     * Generator fans out identically - proving the expansion stays
+     * constant-memory on the child axis without changing the output.
+     *
+     * @return void
+     */
+    public function testGeneratorChildrenExpandToTheSameRowsAsAnArray(): void
+    {
+        $children = static function (): \Generator {
+            yield ['sku' => 'A'];
+            yield ['sku' => 'B'];
+            yield ['sku' => 'C'];
+        };
+
+        $item = ['id' => 1, 'name' => 'Ada', 'items' => $children()];
+
+        $csv = $this->expandToCsv([$item], new ExpandPolicy('items'));
+
+        self::assertSame("ID,Name,SKU\n1,Ada,A\n1,Ada,B\n1,Ada,C\n", $csv);
+    }
+
+    /**
+     * A childless lazy generator still yields the single blank-child row.
+     *
+     * @return void
+     */
+    public function testEmptyGeneratorChildrenKeepTheBlankRowDefault(): void
+    {
+        $children = static function (): \Generator {
+            yield from [];
+        };
+
+        $item = ['id' => 2, 'name' => 'Bob', 'items' => $children()];
+
+        $csv = $this->expandToCsv([$item], new ExpandPolicy('items'));
+
+        self::assertSame("ID,Name,SKU\n2,Bob,\n", $csv);
+    }
+
+    /**
      * Export the items through an expanded SKU schema and return the CSV.
      *
      * @param  list<mixed>  $items

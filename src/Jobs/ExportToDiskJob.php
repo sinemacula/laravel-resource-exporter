@@ -15,9 +15,11 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Http\Request;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Log;
 use SineMacula\Exporter\Contracts\ProvidesTabularExport;
 use SineMacula\Exporter\Contracts\Writer;
 use SineMacula\Exporter\Engine;
+use SineMacula\Exporter\Events\ExportCompleted;
 use SineMacula\Exporter\Events\ExportFailed;
 use SineMacula\Exporter\Events\ExportStarting;
 use SineMacula\Exporter\Events\RowsExported;
@@ -27,6 +29,7 @@ use SineMacula\Exporter\Export\ExportAuditor;
 use SineMacula\Exporter\Export\ExportSpecification;
 use SineMacula\Exporter\Http\MediaTypeRegistry;
 use SineMacula\Exporter\Schema\TabularSchema;
+use SineMacula\Exporter\Schema\WarningCollector;
 use SineMacula\Exporter\Sinks\DiskSink;
 use SineMacula\Exporter\Sinks\StreamSink;
 use SineMacula\Exporter\Sources\QueryChunkSource;
@@ -118,15 +121,17 @@ final class ExportToDiskJob implements ShouldQueue
 
             (new DiskSink($disk, $this->spec->path))->putFromFile($staging);
 
-            $auditor->completed(
+            $auditor->completed(new ExportCompleted(
                 $this->spec->actorId,
                 $rows,
                 $this->spec->filename,
                 $this->spec->format,
+                CarbonImmutable::now(),
                 $this->spec->disk,
                 $this->spec->path,
                 $this->signedUrl($disk),
-            );
+                queued: true,
+            ));
         } catch (\Throwable $exception) {
             $disk->delete($this->spec->path);
 
@@ -184,7 +189,8 @@ final class ExportToDiskJob implements ShouldQueue
             throw new SinkException("Unable to open staging file [{$staging}] for the queued export.");
         }
         // @codeCoverageIgnoreEnd
-        $rows = 0;
+        $rows     = 0;
+        $warnings = new WarningCollector;
 
         $counting = new CountingWriter($writer, function (int $count) use (&$rows): void {
             $rows = $count;
@@ -193,14 +199,38 @@ final class ExportToDiskJob implements ShouldQueue
         });
 
         try {
-            $engine->export(new QueryChunkSource($query, $this->spec->chunkSize), $schema, $request, $counting, new StreamSink($handle));
+            $engine->export(new QueryChunkSource($query, $this->spec->chunkSize), $schema, $request, $counting, new StreamSink($handle), $warnings);
 
             fflush($handle);
         } finally {
             fclose($handle);
         }
 
+        $this->logWarnings($warnings);
+
         return $rows;
+    }
+
+    /**
+     * Log any warnings a lenient export collected once it completes cleanly.
+     *
+     * Lenient strictness degrades a bad column or cell rather than failing, so
+     * the export still succeeds; surfacing the collected warnings here gives an
+     * operator visibility of the silent degradation in the stored file.
+     *
+     * @param  \SineMacula\Exporter\Schema\WarningCollector  $warnings
+     * @return void
+     */
+    private function logWarnings(WarningCollector $warnings): void
+    {
+        if ($warnings->isEmpty()) {
+            return;
+        }
+
+        Log::warning('Resource export completed with warnings.', [
+            'format'   => $this->spec->format,
+            'warnings' => $warnings->all(),
+        ]);
     }
 
     /**
@@ -314,7 +344,13 @@ final class ExportToDiskJob implements ShouldQueue
 
         try {
             return $disk->temporaryUrl($this->spec->path, CarbonImmutable::now()->addMinutes($this->spec->urlExpiresAfter));
-        } catch (\Throwable) {
+        } catch (\Throwable $exception) {
+            Log::warning('Unable to generate a signed temporary URL for the stored export.', [
+                'disk'      => $this->spec->disk,
+                'path'      => $this->spec->path,
+                'exception' => $exception,
+            ]);
+
             return null;
         }
     }

@@ -17,6 +17,9 @@ use SineMacula\Exporter\Contracts\Source;
  * items. It iterates the already-mapped, in-memory collection and unwraps each
  * resource to its underlying model, never routing rows through the collection's
  * toArray()/resolve()/all() (which would serialise and buffer the whole set).
+ * The schema reads the raw model attributes directly, so the resource's
+ * toArray()/$hidden/when() field gating is NOT inherited; gate a column out of
+ * the export with the schema's ->visible().
  *
  * @author      Ben Carey <bdmc@sinemacula.co.uk>
  * @copyright   2026 Sine Macula Limited.

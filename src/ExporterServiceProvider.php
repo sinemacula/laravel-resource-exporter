@@ -4,10 +4,14 @@ declare(strict_types = 1);
 
 namespace SineMacula\Exporter;
 
+use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\ServiceProvider;
 use SineMacula\Exporter\Contracts\ExportFactory;
+use SineMacula\Exporter\Http\ExportFormat;
+use SineMacula\Exporter\Http\ExportNegotiator;
+use SineMacula\Exporter\Http\MediaTypeRegistry;
 use SineMacula\Exporter\Http\Middleware\NegotiateExports;
 
 /**
@@ -43,6 +47,7 @@ final class ExporterServiceProvider extends ServiceProvider
         );
 
         $this->registerManager();
+        $this->registerNegotiation();
     }
 
     /**
@@ -102,5 +107,83 @@ final class ExporterServiceProvider extends ServiceProvider
 
         $this->app->alias(ExportManager::class, Config::get('exporter.alias'));
         $this->app->alias(ExportManager::class, ExportFactory::class);
+    }
+
+    /**
+     * Bind the content-negotiation collaborators to the service container.
+     *
+     * The media type registry is a single boot-time singleton seeded from the
+     * built-in formats and the config('exporter.formats') extension block, then
+     * shared - never mutated per request - so the advertised custom-format seam
+     * is reachable and a fresh registry is not allocated on every negotiated
+     * response. The negotiator is bound as a singleton over that shared
+     * registry so the negotiated and explicit export paths resolve the same
+     * formats.
+     *
+     * @return void
+     */
+    private function registerNegotiation(): void
+    {
+        $this->app->singleton(MediaTypeRegistry::class, function (Application $app): MediaTypeRegistry {
+            $registry = new MediaTypeRegistry;
+
+            foreach ($this->configuredFormats($app) as $format) {
+                $registry->register($format);
+            }
+
+            $default = $app['config']->get('exporter.negotiation.default_format');
+
+            if (is_string($default) && $default !== '') {
+                $registry->setDefault($default);
+            }
+
+            return $registry;
+        });
+
+        $this->app->singleton(
+            ExportNegotiator::class,
+            static fn (Application $app): ExportNegotiator => new ExportNegotiator($app->make(MediaTypeRegistry::class)),
+        );
+    }
+
+    /**
+     * Resolve the custom formats declared in the configuration block.
+     *
+     * Each entry may be an ExportFormat instance, a Closure returning one, or
+     * the class name of a container binding that resolves to one; anything else
+     * is ignored so a malformed entry never aborts boot. A bound container key
+     * is resolved through the container so a format that carries a
+     * writer-factory closure can be registered from a binding and stay
+     * compatible with config caching.
+     *
+     * @param  \Illuminate\Contracts\Foundation\Application  $app
+     * @return list<\SineMacula\Exporter\Http\ExportFormat>
+     */
+    private function configuredFormats(Application $app): array
+    {
+        $formats = $app['config']->get('exporter.formats', []);
+
+        if (!is_array($formats)) {
+            return [];
+        }
+
+        $resolved = [];
+
+        foreach ($formats as $format) {
+
+            if ($format instanceof \Closure) {
+                $format = $format($app);
+            } elseif (is_string($format) && $app->bound($format)) {
+                $format = $app->make($format);
+            }
+
+            if (!$format instanceof ExportFormat) {
+                continue;
+            }
+
+            $resolved[] = $format;
+        }
+
+        return $resolved;
     }
 }

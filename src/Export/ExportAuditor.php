@@ -4,7 +4,6 @@ declare(strict_types = 1);
 
 namespace SineMacula\Exporter\Export;
 
-use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Event;
@@ -59,28 +58,15 @@ final readonly class ExportAuditor
     /**
      * Fire the pinned ExportCompleted audit event and optionally log it.
      *
-     * @param  int|string|null  $actorId
-     * @param  int  $rowCount
-     * @param  string|null  $filename
-     * @param  string  $format
-     * @param  string|null  $disk
-     * @param  string|null  $path
-     * @param  string|null  $url
+     * Accepts the assembled event so the synchronous streamed export and the
+     * queued-to-disk pipeline both dispatch and route the identical audit
+     * payload through this one seam.
+     *
+     * @param  \SineMacula\Exporter\Events\ExportCompleted  $event
      * @return void
      */
-    public function completed(int|string|null $actorId, int $rowCount, ?string $filename, string $format, ?string $disk = null, ?string $path = null, ?string $url = null): void
+    public function completed(ExportCompleted $event): void
     {
-        $event = new ExportCompleted(
-            $actorId,
-            $rowCount,
-            $filename,
-            $format,
-            CarbonImmutable::now(),
-            $disk,
-            $path,
-            $url,
-        );
-
         Event::dispatch($event);
 
         $this->route($event);

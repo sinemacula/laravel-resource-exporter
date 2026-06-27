@@ -18,6 +18,7 @@ use SineMacula\Exporter\Engine;
 use SineMacula\Exporter\Events\StreamExportFailed;
 use SineMacula\Exporter\Exceptions\NoTabularRepresentation;
 use SineMacula\Exporter\Schema\TabularSchema;
+use SineMacula\Exporter\Schema\WarningCollector;
 use SineMacula\Exporter\Sinks\StreamedResponseSink;
 use SineMacula\Exporter\Sources\ConnectionAwareSource;
 use SineMacula\Exporter\Sources\ResourceCollectionSource;
@@ -248,19 +249,22 @@ final readonly class ExportNegotiator
 
         return $sink->toResponse(
             function (Sink $stream) use ($source, $schema, $request, $writer, $format, $onComplete): void {
-                $rows = 0;
+                $rows     = 0;
+                $warnings = new WarningCollector;
 
                 $counting = new CountingWriter($writer, static function (int $count) use (&$rows): void {
                     $rows = $count;
                 });
 
                 try {
-                    $this->engine->export($this->abortAware($source), $schema, $request, $counting, $stream);
+                    $this->engine->export($this->abortAware($source), $schema, $request, $counting, $stream, $warnings);
                 } catch (\Throwable $exception) {
                     $this->failStream($format, $rows, $request, $exception);
 
                     return;
                 }
+
+                $this->logWarnings($format, $warnings);
 
                 $onComplete?->__invoke($rows);
             },
@@ -408,7 +412,30 @@ final readonly class ExportNegotiator
         Log::warning('Resource export stream truncated after the response had begun.', [
             'format'       => $format,
             'rows_written' => $rows,
-            'exception'    => $exception->getMessage(),
+            'exception'    => $exception,
+        ]);
+    }
+
+    /**
+     * Log any warnings a lenient export collected once it completes cleanly.
+     *
+     * Lenient strictness degrades a bad column or cell rather than failing, so
+     * the export still succeeds; surfacing the collected warnings here gives an
+     * operator visibility of the silent degradation without touching the body.
+     *
+     * @param  string  $format
+     * @param  \SineMacula\Exporter\Schema\WarningCollector  $warnings
+     * @return void
+     */
+    private function logWarnings(string $format, WarningCollector $warnings): void
+    {
+        if ($warnings->isEmpty()) {
+            return;
+        }
+
+        Log::warning('Resource export completed with warnings.', [
+            'format'   => $format,
+            'warnings' => $warnings->all(),
         ]);
     }
 

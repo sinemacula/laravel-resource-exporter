@@ -34,8 +34,14 @@ final class ConfigDefaultEnvTest extends TestCase
     #[\Override]
     protected function tearDown(): void
     {
-        unset($_ENV['EXPORTER_DEFAULT'], $_SERVER['EXPORTER_DEFAULT']);
+        unset(
+            $_ENV['EXPORTER_DEFAULT'],
+            $_SERVER['EXPORTER_DEFAULT'],
+            $_ENV['DEFAULT_EXPORTER'],
+            $_SERVER['DEFAULT_EXPORTER'],
+        );
         putenv('EXPORTER_DEFAULT');
+        putenv('DEFAULT_EXPORTER');
 
         parent::tearDown();
     }
@@ -69,6 +75,55 @@ final class ConfigDefaultEnvTest extends TestCase
         $config = $this->loadConfig();
 
         self::assertSame('csv', $config['default']);
+    }
+
+    /**
+     * It still honours the legacy DEFAULT_EXPORTER name as a fallback when the
+     * renamed EXPORTER_DEFAULT is not set (one-release backwards
+     * compatibility).
+     *
+     * @return void
+     */
+    public function testDefaultFallsBackToTheLegacyEnvironmentVariable(): void
+    {
+        unset($_ENV['EXPORTER_DEFAULT'], $_SERVER['EXPORTER_DEFAULT']);
+        putenv('EXPORTER_DEFAULT');
+
+        $_ENV['DEFAULT_EXPORTER']    = 'tsv';
+        $_SERVER['DEFAULT_EXPORTER'] = 'tsv';
+        putenv('DEFAULT_EXPORTER=tsv');
+
+        $config = $this->loadConfig();
+
+        self::assertSame('tsv', $config['default']);
+    }
+
+    /**
+     * It ships the negotiation block with the documented defaults, including
+     * the 10,000-row synchronous export cap.
+     *
+     * @return void
+     */
+    public function testNegotiationBlockShipsWithTheDocumentedDefaults(): void
+    {
+        unset(
+            $_ENV['EXPORTER_MAX_ROWS'],
+            $_SERVER['EXPORTER_MAX_ROWS'],
+            $_ENV['EXPORTER_PER_PAGE'],
+            $_SERVER['EXPORTER_PER_PAGE'],
+            $_ENV['EXPORTER_CHUNK_SIZE'],
+            $_SERVER['EXPORTER_CHUNK_SIZE'],
+        );
+        putenv('EXPORTER_MAX_ROWS');
+        putenv('EXPORTER_PER_PAGE');
+        putenv('EXPORTER_CHUNK_SIZE');
+
+        $config = $this->loadConfig();
+
+        self::assertIsArray($config['negotiation']);
+        self::assertSame(10000, $config['negotiation']['max_rows']);
+        self::assertSame(15, $config['negotiation']['per_page']);
+        self::assertSame(1000, $config['negotiation']['chunk_size']);
     }
 
     /**

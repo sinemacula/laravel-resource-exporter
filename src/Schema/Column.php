@@ -17,10 +17,18 @@ use SineMacula\Exporter\Schema\Enums\CellType;
  * resolution, typed cast, display formatting, null/default policy, column-level
  * visibility gate, has-many aggregate, and the single row-expansion opt-in.
  *
- * The per-cell pipeline is: resolve (request-aware accessor unless overridden)
- * -> cast (typed CellValue) -> format -> null/default policy. A null resolved
- * value short-circuits to the default (or an empty cell), since neither a cast
- * nor a formatter can meaningfully act on null. Stateless and request-explicit.
+ * The per-cell pipeline is: resolve (a raw model/array attribute read unless
+ * overridden) -> cast (typed CellValue) -> format -> null/default policy. A
+ * null resolved value short-circuits to the default (or an empty cell), since
+ * neither a cast nor a formatter can meaningfully act on null. Stateless and
+ * request-explicit.
+ *
+ * Field visibility is the schema author's responsibility. Both the default
+ * resolution and ->fromModel() read the RAW model attribute via data_get; they
+ * do NOT route through the resource's toArray()/$hidden/when() gating, so a
+ * $hidden attribute is still emitted. Gate a column out of an export with
+ * ->visible() - that is the supported field-gating mechanism for tabular
+ * exports.
  *
  * @author      Ben Carey <bdmc@sinemacula.co.uk>
  * @copyright   2026 Sine Macula Limited.
@@ -39,7 +47,7 @@ final class Column
     /** @var (\Closure(\Illuminate\Http\Request): mixed)|null The column-existence visibility gate */
     private ?\Closure $visibility = null;
 
-    /** @var string|null The raw model path (request-aware accessor opt-out) */
+    /** @var string|null The explicit raw attribute path the column reads instead of its key */
     private ?string $modelPath = null;
 
     /** @var string|null The value rendered when the resolved value is null */
@@ -119,8 +127,14 @@ final class Column
     }
 
     /**
-     * Resolve the value from a raw model path rather than the request-aware
-     * accessor (security opt-out).
+     * Read the column value from an explicit raw attribute path instead of its
+     * key.
+     *
+     * This is purely a key remap: the default resolution already reads the raw
+     * model/array attribute via data_get, so ->fromModel() is byte-identical to
+     * the default save for the path it reads. It does NOT change the visibility
+     * story - neither honours the resource's toArray()/$hidden/when() gating.
+     * Use ->visible() to gate a column out of an export.
      *
      * @param  string  $path
      * @return static
@@ -146,7 +160,16 @@ final class Column
     }
 
     /**
-     * Gate the column's existence with the given callback, evaluated once.
+     * Gate the column's existence with the given callback - the
+     * field-visibility mechanism for tabular exports.
+     *
+     * Because value resolution reads the raw model attribute and does NOT
+     * honour the resource's toArray()/$hidden/when() gating, ->visible() is the
+     * supported way to keep a field out of an export. A column whose gate
+     * returns false is omitted entirely - from the heading row and from every
+     * data row - so its value can never leak through any cell or aggregate
+     * path. The gate sees only the request (no item) and is evaluated once at
+     * build time.
      *
      * @param  \Closure(\Illuminate\Http\Request): mixed  $callback
      * @return static
@@ -253,7 +276,11 @@ final class Column
      * Resolve the raw value source for the column.
      *
      * Precedence: aggregate marker, then an explicit resolver closure, then a
-     * raw model path, then the request-aware accessor (the default).
+     * raw attribute read via data_get (against ->fromModel()'s path, or the
+     * column key by default). That default reads the RAW model/array attribute;
+     * it does NOT route through the resource's toArray()/$hidden/when() gating,
+     * so a $hidden attribute is still emitted. Gate a field out with
+     * ->visible().
      *
      * @param  array<array-key, mixed>|object  $item
      * @param  \Illuminate\Http\Request  $request

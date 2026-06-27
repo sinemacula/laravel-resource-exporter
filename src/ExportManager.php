@@ -13,6 +13,7 @@ use SineMacula\Exporter\Contracts\ExportFactory;
 use SineMacula\Exporter\Export\QueuedExport;
 use SineMacula\Exporter\Exporters\Csv;
 use SineMacula\Exporter\Exporters\Xml;
+use SineMacula\Exporter\Http\MediaTypeRegistry;
 
 /**
  * The export manager.
@@ -100,7 +101,7 @@ final class ExportManager implements ExportFactory
      */
     public function export(Builder|JsonResource $subject, ?string $resource = null): ExportBuilder
     {
-        return new ExportBuilder($subject, $resource);
+        return new ExportBuilder($subject, $resource, $this->app->make(MediaTypeRegistry::class));
     }
 
     /**
@@ -111,7 +112,7 @@ final class ExportManager implements ExportFactory
      */
     public function collection(ResourceCollection $collection): ExportBuilder
     {
-        return new ExportBuilder($collection);
+        return $this->export($collection);
     }
 
     /**
@@ -123,7 +124,7 @@ final class ExportManager implements ExportFactory
      */
     public function query(Builder $query, string $resource): ExportBuilder
     {
-        return new ExportBuilder($query, $resource);
+        return $this->export($query, $resource);
     }
 
     /**
