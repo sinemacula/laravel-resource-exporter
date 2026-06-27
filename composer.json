@@ -28,6 +28,7 @@
         "brianium/paratest": "^7.20",
         "friendsofphp/php-cs-fixer": "^3.94",
         "infection/infection": "^0.33.2",
+        "openspout/openspout": "^4.0",
         "orchestra/testbench": "^10.0",
         "phpbench/phpbench": "^1.6.1",
         "phpstan/extension-installer": "^1.4",
@@ -40,6 +41,9 @@
         "sinemacula/coding-standards-laravel": "^1.0",
         "slevomat/coding-standard": "^8.29",
         "squizlabs/php_codesniffer": "^4.0"
+    },
+    "suggest": {
+        "openspout/openspout": "Required for XLSX exports (^4.0)."
     },
     "autoload": {
         "psr-4": {

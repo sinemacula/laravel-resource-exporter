@@ -46,6 +46,7 @@
         <exclude-pattern>src/Sources/LazyCollectionSource.php</exclude-pattern>
         <exclude-pattern>src/Writers/Concerns/EncodesJson.php</exclude-pattern>
         <exclude-pattern>src/Writers/CsvWriter.php</exclude-pattern>
+        <exclude-pattern>src/Writers/XlsxWriter.php</exclude-pattern>
         <exclude-pattern>src/Writers/XmlWriter.php</exclude-pattern>
         <exclude-pattern>tests/*</exclude-pattern>
     </rule>

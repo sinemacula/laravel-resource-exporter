@@ -10,6 +10,7 @@ use SineMacula\Exporter\Writers\CsvWriter;
 use SineMacula\Exporter\Writers\JsonWriter;
 use SineMacula\Exporter\Writers\NdjsonWriter;
 use SineMacula\Exporter\Writers\TsvWriter;
+use SineMacula\Exporter\Writers\XlsxWriter;
 use SineMacula\Exporter\Writers\XmlWriter;
 
 /**
@@ -47,6 +48,14 @@ final class MediaTypeRegistry
         $this->register(new ExportFormat('json', 'json', 'application/json', ['application/json'], false, null, static fn (): HierarchicalWriter => new JsonWriter));
         $this->register(new ExportFormat('csv', 'csv', 'text/csv', ['text/csv'], true, static fn (): Writer => new CsvWriter));
         $this->register(new ExportFormat('tsv', 'tsv', 'text/tab-separated-values', ['text/tab-separated-values'], true, static fn (): Writer => new TsvWriter));
+        $this->register(new ExportFormat(
+            'xlsx',
+            'xlsx',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'],
+            true,
+            static fn (): Writer => new XlsxWriter,
+        ));
         $this->register(new ExportFormat('xml', 'xml', 'application/xml', ['application/xml', 'text/xml'], false, null, static fn (): HierarchicalWriter => new XmlWriter));
         $this->register(new ExportFormat(
             'ndjson',
