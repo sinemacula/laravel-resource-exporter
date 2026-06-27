@@ -1,0 +1,36 @@
+{
+    $schema: "./vendor/infection/infection/resources/schema.json",
+    source: {
+        directories: [
+            "src"
+        ]
+    },
+    logs: {
+        summary: "build/infection-summary.log",
+        text: "build/infection.log"
+    },
+    phpUnit: {
+        configDir: ".",
+        customPath: "vendor/bin/phpunit"
+    },
+    timeout: 15,
+    mutators: {
+        "@default": true,
+        // Equivalent: the only subclasses (final Csv/Xml) never override
+        // getDefaultConfig and nothing calls it from outside the declaring
+        // class, so narrowing protected to private is unobservable.
+        ProtectedVisibility: {
+            ignore: [
+                "SineMacula\\Exporter\\Exporters\\Exporter::getDefaultConfig"
+            ]
+        },
+        // Equivalent: a key that normalizes to an empty string also fails the
+        // subsequent /^[A-Za-z_].../ validation, which returns the same
+        // fallback, so removing this early return changes no observable output.
+        ReturnRemoval: {
+            ignore: [
+                "SineMacula\\Exporter\\Exporters\\Xml::normalizeXmlKey::334"
+            ]
+        }
+    }
+}

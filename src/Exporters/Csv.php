@@ -14,10 +14,8 @@ use SineMacula\Exporter\Contracts\Exporter as ExporterContract;
  *
  * @author      Ben Carey <bdmc@sinemacula.co.uk>
  * @copyright   2026 Sine Macula Limited.
- *
- * @inheritable
  */
-class Csv extends Exporter implements ExporterContract
+final class Csv extends Exporter implements ExporterContract
 {
     /** @var array<string, mixed> The default configuration */
     protected const array DEFAULT_CONFIG = [

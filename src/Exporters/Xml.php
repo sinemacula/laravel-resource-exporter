@@ -16,10 +16,8 @@ use SineMacula\Exporter\Exceptions\XmlExportException;
  *
  * @author      Ben Carey <bdmc@sinemacula.co.uk>
  * @copyright   2026 Sine Macula Limited.
- *
- * @inheritable
  */
-class Xml extends Exporter implements ExporterContract
+final class Xml extends Exporter implements ExporterContract
 {
     /** @var array<string, mixed> The default configuration */
     protected const array DEFAULT_CONFIG = [
@@ -30,6 +28,27 @@ class Xml extends Exporter implements ExporterContract
 
     /** @var \SimpleXMLElement|null The xml object */
     protected ?\SimpleXMLElement $xml = null;
+
+    /**
+     * Create an XML exporter driver instance.
+     *
+     * @param  array<string, mixed>  $config
+     * @param  (\Closure(\SimpleXMLElement): (false|string))|null  $xmlReader
+     * @param  (\Closure(\DOMDocument): (false|string))|null  $domSaver
+     */
+    public function __construct(
+
+        // The exporter configuration.
+        array $config = [],
+
+        /** Optional override for reading the XML string (seam). */
+        private readonly ?\Closure $xmlReader = null,
+
+        /** Optional override for saving the DOM document (seam). */
+        private readonly ?\Closure $domSaver = null,
+    ) {
+        parent::__construct($config);
+    }
 
     /**
      * Export a raw array of associative arrays to XML.
@@ -276,28 +295,6 @@ class Xml extends Exporter implements ExporterContract
     }
 
     /**
-     * Read the XML string from the provided XML element.
-     *
-     * @param  \SimpleXMLElement  $xml
-     * @return false|string
-     */
-    protected function readXmlString(\SimpleXMLElement $xml): false|string
-    {
-        return $xml->asXML();
-    }
-
-    /**
-     * Save XML from the given DOMDocument.
-     *
-     * @param  \DOMDocument  $dom
-     * @return false|string
-     */
-    protected function saveDomDocument(\DOMDocument $dom): false|string
-    {
-        return $dom->saveXML();
-    }
-
-    /**
      * Filter the data array to exclude ignored fields.
      *
      * @param  array<int|string, mixed>  $data
@@ -342,6 +339,36 @@ class Xml extends Exporter implements ExporterContract
         }
 
         return $normalized;
+    }
+
+    /**
+     * Read the XML string from the provided XML element.
+     *
+     * @param  \SimpleXMLElement  $xml
+     * @return false|string
+     */
+    private function readXmlString(\SimpleXMLElement $xml): false|string
+    {
+        if ($this->xmlReader !== null) {
+            return ($this->xmlReader)($xml);
+        }
+
+        return $xml->asXML();
+    }
+
+    /**
+     * Save XML from the given DOMDocument.
+     *
+     * @param  \DOMDocument  $dom
+     * @return false|string
+     */
+    private function saveDomDocument(\DOMDocument $dom): false|string
+    {
+        if ($this->domSaver !== null) {
+            return ($this->domSaver)($dom);
+        }
+
+        return $dom->saveXML();
     }
 
     /**
