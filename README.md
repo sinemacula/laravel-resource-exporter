@@ -46,11 +46,11 @@ php artisan vendor:publish --provider="SineMacula\Exporter\ExporterServiceProvid
 
 This creates `config/exporter.php`, where you can control:
 
-| Key         | Description                                                        | Default      |
-|-------------|--------------------------------------------------------------------|--------------|
-| `default`   | The default exporter name used when none is given to `format()`.   | `csv`        |
-| `exporters` | Named exporters, each with a `driver` (`csv` / `xml`) and options. | `csv`, `xml` |
-| `alias`     | The container / facade accessor alias for the manager.             | `exporter`   |
+| Key         | Description                                                        | Env                | Default      |
+|-------------|--------------------------------------------------------------------|--------------------|--------------|
+| `default`   | The default exporter name used when none is given to `format()`.   | `EXPORTER_DEFAULT` | `csv`        |
+| `exporters` | Named exporters, each with a `driver` (`csv` / `xml`) and options. | -                  | `csv`, `xml` |
+| `alias`     | The container / facade accessor alias for the manager.             | `EXPORTER_ALIAS`   | `exporter`   |
 
 Per-driver options (delimiter, enclosure, XML root element, pretty printing, and so on) live alongside each entry in the
 `exporters` array.
