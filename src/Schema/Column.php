@@ -218,6 +218,38 @@ final class Column
     }
 
     /**
+     * Run the per-cell pipeline against a single expansion child.
+     *
+     * Used by the row-expansion axis: the column resolves its value from the
+     * given child (a resolver receives the child, otherwise the key or model
+     * path is read off it) rather than the parent item, so each child yields
+     * its own cell while the parent columns repeat. A null child - a parent
+     * with no children kept as a blank row - short-circuits to the
+     * null/default cell.
+     *
+     * @param  mixed  $child
+     * @param  \Illuminate\Http\Request  $request
+     * @param  \SineMacula\Exporter\Schema\Contracts\CastRegistry  $registry
+     * @return \SineMacula\Exporter\Schema\CellValue
+     */
+    public function toChildCellValue(mixed $child, Request $request, CastRegistry $registry): CellValue
+    {
+        $raw = $child === null ? null : $this->resolveChildValue($child, $request);
+
+        if ($raw === null) {
+            return $this->nullCell();
+        }
+
+        $cell = $this->castValue($raw, $registry);
+
+        if ($this->formatter === null) {
+            return $cell;
+        }
+
+        return $this->formatCell($cell, $this->formatter, $request);
+    }
+
+    /**
      * Resolve the raw value source for the column.
      *
      * Precedence: aggregate marker, then an explicit resolver closure, then a
@@ -238,6 +270,27 @@ final class Column
         }
 
         return data_get($item, $this->modelPath ?? $this->key);
+    }
+
+    /**
+     * Resolve the raw value source for the column from an expansion child.
+     *
+     * A resolver receives the child directly; otherwise the model path (or, by
+     * default, the column key) is read off the child. An aggregate marker is
+     * irrelevant here - an expanded column reads each child, not a folded
+     * relation - so it is not consulted.
+     *
+     * @param  mixed  $child
+     * @param  \Illuminate\Http\Request  $request
+     * @return mixed
+     */
+    private function resolveChildValue(mixed $child, Request $request): mixed
+    {
+        if ($this->resolver !== null) {
+            return ($this->resolver)($child, $request);
+        }
+
+        return data_get($child, $this->modelPath ?? $this->key);
     }
 
     /**

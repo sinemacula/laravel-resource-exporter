@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Schema;
 use Orchestra\Testbench\TestCase;
 use SineMacula\Exporter\ExporterServiceProvider;
 use Symfony\Component\HttpFoundation\StreamedResponse;
+use Tests\Support\V3\Models\Order;
 use Tests\Support\V3\Models\User;
 
 /**
@@ -52,6 +53,7 @@ abstract class ExporterTestCase extends TestCase
             return;
         }
 
+        /** @var \Illuminate\Contracts\Config\Repository $config */
         $config = $app->make('config');
 
         $config->set('database.default', 'testing');
@@ -83,6 +85,13 @@ abstract class ExporterTestCase extends TestCase
             $table->string('secret')->nullable();
             $table->dateTime('created_at')->nullable();
         });
+
+        Schema::create('orders', static function (Blueprint $table): void {
+            $table->increments('id');
+            $table->unsignedInteger('user_id');
+            $table->integer('total')->default(0);
+            $table->string('sku');
+        });
     }
 
     /**
@@ -108,6 +117,32 @@ abstract class ExporterTestCase extends TestCase
         }
 
         User::query()->insert($rows); // @phpstan-ignore staticMethod.dynamicCall
+    }
+
+    /**
+     * Seed the given order totals against a user, each with a derived SKU.
+     *
+     * @param  int  $userId
+     * @param  list<int>  $totals
+     * @return void
+     */
+    protected function seedOrders(int $userId, array $totals): void
+    {
+        if ($totals === []) {
+            return;
+        }
+
+        $rows = [];
+
+        foreach ($totals as $index => $total) {
+            $rows[] = [
+                'user_id' => $userId,
+                'total'   => $total,
+                'sku'     => 'SKU-' . $userId . '-' . ($index + 1),
+            ];
+        }
+
+        Order::query()->insert($rows); // @phpstan-ignore staticMethod.dynamicCall
     }
 
     /**

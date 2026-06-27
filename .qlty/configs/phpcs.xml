@@ -30,6 +30,7 @@
         <exclude-pattern>src/Contracts/ExportFactory.php</exclude-pattern>
         <exclude-pattern>src/Contracts/HierarchicalWriter.php</exclude-pattern>
         <exclude-pattern>src/Contracts/Source.php</exclude-pattern>
+        <exclude-pattern>src/Engine.php</exclude-pattern>
         <exclude-pattern>src/ExportManager.php</exclude-pattern>
         <exclude-pattern>src/Exporters/*</exclude-pattern>
         <exclude-pattern>src/Facades/Exporter.php</exclude-pattern>

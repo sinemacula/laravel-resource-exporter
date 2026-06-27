@@ -5,7 +5,9 @@ declare(strict_types = 1);
 namespace SineMacula\Exporter\Sources;
 
 use Illuminate\Database\Eloquent\Builder;
+use SineMacula\Exporter\Contracts\DerivesAggregates;
 use SineMacula\Exporter\Contracts\Source;
+use SineMacula\Exporter\Schema\EagerLoadPlan;
 
 /**
  * Query chunk source adapter.
@@ -14,15 +16,20 @@ use SineMacula\Exporter\Contracts\Source;
  * models at constant memory. It uses lazyById() (stable under concurrent
  * inserts and self-ordering, unlike lazy()/cursor()) and force-selects the
  * key column so a constrained select() cannot abort the stream mid-flight.
- * Requested relations are applied to the query so each chunk eager-loads them.
+ * Requested relations are applied to the query so each chunk eager-loads them,
+ * and the schema's derived aggregates are applied as withCount()/withSum() so a
+ * count or sum column carries its value without the caller wiring it by hand.
  *
  * @author      Ben Carey <bdmc@sinemacula.co.uk>
  * @copyright   2026 Sine Macula Limited.
  */
-final class QueryChunkSource implements Source
+final class QueryChunkSource implements DerivesAggregates, Source
 {
     /** @var list<string> The eager-load relations to apply */
     private array $with = [];
+
+    /** @var \SineMacula\Exporter\Schema\EagerLoadPlan|null The derived aggregate plan to apply */
+    private ?EagerLoadPlan $aggregates = null;
 
     /**
      * Constructor.
@@ -54,6 +61,8 @@ final class QueryChunkSource implements Source
             $this->query->with($this->with);
         }
 
+        $this->applyAggregates();
+
         foreach ($this->query->lazyById($this->chunkSize) as $item) {
             yield $item;
         }
@@ -71,6 +80,44 @@ final class QueryChunkSource implements Source
         $this->with = $with;
 
         return $this;
+    }
+
+    /**
+     * Apply the derived aggregate eager-load plan to the source.
+     *
+     * @param  \SineMacula\Exporter\Schema\EagerLoadPlan  $plan
+     * @return static
+     */
+    #[\Override]
+    public function withAggregates(EagerLoadPlan $plan): static
+    {
+        $this->aggregates = $plan;
+
+        return $this;
+    }
+
+    /**
+     * Derive the count and sum aggregates onto the query.
+     *
+     * withCount()/withSum() name their alias columns ({relation}_count and
+     * {relation}_sum_{column}) exactly as the column reads them back, so each
+     * model carries the aggregate by the time it is shaped.
+     *
+     * @return void
+     */
+    private function applyAggregates(): void
+    {
+        if ($this->aggregates === null) {
+            return;
+        }
+
+        if ($this->aggregates->count !== []) {
+            $this->query->withCount($this->aggregates->count);
+        }
+
+        foreach ($this->aggregates->sum as $sum) {
+            $this->query->withSum($sum['relation'], $sum['column']);
+        }
     }
 
     /**

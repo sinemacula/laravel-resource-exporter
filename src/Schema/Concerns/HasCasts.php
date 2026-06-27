@@ -105,6 +105,16 @@ trait HasCasts
     }
 
     /**
+     * Get the declared cast name, if any, so preflight can verify it resolves.
+     *
+     * @return string|null
+     */
+    public function getCastName(): ?string
+    {
+        return $this->castName;
+    }
+
+    /**
      * Record the cast name and options for the column.
      *
      * @param  string  $name

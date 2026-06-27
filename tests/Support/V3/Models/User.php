@@ -5,6 +5,7 @@ declare(strict_types = 1);
 namespace Tests\Support\V3\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * Eloquent user model for v3 source, query and negotiation tests.
@@ -22,6 +23,7 @@ use Illuminate\Database\Eloquent\Model;
  * @property bool $active
  * @property string|null $secret
  * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Database\Eloquent\Collection<int, \Tests\Support\V3\Models\Order> $orders
  */
 final class User extends Model
 {
@@ -33,6 +35,17 @@ final class User extends Model
 
     /** @var array<string> The guarded attributes */
     protected $guarded = [];
+
+    /**
+     * The user's orders (the has-many relation the aggregate and expand axes
+     * fold).
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany<\Tests\Support\V3\Models\Order, $this>
+     */
+    public function orders(): HasMany
+    {
+        return $this->hasMany(Order::class);
+    }
 
     /**
      * Get the attribute casts for the model.

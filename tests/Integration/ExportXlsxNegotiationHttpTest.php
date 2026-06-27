@@ -154,6 +154,7 @@ final class ExportXlsxNegotiationHttpTest extends ExporterTestCase
 
         Storage::fake('local');
 
+        /** @var \Illuminate\Filesystem\FilesystemAdapter $disk */
         $disk    = Storage::disk('local');
         $request = Request::create('/');
         $users   = User::query()->orderBy('id')->get(); // @phpstan-ignore staticMethod.dynamicCall
