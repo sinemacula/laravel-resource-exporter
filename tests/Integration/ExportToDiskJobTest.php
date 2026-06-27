@@ -5,6 +5,8 @@ declare(strict_types = 1);
 namespace Tests\Integration;
 
 use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Contracts\Filesystem\Factory;
+use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
@@ -22,6 +24,7 @@ use Tests\Support\V3\QueuedExportTestCase;
 use Tests\Support\V3\Resources\PlainUserResource;
 use Tests\Support\V3\Resources\UserResource;
 use Tests\Support\V3\Schema\ExplodingExportSchema;
+use Tests\Support\V3\SignerlessDisk;
 
 /**
  * Integration tests for the queued export-to-disk job.
@@ -111,6 +114,59 @@ final class ExportToDiskJobTest extends QueuedExportTestCase
                 ->toDisk('exports', 'exports/users.csv')
                 ->toSpecification(),
         );
+
+        Event::assertDispatched(
+            ExportCompleted::class,
+            static fn (ExportCompleted $event): bool => $event->url === null && $event->rowCount === 2,
+        );
+    }
+
+    /**
+     * It completes with a null URL when the disk implementation exposes no
+     * temporaryUrl() method at all - the non-standard-disk branch the standard
+     * FilesystemAdapter (which always declares it) never reaches.
+     *
+     * @return void
+     */
+    public function testCompletesWithoutAUrlWhenTheDiskCannotSign(): void
+    {
+        $disk = new SignerlessDisk($this->fakeDisk('exports'));
+
+        $factory = new readonly class ($disk) implements Factory {
+            /**
+             * Create a new single-disk filesystem factory.
+             *
+             * @param  \Illuminate\Contracts\Filesystem\Filesystem  $disk
+             */
+            public function __construct(
+
+                /** The single signer-less disk every name resolves to. */
+                private Filesystem $disk,
+            ) {}
+
+            /**
+             * Resolve a filesystem disk by name.
+             *
+             * @param  mixed  $name
+             * @return \Illuminate\Contracts\Filesystem\Filesystem
+             */
+            #[\Override]
+            public function disk(mixed $name = null): Filesystem
+            {
+                return $this->disk;
+            }
+        };
+
+        Event::fake();
+        $this->seedUsers(2);
+
+        $job = new ExportToDiskJob(
+            QueuedExport::forModel(User::class, UserResource::class)
+                ->toDisk('exports', 'exports/users.csv')
+                ->toSpecification(),
+        );
+
+        app()->call([$job, 'handle'], ['filesystem' => $factory]);
 
         Event::assertDispatched(
             ExportCompleted::class,

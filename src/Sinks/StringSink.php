@@ -5,7 +5,7 @@ declare(strict_types = 1);
 namespace SineMacula\Exporter\Sinks;
 
 use SineMacula\Exporter\Contracts\Sink;
-use SineMacula\Exporter\Exceptions\SinkException;
+use SineMacula\Exporter\Sinks\Concerns\WritesThroughStream;
 
 /**
  * String buffer sink.
@@ -19,67 +19,7 @@ use SineMacula\Exporter\Exceptions\SinkException;
  */
 final class StringSink implements Sink
 {
-    /** @var resource|null The underlying buffer stream */
-    private $buffer; // phpcs:ignore SineMaculaLaravel.TypeHints.PropertyTypeHint.MissingNativeTypeHint
-
-    /**
-     * Determine whether the sink exposes a seekable stream.
-     *
-     * @return bool
-     */
-    #[\Override]
-    public function isSeekableStream(): bool
-    {
-        return true;
-    }
-
-    /**
-     * Get the underlying buffer stream.
-     *
-     * @return resource
-     *
-     * @throws \SineMacula\Exporter\Exceptions\SinkException
-     */
-    #[\Override]
-    public function stream()
-    {
-        if (!is_resource($this->buffer)) {
-
-            $buffer = fopen('php://temp', 'r+b');
-
-            if ($buffer === false) {
-                throw new SinkException('Unable to open an in-memory buffer for the string sink.');
-            }
-
-            $this->buffer = $buffer;
-        }
-
-        return $this->buffer;
-    }
-
-    /**
-     * Copy a fully-written file into the buffer.
-     *
-     * @param  string  $path
-     * @return void
-     *
-     * @throws \SineMacula\Exporter\Exceptions\SinkException
-     */
-    #[\Override]
-    public function putFromFile(string $path): void
-    {
-        $source = fopen($path, 'rb');
-
-        if ($source === false) {
-            throw new SinkException("Unable to open file [{$path}] for the string sink.");
-        }
-
-        try {
-            stream_copy_to_stream($source, $this->stream());
-        } finally {
-            fclose($source);
-        }
-    }
+    use WritesThroughStream;
 
     /**
      * Read the buffered bytes back as a string.
@@ -95,5 +35,38 @@ final class StringSink implements Sink
         $contents = stream_get_contents($buffer);
 
         return $contents === false ? '' : $contents;
+    }
+
+    /**
+     * Get the stream target this sink opens.
+     *
+     * @return string
+     */
+    #[\Override]
+    protected function streamTarget(): string
+    {
+        return 'php://temp';
+    }
+
+    /**
+     * Get the fopen mode used to open the stream target.
+     *
+     * @return string
+     */
+    #[\Override]
+    protected function streamMode(): string
+    {
+        return 'r+b';
+    }
+
+    /**
+     * Get the human label this sink's open-failure messages carry.
+     *
+     * @return string
+     */
+    #[\Override]
+    protected function streamLabel(): string
+    {
+        return 'string';
     }
 }

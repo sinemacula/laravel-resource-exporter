@@ -14,6 +14,8 @@ use SineMacula\Exporter\Exceptions\NoTabularRepresentation;
 use SineMacula\Exporter\Export\ExportSpecification;
 use SineMacula\Exporter\ExportBuilder;
 use SineMacula\Exporter\Facades\Exporter;
+use SineMacula\Exporter\Http\ExportFormat;
+use SineMacula\Exporter\Http\MediaTypeRegistry;
 use SineMacula\Exporter\Jobs\ExportToDiskJob;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Tests\Support\V3\ExporterTestCase;
@@ -364,6 +366,44 @@ final class ExportBuilderTest extends ExporterTestCase
 
         Exporter::query(User::query()->where('active', true), UserResource::class) // @phpstan-ignore staticMethod.dynamicCall
             ->queue('exports', 'exports/users.csv');
+    }
+
+    /**
+     * It throws a 406 when a tabular format is registered without a writer.
+     *
+     * @return void
+     */
+    public function testThrowsWhenATabularFormatHasNoWriter(): void
+    {
+        $this->seedUsers(1);
+
+        $registry = (new MediaTypeRegistry)
+            ->register(new ExportFormat('weird', 'weird', 'application/x-weird', ['application/x-weird'], true));
+
+        $builder = new ExportBuilder($this->collection(), null, $registry);
+
+        $this->expectException(NoTabularRepresentation::class);
+
+        $builder->format('weird')->toString();
+    }
+
+    /**
+     * It throws a 406 when a hierarchical format has no writer.
+     *
+     * @return void
+     */
+    public function testThrowsWhenAHierarchicalFormatHasNoWriter(): void
+    {
+        $this->seedUsers(1);
+
+        $registry = (new MediaTypeRegistry)
+            ->register(new ExportFormat('plain', 'plain', 'application/x-plain', ['application/x-plain'], false));
+
+        $builder = new ExportBuilder($this->collection(), null, $registry);
+
+        $this->expectException(NoTabularRepresentation::class);
+
+        $builder->format('plain')->toString();
     }
 
     /**

@@ -100,17 +100,12 @@ trait HasAggregates
     /**
      * Resolve the value of a has-many aggregate from the loaded item.
      *
+     * @param  \SineMacula\Exporter\Schema\Aggregate  $aggregate
      * @param  array<array-key, mixed>|object  $item
      * @return mixed
      */
-    private function resolveAggregate(array|object $item): mixed
+    private function resolveAggregate(Aggregate $aggregate, array|object $item): mixed
     {
-        $aggregate = $this->aggregate;
-
-        if ($aggregate === null) {
-            return null;
-        }
-
         return match ($aggregate->type) {
             AggregateType::COUNT => $this->intValue(data_get($item, $this->key . '_count')),
             AggregateType::SUM   => data_get($item, $this->key . '_sum_' . str_replace('.', '_', (string) $aggregate->path)),

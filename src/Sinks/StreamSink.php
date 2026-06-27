@@ -5,7 +5,7 @@ declare(strict_types = 1);
 namespace SineMacula\Exporter\Sinks;
 
 use SineMacula\Exporter\Contracts\Sink;
-use SineMacula\Exporter\Exceptions\SinkException;
+use SineMacula\Exporter\Sinks\Concerns\WritesThroughStream;
 
 /**
  * Output stream sink.
@@ -19,8 +19,7 @@ use SineMacula\Exporter\Exceptions\SinkException;
  */
 final class StreamSink implements Sink
 {
-    /** @var resource|null The target output stream */
-    private $stream; // phpcs:ignore SineMaculaLaravel.TypeHints.PropertyTypeHint.MissingNativeTypeHint
+    use WritesThroughStream;
 
     /**
      * Constructor.
@@ -36,65 +35,39 @@ final class StreamSink implements Sink
             throw new \InvalidArgumentException('The stream sink requires a valid stream resource.');
         }
 
-        $this->stream = $stream;
+        $this->streamHandle = $stream;
     }
 
     /**
-     * Determine whether the sink exposes a seekable stream.
+     * Get the stream target this sink opens.
      *
-     * @return bool
+     * @return string
      */
     #[\Override]
-    public function isSeekableStream(): bool
+    protected function streamTarget(): string
     {
-        return true;
+        return 'php://output';
     }
 
     /**
-     * Get the underlying output stream.
+     * Get the fopen mode used to open the stream target.
      *
-     * @return resource
-     *
-     * @throws \SineMacula\Exporter\Exceptions\SinkException
+     * @return string
      */
     #[\Override]
-    public function stream()
+    protected function streamMode(): string
     {
-        if (!is_resource($this->stream)) {
-
-            $stream = fopen('php://output', 'wb');
-
-            if ($stream === false) {
-                throw new SinkException('Unable to open php://output for the stream sink.');
-            }
-
-            $this->stream = $stream;
-        }
-
-        return $this->stream;
+        return 'wb';
     }
 
     /**
-     * Copy a fully-written file into the output stream.
+     * Get the human label this sink's open-failure messages carry.
      *
-     * @param  string  $path
-     * @return void
-     *
-     * @throws \SineMacula\Exporter\Exceptions\SinkException
+     * @return string
      */
     #[\Override]
-    public function putFromFile(string $path): void
+    protected function streamLabel(): string
     {
-        $source = fopen($path, 'rb');
-
-        if ($source === false) {
-            throw new SinkException("Unable to open file [{$path}] for the stream sink.");
-        }
-
-        try {
-            stream_copy_to_stream($source, $this->stream());
-        } finally {
-            fclose($source);
-        }
+        return 'stream';
     }
 }

@@ -104,9 +104,13 @@ final readonly class XlsxWriter implements Writer
      */
     private function guardAvailable(): void
     {
+        // OpenSpout is installed as a dev/test dependency, so this absence
+        // guard cannot be exercised without uninstalling the suggested package.
+        // @codeCoverageIgnoreStart
         if (!class_exists(XlsxLibraryWriter::class)) {
             throw MissingXlsxDependency::create();
         }
+        // @codeCoverageIgnoreEnd
     }
 
     /**
@@ -183,10 +187,15 @@ final readonly class XlsxWriter implements Writer
 
         $source = fopen($path, 'rb');
 
+        // The path is the workbook this writer has just built and not yet
+        // unlinked, so it is always present and readable; this guard cannot be
+        // exercised without injecting a filesystem fault.
+        // @codeCoverageIgnoreStart
         if ($source === false) {
             throw new SinkException("Unable to open file [{$path}] for the XLSX writer.");
         }
 
+        // @codeCoverageIgnoreEnd
         try {
             stream_copy_to_stream($source, $sink->stream());
             fflush($sink->stream());
@@ -206,10 +215,14 @@ final readonly class XlsxWriter implements Writer
     {
         $path = tempnam($this->tempDirectory ?? sys_get_temp_dir(), 'export_xlsx_');
 
+        // tempnam() falls back to the system temp directory rather than failing
+        // on a bad directory, so this guard cannot be exercised without
+        // injecting a filesystem fault.
+        // @codeCoverageIgnoreStart
         if ($path === false) {
             throw new SinkException('Unable to allocate a temporary file for the XLSX writer.');
         }
-
+        // @codeCoverageIgnoreEnd
         return $path;
     }
 

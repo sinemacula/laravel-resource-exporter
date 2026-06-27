@@ -186,6 +186,29 @@ final class QueuedExportTest extends QueuedExportTestCase
     }
 
     /**
+     * It silently ignores a constraint descriptor of an unknown type when
+     * rebuilding the query, leaving the base query untouched.
+     *
+     * @return void
+     */
+    public function testQueryIgnoresAnUnknownConstraintType(): void
+    {
+        $this->seedUsers(3);
+
+        $spec = new ExportSpecification(
+            model: User::class,
+            resource: UserResource::class,
+            schema: null,
+            format: 'csv',
+            disk: 'exports',
+            path: 'exports/users.csv',
+            constraints: [['type' => 'unsupported', 'column' => 'id']],
+        );
+
+        self::assertEqualsCanonicalizing([1, 2, 3], $spec->query()->pluck('id')->all());
+    }
+
+    /**
      * It replays a where-in constraint when rebuilding the query.
      *
      * @return void

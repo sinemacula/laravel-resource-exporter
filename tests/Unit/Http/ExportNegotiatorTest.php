@@ -5,13 +5,17 @@ declare(strict_types = 1);
 namespace Tests\Unit\Http;
 
 use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\JsonResource;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
+use SineMacula\Exporter\Contracts\Source;
+use SineMacula\Exporter\Exceptions\NoTabularRepresentation;
 use SineMacula\Exporter\Http\ExportFormat;
 use SineMacula\Exporter\Http\ExportNegotiator;
 use SineMacula\Exporter\Http\FormatResolver;
 use SineMacula\Exporter\Http\MediaTypeRegistry;
+use SineMacula\Exporter\Schema\TabularSchema;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -154,6 +158,72 @@ final class ExportNegotiatorTest extends TestCase
     }
 
     /**
+     * It defers a single item to its native JSON response when the default
+     * format is negotiated without an explicit override.
+     *
+     * @return void
+     */
+    public function testItemDefersToNativeJsonByDefault(): void
+    {
+        $resource = new JsonResource(['id' => 1]);
+
+        self::assertNull((new ExportNegotiator)->item($resource, Request::create('/')));
+    }
+
+    /**
+     * It throws a 406 when streaming a tabular format that has no writer.
+     *
+     * @return void
+     */
+    public function testStreamExportThrowsWhenTheFormatHasNoWriter(): void
+    {
+        $registry = (new MediaTypeRegistry)
+            ->register(new ExportFormat('weird', 'weird', 'application/x-weird', ['application/x-weird'], true));
+
+        $source = new class implements Source {
+            /**
+             * Iterate the source as a lazy stream of domain items.
+             *
+             * @return iterable<int, mixed>
+             */
+            #[\Override]
+            public function rows(): iterable
+            {
+                yield from [];
+            }
+
+            /**
+             * Apply the eager-load hints the schema requested.
+             *
+             * @param  list<string>  $with
+             * @return static
+             */
+            #[\Override]
+            public function withRelations(array $with): static
+            {
+                return $this;
+            }
+        };
+
+        $schema = new class (Request::create('/')) extends TabularSchema {
+            /**
+             * Get the ordered columns for the export.
+             *
+             * @return list<\SineMacula\Exporter\Schema\Column>
+             */
+            #[\Override]
+            public function columns(): array
+            {
+                return [];
+            }
+        };
+
+        $this->expectException(NoTabularRepresentation::class);
+
+        (new ExportNegotiator($registry))->streamExport($source, $schema, 'weird', Request::create('/'));
+    }
+
+    /**
      * It adds Accept to the Vary header without duplicating it.
      *
      * @return void
@@ -165,6 +235,6 @@ final class ExportNegotiatorTest extends TestCase
         ExportNegotiator::varyAccept($response);
         ExportNegotiator::varyAccept($response);
 
-        self::assertSame(['Accept'], $response->getVary());
+        static::assertSame(['Accept'], $response->getVary());
     }
 }

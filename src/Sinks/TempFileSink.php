@@ -101,10 +101,14 @@ final class TempFileSink implements Sink
 
             $path = tempnam($this->directory, $this->prefix);
 
+            // tempnam() falls back to the system temp directory rather than
+            // failing on a bad directory, so this guard cannot be exercised
+            // without injecting a filesystem fault.
+            // @codeCoverageIgnoreStart
             if ($path === false) {
                 throw new SinkException('Unable to allocate a temporary file for the temp-file sink.');
             }
-
+            // @codeCoverageIgnoreEnd
             $this->path = $path;
         }
 

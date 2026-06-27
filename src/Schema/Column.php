@@ -262,7 +262,7 @@ final class Column
     private function resolveValue(array|object $item, Request $request): mixed
     {
         if ($this->aggregate !== null) {
-            return $this->resolveAggregate($item);
+            return $this->resolveAggregate($this->aggregate, $item);
         }
 
         if ($this->resolver !== null) {

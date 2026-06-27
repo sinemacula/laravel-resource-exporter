@@ -356,18 +356,27 @@ final class ExportBuilder
     {
         $staging = tempnam(sys_get_temp_dir(), 'export_');
 
+        // tempnam() falls back to the system temp directory rather than failing
+        // on a bad directory, so this guard cannot be exercised without
+        // injecting a filesystem fault.
+        // @codeCoverageIgnoreStart
         if ($staging === false) {
             throw new SinkException('Unable to allocate a staging file for the export.');
         }
-
+        // @codeCoverageIgnoreEnd
         $handle = fopen($staging, 'w+b');
 
+        // The staging path was just allocated by tempnam(), so it is always
+        // present and writable; this guard cannot be exercised without
+        // injecting a filesystem fault.
+        // @codeCoverageIgnoreStart
         if ($handle === false) {
             @unlink($staging);
 
             throw new SinkException("Unable to open staging file [{$staging}] for the export.");
         }
 
+        // @codeCoverageIgnoreEnd
         try {
             $this->writeInto(new StreamSink($handle));
 

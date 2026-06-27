@@ -176,10 +176,14 @@ final class ExportToDiskJob implements ShouldQueue
     {
         $handle = fopen($staging, 'w+b');
 
+        // The staging path was just allocated by tempnam(), so it is always
+        // present and writable; this guard cannot be exercised without
+        // injecting a filesystem fault.
+        // @codeCoverageIgnoreStart
         if ($handle === false) {
             throw new SinkException("Unable to open staging file [{$staging}] for the queued export.");
         }
-
+        // @codeCoverageIgnoreEnd
         $rows = 0;
 
         $counting = new CountingWriter($writer, function (int $count) use (&$rows): void {
@@ -285,10 +289,14 @@ final class ExportToDiskJob implements ShouldQueue
     {
         $path = tempnam(sys_get_temp_dir(), 'export_queue_');
 
+        // tempnam() falls back to the system temp directory rather than failing
+        // on a bad directory, so this guard cannot be exercised without
+        // injecting a filesystem fault.
+        // @codeCoverageIgnoreStart
         if ($path === false) {
             throw new SinkException('Unable to allocate a staging file for the queued export.');
         }
-
+        // @codeCoverageIgnoreEnd
         return $path;
     }
 
