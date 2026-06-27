@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Bus\PendingDispatch;
 use Illuminate\Support\Facades\Config;
 use SineMacula\Exporter\Jobs\ExportToDiskJob;
+use SineMacula\Exporter\Testing\ExporterFake;
 
 /**
  * Fluent queued-export builder.
@@ -354,12 +355,20 @@ final class QueuedExport
     /**
      * Dispatch the queued export job for the assembled specification.
      *
+     * While Exporter::fake() is active the specification is recorded instead of
+     * dispatched for real; the bus fake the double installs captures the job so
+     * it is never run, and the recording feeds the queued-export assertions.
+     *
      * @return \Illuminate\Foundation\Bus\PendingDispatch
      *
      * @throws \LogicException
      */
     public function queue(): PendingDispatch
     {
-        return ExportToDiskJob::dispatch($this->toSpecification());
+        $specification = $this->toSpecification();
+
+        ExporterFake::active()?->recordQueue($specification);
+
+        return ExportToDiskJob::dispatch($specification);
     }
 }

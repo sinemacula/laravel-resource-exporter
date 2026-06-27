@@ -15,7 +15,7 @@ return [
     |
     */
 
-    'default' => env('DEFAULT_EXPORTER', 'csv'),
+    'default' => env('EXPORTER_DEFAULT', 'csv'),
 
     /*
     |---------------------------------------------------------------------------
@@ -73,5 +73,22 @@ return [
     */
 
     'alias' => env('EXPORTER_ALIAS', 'exporter'),
+
+    /*
+    |---------------------------------------------------------------------------
+    | Audit Logging
+    |---------------------------------------------------------------------------
+    |
+    | Every full-set and queued export fires an ExportCompleted event carrying
+    | the actor, row count, filename, format and completion time. Set a log
+    | channel here to additionally route that audit payload to a dedicated log;
+    | leave it null to rely on the event alone. Routing is optional and never
+    | gates an export.
+    |
+    */
+
+    'audit' => [
+        'channel' => env('EXPORTER_AUDIT_CHANNEL'),
+    ],
 
 ];
