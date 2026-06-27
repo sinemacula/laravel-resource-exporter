@@ -8,3 +8,9 @@ parameters:
     paths:
         - src
         - tests
+
+    # The package config file legitimately uses env() (its correct home); the
+    # larastan no-env rule cannot resolve a package's config path, so exclude
+    # the declarative config from analysis rather than the v2 file.
+    excludePaths:
+        - %currentWorkingDirectory%/config/exporter.php

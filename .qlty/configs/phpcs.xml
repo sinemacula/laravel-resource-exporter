@@ -25,9 +25,22 @@
     -->
     <rule ref="SlevomatCodingStandard.TypeHints.DisallowMixedTypeHint">
         <exclude-pattern>src/Contracts/Exporter.php</exclude-pattern>
+        <exclude-pattern>src/Contracts/ExportFactory.php</exclude-pattern>
+        <exclude-pattern>src/Contracts/Source.php</exclude-pattern>
         <exclude-pattern>src/ExportManager.php</exclude-pattern>
         <exclude-pattern>src/Exporters/*</exclude-pattern>
         <exclude-pattern>src/Facades/Exporter.php</exclude-pattern>
+        <exclude-pattern>src/Http/Concerns/RespondsWithExports.php</exclude-pattern>
+        <exclude-pattern>src/Http/ExportResourceCollection.php</exclude-pattern>
+        <exclude-pattern>src/ResourceExport.php</exclude-pattern>
+        <exclude-pattern>src/Schema/CellValue.php</exclude-pattern>
+        <exclude-pattern>src/Schema/Column.php</exclude-pattern>
+        <exclude-pattern>src/Schema/Casters/*</exclude-pattern>
+        <exclude-pattern>src/Schema/Concerns/*</exclude-pattern>
+        <exclude-pattern>src/Schema/Contracts/Caster.php</exclude-pattern>
+        <exclude-pattern>src/Sinks/DiskSink.php</exclude-pattern>
+        <exclude-pattern>src/Sources/LazyCollectionSource.php</exclude-pattern>
+        <exclude-pattern>src/Writers/CsvWriter.php</exclude-pattern>
         <exclude-pattern>tests/*</exclude-pattern>
     </rule>
 

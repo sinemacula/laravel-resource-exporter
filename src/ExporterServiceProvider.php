@@ -6,6 +6,7 @@ namespace SineMacula\Exporter;
 
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\ServiceProvider;
+use SineMacula\Exporter\Contracts\ExportFactory;
 
 /**
  * Exporter service provider.
@@ -71,6 +72,9 @@ final class ExporterServiceProvider extends ServiceProvider
      */
     private function registerManager(): void
     {
-        $this->app->singleton(Config::get('exporter.alias'), fn ($app) => new ExportManager($app));
+        $this->app->singleton(ExportManager::class, fn ($app) => new ExportManager($app));
+
+        $this->app->alias(ExportManager::class, Config::get('exporter.alias'));
+        $this->app->alias(ExportManager::class, ExportFactory::class);
     }
 }

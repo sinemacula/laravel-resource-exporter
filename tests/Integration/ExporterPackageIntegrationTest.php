@@ -246,9 +246,6 @@ final class ExporterPackageIntegrationTest extends TestCase
      */
     private function config(Application $app): Repository
     {
-        $config = $app->make('config');
-        assert($config instanceof Repository);
-
-        return $config;
+        return $app->make('config');
     }
 }

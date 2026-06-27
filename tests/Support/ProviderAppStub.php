@@ -21,6 +21,9 @@ final class ProviderAppStub implements \ArrayAccess
     /** @var array<string, \Closure(mixed): mixed> */
     private array $singletons = [];
 
+    /** @var array<string, string> */
+    private array $aliases = [];
+
     /** @var \Illuminate\Config\Repository */
     private Repository $repository;
 
@@ -68,6 +71,18 @@ final class ProviderAppStub implements \ArrayAccess
     }
 
     /**
+     * Register an alias mapping for an abstract.
+     *
+     * @param  string  $abstract
+     * @param  string  $alias
+     * @return void
+     */
+    public function alias(string $abstract, string $alias): void
+    {
+        $this->aliases[$alias] = $abstract;
+    }
+
+    /**
      * Determine whether the app is in console mode.
      *
      * @return bool
@@ -87,6 +102,16 @@ final class ProviderAppStub implements \ArrayAccess
     public function singletonBindings(): array
     {
         return $this->singletons;
+    }
+
+    /**
+     * Return alias bindings captured by the stub.
+     *
+     * @return array<string, string>
+     */
+    public function aliasBindings(): array
+    {
+        return $this->aliases;
     }
 
     /**

@@ -6,6 +6,7 @@ namespace SineMacula\Exporter;
 
 use Illuminate\Contracts\Foundation\Application;
 use SineMacula\Exporter\Contracts\Exporter;
+use SineMacula\Exporter\Contracts\ExportFactory;
 use SineMacula\Exporter\Exporters\Csv;
 use SineMacula\Exporter\Exporters\Xml;
 
@@ -17,7 +18,7 @@ use SineMacula\Exporter\Exporters\Xml;
  *
  * @mixin \SineMacula\Exporter\Contracts\Exporter
  */
-final class ExportManager
+final class ExportManager implements ExportFactory
 {
     /** @var array<string, \SineMacula\Exporter\Contracts\Exporter> Resolved exporters. */
     private array $exporters = [];
@@ -62,6 +63,7 @@ final class ExportManager
      * @param  string|null  $name
      * @return \SineMacula\Exporter\Contracts\Exporter
      */
+    #[\Override]
     public function format(?string $name = null): Exporter
     {
         $name ??= $this->getDefaultDriver();
@@ -75,6 +77,7 @@ final class ExportManager
      * @param  array<string, mixed>|null  $config
      * @return \SineMacula\Exporter\Contracts\Exporter
      */
+    #[\Override]
     public function build(?array $config = null): Exporter
     {
         return $this->resolve('ondemand', $config ?? ['driver' => $this->getDefaultDriver()]);
@@ -161,6 +164,7 @@ final class ExportManager
      * @param  \Closure(\Illuminate\Contracts\Foundation\Application, array<string, mixed>): \SineMacula\Exporter\Contracts\Exporter  $callback
      * @return self
      */
+    #[\Override]
     public function extend(string $driver, \Closure $callback): self
     {
         $this->customCreators[$driver] = $callback;
