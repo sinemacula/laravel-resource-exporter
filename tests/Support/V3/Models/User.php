@@ -63,6 +63,20 @@ final class User extends Model
     }
 
     /**
+     * Scope the query to high-scoring users, taking no arguments.
+     *
+     * Exercised by the queued-export specification's argument-less named-scope
+     * replay, which routes through the single-element [$name] scopes() form.
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder<\Tests\Support\V3\Models\User>  $query
+     * @return void
+     */
+    public function scopeHighScorers(Builder $query): void
+    {
+        $query->where('score', '>=', 8);
+    }
+
+    /**
      * Get the attribute casts for the model.
      *
      * @return array<string, string>

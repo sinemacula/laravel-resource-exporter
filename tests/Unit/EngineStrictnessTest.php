@@ -82,6 +82,30 @@ final class EngineStrictnessTest extends TestCase
     }
 
     /**
+     * Preflight rejects a whitespace-only column key as empty.
+     *
+     * The key is trimmed before the emptiness test, so a key of only spaces is
+     * treated as blank and fails preflight before any bytes are written.
+     *
+     * @return void
+     */
+    public function testPreflightRejectsAWhitespaceOnlyColumnKey(): void
+    {
+        $columns = [Column::make('   ', 'Spaces'), Column::make('id', 'ID')];
+        $schema  = new FlexibleSchema(self::request(), $columns);
+        $sink    = new StringSink;
+
+        try {
+            (new Engine)->export(new ArraySource([['id' => 1]]), $schema, self::request(), new CsvWriter, $sink);
+            self::fail('Expected preflight to reject the whitespace-only column key.');
+        } catch (InvalidExportSchema $exception) {
+            self::assertStringContainsString('column key is empty', $exception->getMessage());
+        }
+
+        self::assertSame('', $sink->contents(), 'No bytes may be written when preflight rejects the schema.');
+    }
+
+    /**
      * Lenient skips an invalid column and warns, exporting the rest.
      *
      * @return void

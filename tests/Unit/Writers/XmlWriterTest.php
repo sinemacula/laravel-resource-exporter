@@ -9,6 +9,7 @@ use PHPUnit\Framework\TestCase;
 use SineMacula\Exporter\Exceptions\XmlExportException;
 use SineMacula\Exporter\Sinks\StringSink;
 use SineMacula\Exporter\Writers\XmlWriter;
+use Tests\Support\V3\Enums\Priority;
 use Tests\Support\V3\Enums\Role;
 
 /**
@@ -175,6 +176,36 @@ final class XmlWriterTest extends TestCase
         $this->expectException(XmlExportException::class);
 
         new XmlWriter(item: 'bad name');
+    }
+
+    /**
+     * It renders an integer-backed enum as its stringified scalar value.
+     *
+     * @return void
+     */
+    public function testRendersIntegerBackedEnumValue(): void
+    {
+        $output = $this->write(new XmlWriter, [
+            ['level' => Priority::HIGH],
+        ]);
+
+        self::assertStringContainsString('<level>3</level>', $output);
+    }
+
+    /**
+     * It renders an unsupported, non-stringable value as an empty element
+     * rather than failing the match.
+     *
+     * @return void
+     */
+    public function testRendersUnsupportedValueAsEmptyElement(): void
+    {
+        $output = $this->write(new XmlWriter, [
+            ['thing' => new \stdClass],
+        ]);
+
+        self::assertStringContainsString('<thing/>', $output);
+        self::assertStringEndsWith("</data>\n", $output);
     }
 
     /**

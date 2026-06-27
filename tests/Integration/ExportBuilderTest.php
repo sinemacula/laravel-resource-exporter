@@ -8,6 +8,7 @@ use Illuminate\Foundation\Bus\PendingDispatch;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\ResourceCollection;
 use Illuminate\Support\Facades\Bus;
+use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Storage;
 use PHPUnit\Framework\Attributes\CoversClass;
 use SineMacula\Exporter\Exceptions\NoTabularRepresentation;
@@ -17,10 +18,13 @@ use SineMacula\Exporter\Facades\Exporter;
 use SineMacula\Exporter\Http\ExportFormat;
 use SineMacula\Exporter\Http\MediaTypeRegistry;
 use SineMacula\Exporter\Jobs\ExportToDiskJob;
+use SineMacula\Exporter\Schema\Column;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Tests\Support\V3\ExporterTestCase;
 use Tests\Support\V3\Models\User;
+use Tests\Support\V3\Resources\PlainUserResource;
 use Tests\Support\V3\Resources\UserResource;
+use Tests\Support\V3\Schema\FlexibleSchema;
 use Tests\Support\V3\Schema\UserExportSchema;
 
 /**
@@ -56,6 +60,7 @@ final class ExportBuilderTest extends ExporterTestCase
         $response = Exporter::collection($this->collection())->format('csv')->download('members');
 
         self::assertInstanceOf(StreamedResponse::class, $response);
+        self::assertSame(200, $response->getStatusCode());
         self::assertSame('text/csv; charset=UTF-8', $response->headers->get('Content-Type'));
         self::assertSame('attachment; filename=members.csv', $response->headers->get('Content-Disposition'));
         self::assertSame('Accept', $response->headers->get('Vary'));
@@ -323,6 +328,7 @@ final class ExportBuilderTest extends ExporterTestCase
     public function testQueueRejectsASchemaInstance(): void
     {
         $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage('A queued export needs a schema class-string, not a schema instance.');
 
         Exporter::query(User::query(), UserResource::class) // @phpstan-ignore staticMethod.dynamicCall
             ->schema(new UserExportSchema(Request::create('/')))
@@ -351,6 +357,7 @@ final class ExportBuilderTest extends ExporterTestCase
         $this->seedUsers(1);
 
         $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage('Only a query subject can be queued; use Exporter::queue($model, $resource) for queued exports.');
 
         Exporter::collection($this->collection())->queue('exports', 'exports/users.csv');
     }
@@ -363,6 +370,7 @@ final class ExportBuilderTest extends ExporterTestCase
     public function testQueueRejectsAConstrainedQuery(): void
     {
         $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage('A live query with constraints cannot be queued; use Exporter::queue($model, $resource) so the constraints serialize.');
 
         Exporter::query(User::query()->where('active', true), UserResource::class) // @phpstan-ignore staticMethod.dynamicCall
             ->queue('exports', 'exports/users.csv');
@@ -404,6 +412,137 @@ final class ExportBuilderTest extends ExporterTestCase
         $this->expectException(NoTabularRepresentation::class);
 
         $builder->format('plain')->toString();
+    }
+
+    /**
+     * It negotiates the configured default format when none is set explicitly.
+     *
+     * @return void
+     */
+    public function testFormatDefaultsToTheConfiguredFormat(): void
+    {
+        $this->seedUsers(1);
+
+        Config::set('exporter.default', 'tsv');
+
+        $response = Exporter::collection($this->collection())->download();
+
+        self::assertSame('text/tab-separated-values; charset=UTF-8', $response->headers->get('Content-Type'));
+        self::assertSame('attachment; filename=users.tsv', $response->headers->get('Content-Disposition'));
+    }
+
+    /**
+     * It falls back to csv when the configured default is not a string.
+     *
+     * @return void
+     */
+    public function testFormatFallsBackToCsvForANonStringDefault(): void
+    {
+        $this->seedUsers(1);
+
+        Config::set('exporter.default', ['not', 'a', 'string']);
+
+        $response = Exporter::collection($this->collection())->download();
+
+        self::assertSame('text/csv; charset=UTF-8', $response->headers->get('Content-Type'));
+    }
+
+    /**
+     * It returns a 200 status from the real streamed download response.
+     *
+     * @return void
+     */
+    public function testStreamedDownloadResponseStatusIsOk(): void
+    {
+        $this->seedUsers(1);
+
+        $response = Exporter::collection($this->collection())->format('csv')->download();
+
+        self::assertSame(200, $response->getStatusCode());
+    }
+
+    /**
+     * It drives the export from an explicit schema instance over the resource.
+     *
+     * The instance carries a distinct filename and a single column, so the
+     * download name and body prove the instance is used rather than the
+     * resource's own tabular schema.
+     *
+     * @return void
+     */
+    public function testSchemaInstanceOverridesTheResourceSchema(): void
+    {
+        $this->seedUsers(2);
+
+        $schema = new FlexibleSchema(Request::create('/'), [Column::make('name', 'Name')], filename: 'invoice');
+
+        $response = Exporter::collection($this->collection())->schema($schema)->format('csv')->download();
+
+        self::assertSame('attachment; filename=invoice.csv', $response->headers->get('Content-Disposition'));
+
+        $body = $this->streamToString($response);
+
+        self::assertStringStartsWith("Name\n", $body);
+        self::assertStringNotContainsString('Email', $body, 'The single-column instance schema must replace the resource schema.');
+    }
+
+    /**
+     * It exports a single resource item hierarchically through its own class.
+     *
+     * @return void
+     */
+    public function testSingleResourceItemExportsHierarchically(): void
+    {
+        $this->seedUsers(1);
+
+        $user = User::query()->firstOrFail();
+
+        $json = Exporter::export(new UserResource($user))->format('json')->toString();
+
+        $decoded = json_decode($json, true);
+
+        self::assertIsArray($decoded);
+        self::assertCount(1, $decoded);
+        self::assertSame('User 1', $decoded[0]['name']);
+    }
+
+    /**
+     * It counts the rows of a hierarchical stream export.
+     *
+     * @return void
+     */
+    public function testToStreamHierarchicalCountsRows(): void
+    {
+        $this->seedUsers(3);
+
+        $stream = fopen('php://temp', 'r+b');
+
+        self::assertIsResource($stream);
+
+        $rows = Exporter::collection($this->collection())->format('json')->toStream($stream);
+
+        rewind($stream);
+        $decoded = json_decode((string) stream_get_contents($stream), true);
+        fclose($stream);
+
+        self::assertSame(3, $rows);
+        self::assertIsArray($decoded);
+        self::assertCount(3, $decoded);
+    }
+
+    /**
+     * It throws a 406 naming the resource when its class is not tabular.
+     *
+     * @return void
+     */
+    public function testThrowsNamingTheResourceWhenTheClassIsNotTabular(): void
+    {
+        $this->expectException(NoTabularRepresentation::class);
+        $this->expectExceptionMessage(PlainUserResource::class);
+
+        Exporter::query(User::query(), PlainUserResource::class) // @phpstan-ignore staticMethod.dynamicCall
+            ->format('csv')
+            ->toString();
     }
 
     /**

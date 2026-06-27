@@ -9,6 +9,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 use SineMacula\Exporter\Schema\Aggregate;
 use SineMacula\Exporter\Schema\Column;
+use SineMacula\Exporter\Schema\EagerLoadPlan;
 use SineMacula\Exporter\Schema\Enums\AggregateType;
 use SineMacula\Exporter\Schema\Enums\Strictness;
 use SineMacula\Exporter\Schema\ExpandAxis;
@@ -31,6 +32,7 @@ use SineMacula\Exporter\Schema\WarningCollector;
  * @internal
  */
 #[CoversClass(Aggregate::class)]
+#[CoversClass(EagerLoadPlan::class)]
 #[CoversClass(ExpandAxis::class)]
 #[CoversClass(ExpandPolicy::class)]
 #[CoversClass(WarningCollector::class)]
@@ -72,6 +74,21 @@ final class SchemaValueObjectsTest extends TestCase
 
         self::assertSame('orders', $axis->relation);
         self::assertTrue($axis->dropWhenEmpty);
+
+        self::assertFalse((new ExpandAxis('orders'))->dropWhenEmpty, 'A childless parent is kept, not dropped, by default.');
+    }
+
+    /**
+     * It reports emptiness only when neither aggregate set is populated.
+     *
+     * @return void
+     */
+    public function testEagerLoadPlanReportsEmptiness(): void
+    {
+        self::assertTrue((new EagerLoadPlan)->isEmpty(), 'A plan with no count and no sum is empty.');
+        self::assertFalse((new EagerLoadPlan(['orders']))->isEmpty(), 'A count-only plan is not empty.');
+        self::assertFalse((new EagerLoadPlan([], [['relation' => 'orders', 'column' => 'total']]))->isEmpty(), 'A sum-only plan is not empty.');
+        self::assertFalse((new EagerLoadPlan(['orders'], [['relation' => 'orders', 'column' => 'total']]))->isEmpty(), 'A plan with both is not empty.');
     }
 
     /**

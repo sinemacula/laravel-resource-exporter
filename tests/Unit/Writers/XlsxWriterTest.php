@@ -227,6 +227,110 @@ final class XlsxWriterTest extends TestCase
     }
 
     /**
+     * It humanises a dotted column key into a spaced heading.
+     *
+     * @return void
+     */
+    public function testDottedKeyHeadingIsHumanised(): void
+    {
+        $request = Request::create('/');
+        $columns = [Column::make('user.full_name')];
+        $schema  = new ArraySchema($request, $columns);
+
+        $rows = [['user.full_name' => new CellValue('v', CellType::STRING)]];
+        $sink = new StringSink;
+
+        (new XlsxWriter)->write($rows, $schema, $sink);
+
+        self::assertSame('User Full Name', $this->readWorkbookFromString($sink->contents())[0][0]);
+    }
+
+    /**
+     * It emits a date-time cell as a native date carrying its time component,
+     * not a stringified fallback.
+     *
+     * @return void
+     */
+    public function testRendersDateTimeCellAsNativeDate(): void
+    {
+        $request = Request::create('/');
+        $columns = [Column::make('when', 'When')];
+        $schema  = new ArraySchema($request, $columns, headings: false);
+
+        $moment = new \DateTimeImmutable('2026-06-27 13:45:30');
+        $rows   = [['when' => new CellValue($moment, CellType::DATE_TIME)]];
+        $sink   = new StringSink;
+
+        (new XlsxWriter)->write($rows, $schema, $sink);
+
+        $value = $this->readWorkbookFromString($sink->contents())[0][0];
+
+        self::assertInstanceOf(\DateTimeInterface::class, $value);
+        self::assertSame('2026-06-27 13:45:30', $value->format('Y-m-d H:i:s'));
+    }
+
+    /**
+     * It renders boolean labels from a pipe-delimited format, keeping later
+     * segments and falling back to the false label for a false value.
+     *
+     * @return void
+     */
+    public function testBooleanLabelsFromPipeDelimitedFormat(): void
+    {
+        $request = Request::create('/');
+        $columns = [Column::make('t', 'T'), Column::make('f', 'F'), Column::make('m', 'M')];
+        $schema  = new ArraySchema($request, $columns, headings: false);
+
+        $rows = [[
+            't' => new CellValue(true, CellType::BOOLEAN, 'On|Off'),
+            'f' => new CellValue(false, CellType::BOOLEAN, 'On|Off'),
+            'm' => new CellValue(false, CellType::BOOLEAN, 'On|Off|Maybe'),
+        ]];
+
+        $sink = new StringSink;
+        (new XlsxWriter)->write($rows, $schema, $sink);
+
+        $read = $this->readWorkbookFromString($sink->contents());
+
+        self::assertSame('On', $read[0][0]);
+        self::assertSame('Off', $read[0][1]);
+        self::assertSame('Off|Maybe', $read[0][2]);
+    }
+
+    /**
+     * It allocates the workbook's temporary file in the configured directory.
+     *
+     * @return void
+     */
+    public function testTemporaryFileHonoursConfiguredDirectory(): void
+    {
+        // Base on the canonical temp path so the assertion is not defeated by
+        // the platform symlink (e.g. /var -> /private/var on macOS) that
+        // tempnam resolves.
+        $directory = realpath(sys_get_temp_dir()) . '/xlsx_temp_' . uniqid();
+
+        mkdir($directory);
+
+        $path = null;
+
+        try {
+            $writer = new XlsxWriter($directory);
+            $method = new \ReflectionMethod($writer, 'temporaryPath');
+            $path   = $method->invoke($writer);
+
+            self::assertIsString($path);
+            self::assertStringStartsWith($directory . '/', $path);
+        } finally {
+
+            if (is_string($path)) {
+                @unlink($path);
+            }
+
+            @rmdir($directory);
+        }
+    }
+
+    /**
      * It reports the XLSX vendor media type.
      *
      * @return void

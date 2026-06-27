@@ -16,6 +16,7 @@ use SineMacula\Exporter\Events\ExportFailed;
 use SineMacula\Exporter\Events\ExportStarting;
 use SineMacula\Exporter\Events\RowsExported;
 use SineMacula\Exporter\Exceptions\NoTabularRepresentation;
+use SineMacula\Exporter\Export\ExportSpecification;
 use SineMacula\Exporter\Export\QueuedExport;
 use SineMacula\Exporter\Jobs\ExportToDiskJob;
 use Tests\Support\V3\Models\Actor;
@@ -23,6 +24,7 @@ use Tests\Support\V3\Models\User;
 use Tests\Support\V3\QueuedExportTestCase;
 use Tests\Support\V3\Resources\PlainUserResource;
 use Tests\Support\V3\Resources\UserResource;
+use Tests\Support\V3\Schema\ActorAwareSchema;
 use Tests\Support\V3\Schema\ExplodingExportSchema;
 use Tests\Support\V3\SignerlessDisk;
 
@@ -436,6 +438,173 @@ final class ExportToDiskJobTest extends QueuedExportTestCase
 
         self::assertEmpty(array_diff($this->stagingTempFiles(), $before));
         $disk->assertExists('exports/users.csv');
+    }
+
+    /**
+     * It configures three retry attempts and a ten-minute timeout on the job.
+     *
+     * @return void
+     */
+    public function testConfiguresRetriesAndTimeout(): void
+    {
+        $job = new ExportToDiskJob(
+            QueuedExport::forModel(User::class, UserResource::class)
+                ->toDisk('exports', 'exports/users.csv')
+                ->toSpecification(),
+        );
+
+        self::assertSame(3, $job->tries);
+        self::assertSame(600, $job->timeout);
+    }
+
+    /**
+     * It completes an empty dataset with a row count of exactly zero, the
+     * initial counter value the streamer reports when no row passes.
+     *
+     * @return void
+     */
+    public function testCompletesAnEmptyDatasetWithZeroRows(): void
+    {
+        $disk = $this->fakeDisk('exports');
+
+        Event::fake();
+
+        ExportToDiskJob::dispatchSync(
+            QueuedExport::forModel(User::class, UserResource::class)
+                ->toDisk('exports', 'exports/users.csv')
+                ->toSpecification(),
+        );
+
+        $disk->assertExists('exports/users.csv');
+
+        Event::assertDispatched(
+            ExportCompleted::class,
+            static fn (ExportCompleted $event): bool => $event->rowCount === 0,
+        );
+    }
+
+    /**
+     * It completes without firing progress events when progress reporting is
+     * disabled, never tripping a modulo-by-zero on the disabled cadence.
+     *
+     * @return void
+     */
+    public function testCompletesWithProgressReportingDisabled(): void
+    {
+        $disk = $this->fakeDisk('exports');
+
+        Event::fake();
+        $this->seedUsers(5);
+
+        ExportToDiskJob::dispatchSync(
+            QueuedExport::forModel(User::class, UserResource::class)
+                ->toDisk('exports', 'exports/users.csv')
+                ->chunk(2)
+                ->progressEvery(0)
+                ->toSpecification(),
+        );
+
+        $disk->assertExists('exports/users.csv');
+
+        Event::assertNotDispatched(RowsExported::class);
+        Event::assertDispatched(
+            ExportCompleted::class,
+            static fn (ExportCompleted $event): bool => $event->rowCount === 5,
+        );
+    }
+
+    /**
+     * It removes the partially written disk file when a failure occurs after
+     * the file has already been stored, leaving a retry a clean slate.
+     *
+     * @return void
+     */
+    public function testRemovesTheStoredFileWhenAFailureOccursAfterStoring(): void
+    {
+        $disk = $this->fakeDisk('exports');
+        $this->seedUsers(2);
+
+        Event::listen(ExportCompleted::class, static function (): void {
+            throw new \RuntimeException('blew up after storing');
+        });
+
+        $job = new ExportToDiskJob(
+            QueuedExport::forModel(User::class, UserResource::class)
+                ->toDisk('exports', 'exports/users.csv')
+                ->toSpecification(),
+        );
+
+        $caught = null;
+
+        try {
+            app()->call([$job, 'handle']);
+        } catch (\Throwable $exception) {
+            $caught = $exception;
+        }
+
+        self::assertInstanceOf(\RuntimeException::class, $caught);
+        self::assertFalse($disk->exists('exports/users.csv'));
+    }
+
+    /**
+     * It treats a specification carrying an actor id but no actor class as
+     * having no actor, completing rather than dereferencing a null class.
+     *
+     * @return void
+     */
+    public function testTreatsAMissingActorClassAsNoActor(): void
+    {
+        $disk = $this->fakeDisk('exports');
+
+        Event::fake();
+        $this->seedUsers(2);
+
+        ExportToDiskJob::dispatchSync(new ExportSpecification(
+            model: User::class,
+            resource: UserResource::class,
+            schema: null,
+            format: 'csv',
+            disk: 'exports',
+            path: 'exports/users.csv',
+            actorId: 999,
+            actorClass: null,
+        ));
+
+        $disk->assertExists('exports/users.csv');
+
+        Event::assertDispatched(
+            ExportCompleted::class,
+            static fn (ExportCompleted $event): bool => $event->rowCount === 2 && $event->actorId === 999,
+        );
+    }
+
+    /**
+     * It binds the re-resolved actor onto the request, so a request-aware
+     * schema column resolves the initiating actor's identifier per row.
+     *
+     * @return void
+     */
+    public function testBindsTheResolvedActorOntoTheRequest(): void
+    {
+        $disk  = $this->fakeDisk('exports');
+        $admin = $this->seedActor('admin');
+
+        $this->seedUsers(2);
+
+        ExportToDiskJob::dispatchSync(
+            QueuedExport::forModel(User::class, UserResource::class)
+                ->schema(ActorAwareSchema::class)
+                ->toDisk('exports', 'exports/actor.csv')
+                ->orderBy('id')
+                ->by($admin)
+                ->toSpecification(),
+        );
+
+        $rows = $this->readCsv($disk, 'exports/actor.csv');
+
+        self::assertSame(['ID', 'Actor'], $rows[0]);
+        self::assertSame(['1', (string) $admin->id], $rows[1]);
+        self::assertSame(['2', (string) $admin->id], $rows[2]);
     }
 
     /**

@@ -58,6 +58,26 @@ final class ConnectionAwareSourceTest extends TestCase
     }
 
     /**
+     * It stops outright on disconnect rather than skipping the aborted item.
+     *
+     * The abort signal fires for a single check only; a decorator that merely
+     * skipped that item would resume and yield the rest, so this pins that the
+     * stream truly halts the moment the disconnect is seen.
+     *
+     * @return void
+     */
+    public function testHaltsRatherThanSkippingTheItemOnDisconnect(): void
+    {
+        $source = new ConnectionAwareSource(new ArraySource([1, 2, 3, 4]), static function (): bool {
+            static $calls = 0;
+
+            return ++$calls === 2;
+        });
+
+        self::assertSame([1], iterator_to_array($source->rows(), false), 'Iteration must halt at the disconnect, not skip the item and continue.');
+    }
+
+    /**
      * It never yields a single item when the client is already gone.
      *
      * @return void

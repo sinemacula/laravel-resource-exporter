@@ -4,23 +4,33 @@ declare(strict_types = 1);
 
 namespace Tests\Integration;
 
+use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Http\Request;
 use Illuminate\Routing\Router;
+use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Log;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\CoversTrait;
+use PHPUnit\Framework\Attributes\DataProvider;
 use SineMacula\Exporter\Engine;
+use SineMacula\Exporter\Events\StreamExportFailed;
 use SineMacula\Exporter\Http\Concerns\RespondsWithExports;
 use SineMacula\Exporter\Http\ExportFormat;
 use SineMacula\Exporter\Http\ExportNegotiator;
 use SineMacula\Exporter\Http\ExportResourceCollection;
 use SineMacula\Exporter\Http\MediaTypeRegistry;
+use SineMacula\Exporter\Schema\Column;
+use SineMacula\Exporter\Schema\TabularSchema;
 use SineMacula\Exporter\Sinks\StreamedResponseSink;
 use SineMacula\Exporter\Sources\ResourceCollectionSource;
 use SineMacula\Exporter\Sources\ResourceItemSource;
 use SineMacula\Exporter\Writers\CsvWriter;
+use Tests\Support\V3\ArraySource;
 use Tests\Support\V3\ExporterTestCase;
 use Tests\Support\V3\Models\User;
 use Tests\Support\V3\Resources\PlainUserResource;
 use Tests\Support\V3\Resources\UserResource;
+use Tests\Support\V3\Schema\FlexibleSchema;
 
 /**
  * HTTP negotiation tests covering item, collection, JSON fallback, and 406.
@@ -162,6 +172,142 @@ final class ExportNegotiationHttpTest extends ExporterTestCase
     }
 
     /**
+     * The completion callback fires on success carrying the exact data-row
+     * count the stream emitted.
+     *
+     * @return void
+     */
+    public function testStreamExportInvokesCompletionCallbackWithTheRowCount(): void
+    {
+        $request  = Request::create('/', 'GET', server: ['HTTP_ACCEPT' => 'text/csv']);
+        $received = null;
+
+        $response = (new ExportNegotiator)->streamExport(
+            new ArraySource([['id' => 1], ['id' => 2], ['id' => 3]]),
+            new FlexibleSchema($request, [Column::make('id', 'ID')]),
+            'csv',
+            $request,
+            static function (int $rows) use (&$received): void {
+                $received = $rows;
+            },
+        );
+
+        $this->streamToString($response);
+
+        self::assertSame(3, $received);
+    }
+
+    /**
+     * The completion callback fires for an empty source with a row count of
+     * exactly zero - the count starts at zero, not below it.
+     *
+     * @return void
+     */
+    public function testStreamExportReportsZeroRowsForAnEmptySource(): void
+    {
+        $request  = Request::create('/', 'GET', server: ['HTTP_ACCEPT' => 'text/csv']);
+        $received = null;
+
+        $response = (new ExportNegotiator)->streamExport(
+            new ArraySource([]),
+            new FlexibleSchema($request, [Column::make('id', 'ID')]),
+            'csv',
+            $request,
+            static function (int $rows) use (&$received): void {
+                $received = $rows;
+            },
+        );
+
+        $this->streamToString($response);
+
+        self::assertSame(0, $received);
+    }
+
+    /**
+     * A failure on the very first row skips the completion callback, fires the
+     * failure event with zero rows written, and logs the truncation context.
+     *
+     * @return void
+     */
+    public function testStreamFailureSkipsCompletionAndLogsTruncationContext(): void
+    {
+        Event::fake([StreamExportFailed::class]);
+        Log::spy();
+
+        $request   = Request::create('/', 'GET', server: ['HTTP_ACCEPT' => 'text/csv']);
+        $completed = false;
+
+        $response = (new ExportNegotiator)->streamExport(
+            new ArraySource([['id' => 1], ['id' => 2]]),
+            $this->firstRowThrows($request),
+            'csv',
+            $request,
+            static function () use (&$completed): void {
+                $completed = true;
+            },
+        );
+
+        $this->streamToString($response);
+
+        self::assertFalse($completed, 'The completion callback must not run after a mid-stream failure.');
+
+        Event::assertDispatched(
+            StreamExportFailed::class,
+            static fn (StreamExportFailed $event): bool => $event->format === 'csv' && $event->rowsWritten === 0,
+        );
+
+        Log::shouldHaveReceived('warning') // @phpstan-ignore staticMethod.notFound
+            ->once()
+            ->withArgs(static fn (string $message, array $context): bool => $message === 'Resource export stream truncated after the response had begun.'
+                && $context                                                          === ['format' => 'csv', 'rows_written' => 0, 'exception' => 'boom']);
+    }
+
+    /**
+     * Actor-identifier cases: the raw identity and the value the negotiator
+     * records for it.
+     *
+     * @return iterable<string, array{float|int|string|null, int|string|null}>
+     */
+    public static function actorIdentifierCases(): iterable
+    {
+        yield 'an integer identifier is preserved' => [5, 5];
+        yield 'a string identifier is preserved' => ['user-9', 'user-9'];
+        yield 'a float identifier is dropped' => [3.5, null];
+        yield 'a null identifier is dropped' => [null, null];
+    }
+
+    /**
+     * The resolved actor identifier carried by the failure event keeps an int
+     * or string identity, but drops anything that is neither.
+     *
+     * @param  float|int|string|null  $identifier
+     * @param  int|string|null  $expected
+     * @return void
+     */
+    #[DataProvider('actorIdentifierCases')]
+    public function testStreamFailureRecordsTheResolvedActorIdentifier(float|int|string|null $identifier, int|string|null $expected): void
+    {
+        Event::fake([StreamExportFailed::class]);
+
+        $request = Request::create('/', 'GET', server: ['HTTP_ACCEPT' => 'text/csv']);
+        $request->setUserResolver(static fn (): Authenticatable => self::actor($identifier));
+
+        $response = (new ExportNegotiator)->streamExport(
+            new ArraySource([['id' => 1]]),
+            $this->firstRowThrows($request),
+            'csv',
+            $request,
+        );
+
+        $this->streamToString($response);
+
+        Event::assertDispatched(
+            StreamExportFailed::class,
+            static fn (StreamExportFailed $event): bool => $event->actorId === $expected,
+        );
+    }
+
+    /**
      * Register the routes the negotiation scenarios hit.
      *
      * @param  mixed  $router
@@ -179,5 +325,121 @@ final class ExportNegotiationHttpTest extends ExporterTestCase
         $router->get('/plain', static fn (): mixed => PlainUserResource::collection(User::query()->get()));
         $router->get('/plain-item', static fn (): mixed => new PlainUserResource(User::query()->firstOrFail()));
         $router->get('/nested', static fn (): mixed => response()->json(['user' => new UserResource(User::query()->firstOrFail())]));
+    }
+
+    /**
+     * Build a tabular schema whose only column throws on the first data row.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \SineMacula\Exporter\Schema\TabularSchema
+     */
+    private function firstRowThrows(Request $request): TabularSchema
+    {
+        return new FlexibleSchema($request, [
+            Column::make('id', 'ID')->resolveUsing(static function (array|object $item): mixed {
+                if (data_get($item, 'id') === 1) {
+                    throw new \RuntimeException('boom');
+                }
+
+                return data_get($item, 'id');
+            }),
+        ]);
+    }
+
+    /**
+     * Build an authenticatable whose identifier is the given raw value.
+     *
+     * @param  float|int|string|null  $identifier
+     * @return \Illuminate\Contracts\Auth\Authenticatable
+     */
+    private static function actor(float|int|string|null $identifier): Authenticatable
+    {
+        return new class ($identifier) implements Authenticatable {
+            /**
+             * Create the stub actor.
+             *
+             * @param  float|int|string|null  $identifier
+             */
+            public function __construct(
+
+                /** The raw identifier the resolver returns. */
+                private readonly float|int|string|null $identifier,
+            ) {}
+
+            /**
+             * Get the name of the unique identifier for the user.
+             *
+             * @return string
+             */
+            #[\Override]
+            public function getAuthIdentifierName(): string
+            {
+                return 'id';
+            }
+
+            /**
+             * Get the unique identifier for the user.
+             *
+             * @return float|int|string|null
+             */
+            #[\Override]
+            public function getAuthIdentifier(): float|int|string|null
+            {
+                return $this->identifier;
+            }
+
+            /**
+             * Get the name of the password attribute for the user.
+             *
+             * @return string
+             */
+            #[\Override]
+            public function getAuthPasswordName(): string
+            {
+                return 'password';
+            }
+
+            /**
+             * Get the password for the user.
+             *
+             * @return string
+             */
+            #[\Override]
+            public function getAuthPassword(): string
+            {
+                return '';
+            }
+
+            /**
+             * Get the token value for the "remember me" session.
+             *
+             * @return string
+             */
+            #[\Override]
+            public function getRememberToken(): string
+            {
+                return '';
+            }
+
+            /**
+             * Set the token value for the "remember me" session.
+             *
+             * @param  mixed  $value
+             * @return void
+             */
+            #[\Override]
+            public function setRememberToken(mixed $value): void {}
+
+            /**
+             * Get the column name for the "remember me" token.
+             *
+             * @return string
+             */
+            #[\Override]
+            public function getRememberTokenName(): string
+            {
+                return 'remember_token';
+            }
+        };
     }
 }

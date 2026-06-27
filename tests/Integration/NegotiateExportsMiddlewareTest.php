@@ -111,6 +111,56 @@ final class NegotiateExportsMiddlewareTest extends ExporterTestCase
     }
 
     /**
+     * A list mixing object rows with scalars cannot be flattened, so the JSON
+     * passes through untouched rather than the scalars being silently dropped.
+     *
+     * @return void
+     */
+    public function testMiddlewareLeavesAListMixingObjectsAndScalarsUntouched(): void
+    {
+        $response = $this->get('/legacy-mixed', ['Accept' => 'text/csv']);
+
+        $response->assertOk();
+        $response->assertHeader('Content-Type', 'application/json');
+        $response->assertHeader('Vary', 'Accept');
+        $response->assertExactJson([
+            ['id' => 1, 'name' => 'Ada'],
+            5,
+        ]);
+    }
+
+    /**
+     * Integer payload keys are cast to string column names, so a numeric-keyed
+     * object still flattens to a tabular export rather than erroring.
+     *
+     * @return void
+     */
+    public function testMiddlewareCastsIntegerKeysToStringColumns(): void
+    {
+        $response = $this->get('/legacy-int-keys', ['Accept' => 'text/csv']);
+
+        $response->assertOk();
+        $response->assertHeader('Content-Type', 'text/csv; charset=UTF-8');
+
+        self::assertSame("10,11\n\"{\"\"v\"\":\"\"a\"\"}\",\"{\"\"v\"\":\"\"b\"\"}\"\n", $response->streamedContent());
+    }
+
+    /**
+     * A nested value is JSON-encoded with slashes left unescaped, matching the
+     * documented blind flatten.
+     *
+     * @return void
+     */
+    public function testMiddlewareEncodesNestedValuesWithUnescapedSlashes(): void
+    {
+        $response = $this->get('/legacy-nested', ['Accept' => 'text/csv']);
+
+        $response->assertOk();
+
+        self::assertSame("Id,Link\n1,\"{\"\"u\"\":\"\"a/b\"\"}\"\n", $response->streamedContent());
+    }
+
+    /**
      * The routes whose bodies the middleware cannot flatten to a table.
      *
      * @return iterable<string, array{string}>
@@ -161,6 +211,9 @@ final class NegotiateExportsMiddlewareTest extends ExporterTestCase
 
         $router->get('/legacy-envelope', static fn (): mixed => response()->json(['data' => [['id' => 1, 'tags' => ['a', 'b']]]]))->middleware('exporter.negotiate');
         $router->get('/legacy-object', static fn (): mixed => response()->json(['id' => 9, 'name' => 'Zed']))->middleware('exporter.negotiate');
+        $router->get('/legacy-mixed', static fn (): mixed => response()->json([['id' => 1, 'name' => 'Ada'], 5]))->middleware('exporter.negotiate');
+        $router->get('/legacy-int-keys', static fn (): mixed => response()->json(['10' => ['v' => 'a'], '11' => ['v' => 'b']]))->middleware('exporter.negotiate');
+        $router->get('/legacy-nested', static fn (): mixed => response()->json([['id' => 1, 'link' => ['u' => 'a/b']]]))->middleware('exporter.negotiate');
         $router->get('/legacy-text', static fn (): mixed => response('plain text'))->middleware('exporter.negotiate');
         $router->get('/legacy-scalar', static fn (): mixed => response()->json(42))->middleware('exporter.negotiate');
         $router->get('/legacy-empty', static fn (): mixed => response()->json([]))->middleware('exporter.negotiate');

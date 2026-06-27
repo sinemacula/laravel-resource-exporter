@@ -65,6 +65,7 @@ final class ExporterFakeTest extends QueuedExportTestCase
         $response = Exporter::collection($this->collection())->format('csv')->download('members');
 
         self::assertInstanceOf(StreamedResponse::class, $response);
+        self::assertSame(200, $response->getStatusCode());
         self::assertSame('', $this->streamToString($response));
 
         $fake->assertDownloaded()
@@ -282,6 +283,123 @@ final class ExporterFakeTest extends QueuedExportTestCase
         Exporter::collection($this->collection())->download();
 
         $this->assertFails(static fn (): mixed => $fake->assertNothingExported());
+    }
+
+    /**
+     * It only fakes the export job, leaving other jobs to run for real.
+     *
+     * @return void
+     */
+    public function testFakeOnlyInterceptsTheExportJob(): void
+    {
+        Exporter::fake();
+
+        $flag      = new \stdClass;
+        $flag->ran = false;
+
+        dispatch_sync(new readonly class ($flag) {
+            /**
+             * @param  \stdClass  $flag
+             */
+            public function __construct(
+
+                /** The shared flag toggled when the job runs. */
+                private \stdClass $flag,
+            ) {}
+
+            /**
+             * @return void
+             */
+            public function handle(): void
+            {
+                $this->flag->ran = true;
+            }
+        });
+
+        self::assertTrue($flag->ran, 'A non-export job must run for real while the exporter fake is active.');
+    }
+
+    /**
+     * It names the requested filename in the assertDownloaded failure message.
+     *
+     * @return void
+     */
+    public function testAssertDownloadedFailureMessagesNameTheFilename(): void
+    {
+        $fake = Exporter::fake();
+
+        $unnamed = $this->failureMessage(static fn (): mixed => $fake->assertDownloaded());
+
+        self::assertStringStartsWith('Expected an export to be downloaded, but none were.', $unnamed);
+        self::assertStringNotContainsString('as [', $unnamed, 'The no-filename failure must not name a file.');
+
+        self::assertStringContainsString(
+            'as [members]',
+            $this->failureMessage(static fn (): mixed => $fake->assertDownloaded('members')),
+        );
+    }
+
+    /**
+     * It fails assertQueued when only non-queue exports were recorded.
+     *
+     * @return void
+     */
+    public function testAssertQueuedFailsWhenOnlyNonQueueExportsRecorded(): void
+    {
+        $this->seedUsers(1);
+
+        $fake = Exporter::fake();
+
+        Exporter::collection($this->collection())->download();
+
+        $this->assertFails(static fn (): mixed => $fake->assertQueued());
+    }
+
+    /**
+     * It fails assertQueued when nothing at all was recorded.
+     *
+     * @return void
+     */
+    public function testAssertQueuedFailsWhenNothingRecorded(): void
+    {
+        $fake = Exporter::fake();
+
+        $this->assertFails(static fn (): mixed => $fake->assertQueued());
+    }
+
+    /**
+     * It counts a queued export's absent row count as zero.
+     *
+     * @return void
+     */
+    public function testAssertExportedRowsCountsQueuedNullRowsAsZero(): void
+    {
+        $this->fakeDisk('exports');
+
+        $fake = Exporter::fake();
+
+        Exporter::queue(User::class, UserResource::class)
+            ->toDisk('exports', 'exports/users.csv')
+            ->queue();
+
+        $fake->assertExportedRows(0);
+    }
+
+    /**
+     * Capture the message of the assertion failure the closure must raise.
+     *
+     * @param  \Closure(): mixed  $assertion
+     * @return string
+     */
+    private function failureMessage(\Closure $assertion): string
+    {
+        try {
+            $assertion();
+        } catch (AssertionFailedError $error) {
+            return $error->getMessage();
+        }
+
+        self::fail('Expected the assertion to fail, but it passed.');
     }
 
     /**

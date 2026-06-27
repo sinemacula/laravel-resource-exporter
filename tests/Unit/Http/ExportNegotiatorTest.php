@@ -6,6 +6,7 @@ namespace Tests\Unit\Http;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Http\Resources\Json\ResourceCollection;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -15,8 +16,13 @@ use SineMacula\Exporter\Http\ExportFormat;
 use SineMacula\Exporter\Http\ExportNegotiator;
 use SineMacula\Exporter\Http\FormatResolver;
 use SineMacula\Exporter\Http\MediaTypeRegistry;
+use SineMacula\Exporter\Schema\Column;
 use SineMacula\Exporter\Schema\TabularSchema;
+use SineMacula\Exporter\Writers\CsvWriter;
 use Symfony\Component\HttpFoundation\Response;
+use Tests\Support\V3\ArraySource;
+use Tests\Support\V3\Resources\PlainUserResource;
+use Tests\Support\V3\Schema\FlexibleSchema;
 
 /**
  * Tests for the custom negotiation resolver and media registry.
@@ -51,6 +57,11 @@ final class ExportNegotiatorTest extends TestCase
         yield 'text wildcard resolves to the first text format' => ['text/*', 'csv'];
         yield 'unmatched type wildcard falls back to json' => ['audio/*', 'json'];
         yield 'blank accept falls back to json' => ['   ', 'json'];
+        yield 'a sole q=0 candidate is rejected and falls to json' => ['text/csv;q=0', 'json'];
+        yield 'an uppercase type wildcard resolves case-insensitively' => ['TEXT/*', 'csv'];
+        yield 'the second equal-quality candidate is honoured' => ['text/html, text/csv', 'csv'];
+        yield 'a leading bare wildcard resolves to json before a concrete type' => ['*, text/csv', 'json'];
+        yield 'a starred value that is not a type range falls to json' => ['text/cs*', 'json'];
     }
 
     /**
@@ -236,5 +247,144 @@ final class ExportNegotiatorTest extends TestCase
         ExportNegotiator::varyAccept($response);
 
         static::assertSame(['Accept'], $response->getVary());
+    }
+
+    /**
+     * It appends Accept to a pre-existing Vary header without discarding the
+     * values already present.
+     *
+     * @return void
+     */
+    public function testVaryAcceptPreservesExistingVaryValues(): void
+    {
+        $response = new Response;
+        $response->setVary(['Accept-Encoding']);
+
+        ExportNegotiator::varyAccept($response);
+
+        static::assertSame(['Accept-Encoding', 'Accept'], $response->getVary());
+    }
+
+    /**
+     * A tabular collection whose item resource provides no tabular schema 406s
+     * naming the item resource, not the wrapping collection.
+     *
+     * @return void
+     */
+    public function testTabularCollectionWithoutSchemaNamesTheItemResource(): void
+    {
+        $collection = new ResourceCollection(collect([]));
+        $request    = Request::create('/?format=csv');
+
+        $this->expectException(NoTabularRepresentation::class);
+        $this->expectExceptionMessage('Resource [' . PlainUserResource::class . '] has no tabular representation.');
+
+        (new ExportNegotiator)->collection($collection, PlainUserResource::class, $request);
+    }
+
+    /**
+     * It maps the built-in media types and extensions case-insensitively,
+     * ignoring surrounding whitespace and media parameters.
+     *
+     * @return void
+     */
+    public function testBuiltInMediaTypeAndExtensionLookups(): void
+    {
+        $registry = new MediaTypeRegistry;
+
+        static::assertSame('json', $registry->formatForMediaType('application/json'));
+        static::assertSame('csv', $registry->formatForMediaType('TEXT/CSV'));
+        static::assertSame('csv', $registry->formatForMediaType('  text/csv  ; charset=UTF-8'));
+        static::assertSame('csv', $registry->formatForExtension('CSV'));
+    }
+
+    /**
+     * Registration normalises both the media type and the extension to lower
+     * case so a mixed-case registration is still resolvable.
+     *
+     * @return void
+     */
+    public function testRegisterNormalisesMediaTypeAndExtensionCase(): void
+    {
+        $registry = (new MediaTypeRegistry)
+            ->register(new ExportFormat('weird', 'WEIRD', 'application/x-weird', ['APPLICATION/X-WEIRD'], false));
+
+        static::assertSame('weird', $registry->formatForMediaType('application/x-weird'));
+        static::assertSame('weird', $registry->formatForExtension('weird'));
+    }
+
+    /**
+     * It exposes the registered formats as a zero-indexed list.
+     *
+     * @return void
+     */
+    public function testAllReturnsAReindexedList(): void
+    {
+        $formats = (new MediaTypeRegistry)->all();
+
+        static::assertSame(range(0, count($formats) - 1), array_keys($formats));
+    }
+
+    /**
+     * Lookups for an unregistered format name are null-safe: tabular reports
+     * false and both writer factories return null rather than erroring.
+     *
+     * @return void
+     */
+    public function testUnknownFormatLookupsAreNullSafe(): void
+    {
+        $registry = new MediaTypeRegistry;
+
+        static::assertFalse($registry->isTabular('nope'));
+        static::assertNull($registry->writerFor('nope'));
+        static::assertNull($registry->hierarchicalWriterFor('nope'));
+    }
+
+    /**
+     * The Content-Disposition replaces path separators in the schema filename
+     * with underscores so the header cannot be rejected.
+     *
+     * @return void
+     */
+    public function testDispositionSanitisesPathSeparatorsInTheFilename(): void
+    {
+        $request  = Request::create('/');
+        $schema   = new FlexibleSchema($request, [Column::make('id', 'ID')], filename: 'reports/2026');
+        $response = (new ExportNegotiator)->streamExport(new ArraySource([['id' => 1]]), $schema, 'csv', $request);
+
+        static::assertSame('attachment; filename=reports_2026.csv', $response->headers->get('Content-Disposition'));
+    }
+
+    /**
+     * The ASCII fallback filename strips the reserved percent character that
+     * makeDisposition forbids in the fallback.
+     *
+     * @return void
+     */
+    public function testDispositionAsciiFallbackStripsReservedCharacters(): void
+    {
+        $request  = Request::create('/');
+        $schema   = new FlexibleSchema($request, [Column::make('id', 'ID')], filename: 'a%b');
+        $response = (new ExportNegotiator)->streamExport(new ArraySource([['id' => 1]]), $schema, 'csv', $request);
+
+        static::assertSame('attachment; filename=a_b.csv; filename*=utf-8\'\'a%25b.csv', $response->headers->get('Content-Disposition'));
+    }
+
+    /**
+     * The download filename takes the format's file extension, not the format
+     * name, when the two differ.
+     *
+     * @return void
+     */
+    public function testDispositionUsesTheFormatExtensionNotItsName(): void
+    {
+        $registry = (new MediaTypeRegistry)
+            ->register(new ExportFormat('report', 'csv', 'text/csv', ['text/csv'], true, static fn (): CsvWriter => new CsvWriter));
+
+        $request  = Request::create('/');
+        $schema   = new FlexibleSchema($request, [Column::make('id', 'ID')]);
+        $response = (new ExportNegotiator($registry))->streamExport(new ArraySource([['id' => 1]]), $schema, 'report', $request);
+
+        static::assertSame('attachment; filename=export.csv', $response->headers->get('Content-Disposition'));
     }
 }

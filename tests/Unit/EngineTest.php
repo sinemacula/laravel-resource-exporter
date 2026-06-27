@@ -13,6 +13,7 @@ use SineMacula\Exporter\Schema\TabularSchema;
 use SineMacula\Exporter\Sinks\StringSink;
 use SineMacula\Exporter\Writers\CsvWriter;
 use Tests\Support\V3\ArraySource;
+use Tests\Support\V3\Schema\FlexibleSchema;
 use Tests\Support\V3\Schema\GatedSchema;
 
 /**
@@ -90,6 +91,70 @@ final class EngineTest extends TestCase
         (new Engine)->export($source, $schema, $request, new CsvWriter, new StringSink);
 
         self::assertSame(['profile', 'orders'], $source->appliedRelations);
+    }
+
+    /**
+     * It forwards each join-aggregate column's relation as an eager-load.
+     *
+     * The non-aggregate id column precedes the join column, so the loop must
+     * skip the former (not stop on it) and still collect the latter's relation.
+     *
+     * @return void
+     */
+    public function testForwardsJoinAggregateRelationsToTheSource(): void
+    {
+        $columns = [
+            Column::make('id', 'ID'),
+            Column::make('orders', 'Orders')->join(),
+        ];
+
+        $source = new ArraySource([['id' => 1, 'orders' => []]]);
+
+        (new Engine)->export($source, new FlexibleSchema(Request::create('/'), $columns), Request::create('/'), new CsvWriter, new StringSink);
+
+        self::assertSame(['orders'], $source->appliedRelations);
+    }
+
+    /**
+     * It de-duplicates and re-indexes the forwarded relations as a clean list.
+     *
+     * The schema declares the same relation twice before a distinct one, so the
+     * engine drops the duplicate and re-keys the result as a sequential list.
+     *
+     * @return void
+     */
+    public function testDeduplicatesAndReindexesForwardedRelations(): void
+    {
+        $schema = new FlexibleSchema(Request::create('/'), [Column::make('id', 'ID')], with: ['orders', 'orders', 'profile']);
+
+        $source = new ArraySource([['id' => 1]]);
+
+        (new Engine)->export($source, $schema, Request::create('/'), new CsvWriter, new StringSink);
+
+        self::assertSame(['orders', 'profile'], $source->appliedRelations);
+    }
+
+    /**
+     * It never applies the aggregate plan to a source that cannot derive them.
+     *
+     * The in-memory source does not implement DerivesAggregates, so the engine
+     * must guard the withAggregates() call behind that capability even when the
+     * schema's columns derive a non-empty plan; calling it would be fatal.
+     *
+     * @return void
+     */
+    public function testDoesNotApplyAggregatesToANonDerivingSource(): void
+    {
+        $columns = [
+            Column::make('id', 'ID'),
+            Column::make('orders', 'Orders')->count(),
+        ];
+
+        $sink = new StringSink;
+
+        (new Engine)->export(new ArraySource([['id' => 1]]), new FlexibleSchema(Request::create('/'), $columns), Request::create('/'), new CsvWriter, $sink);
+
+        self::assertSame("ID,Orders\n1,0\n", $sink->contents());
     }
 
     /**

@@ -8,6 +8,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 use SineMacula\Exporter\Exceptions\NoTabularRepresentation;
 use SineMacula\Exporter\Export\ExportFilename;
+use SineMacula\Exporter\Http\ExportFormat;
 use SineMacula\Exporter\Http\MediaTypeRegistry;
 
 /**
@@ -63,6 +64,25 @@ final class ExportFilenameTest extends TestCase
     }
 
     /**
+     * It uses the registry's extension, not the format name, for the suffix.
+     *
+     * Pins the coalesce so the resolved extension comes from the registered
+     * format's own extension and only falls back to the format name when the
+     * format is unknown.
+     *
+     * @return void
+     */
+    public function testResolveUsesTheRegistryExtensionNotTheFormatName(): void
+    {
+        $registry = (new MediaTypeRegistry)
+            ->register(new ExportFormat('spreadsheet', 'xls', 'application/x-test', ['application/x-test'], true));
+
+        $names = new ExportFilename($registry, 'spreadsheet');
+
+        self::assertSame('report.xls', $names->resolve('report'));
+    }
+
+    /**
      * It builds an attachment disposition with an ASCII fallback name.
      *
      * @return void
@@ -74,6 +94,22 @@ final class ExportFilenameTest extends TestCase
         self::assertStringStartsWith('attachment;', $disposition);
         self::assertStringContainsString('filename=caf_report.csv', $disposition);
         self::assertStringContainsString('filename*=utf-8\'\'caf%C3%A9_report.csv', $disposition);
+    }
+
+    /**
+     * It replaces a percent sign in the ASCII fallback filename.
+     *
+     * makeDisposition() rejects an ASCII fallback that still carries a percent
+     * sign, so the sanitiser must replace it; without that replacement the
+     * disposition cannot be built at all.
+     *
+     * @return void
+     */
+    public function testDispositionReplacesPercentInTheAsciiFallback(): void
+    {
+        $disposition = $this->filename('csv')->disposition('50%done');
+
+        self::assertSame('attachment; filename=50_done.csv; filename*=utf-8\'\'50%25done.csv', $disposition);
     }
 
     /**

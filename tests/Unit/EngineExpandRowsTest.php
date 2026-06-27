@@ -189,6 +189,77 @@ final class EngineExpandRowsTest extends TestCase
     }
 
     /**
+     * Preflight rejects a whitespace-only expand relation as empty.
+     *
+     * The relation is trimmed before the emptiness test, so a relation of only
+     * spaces fails preflight before any bytes are written rather than streaming
+     * an export against a blank relation.
+     *
+     * @return void
+     */
+    public function testPreflightRejectsAWhitespaceOnlyExpandRelation(): void
+    {
+        $columns = [Column::make('id', 'ID'), Column::make('sku', 'SKU')];
+        $schema  = new FlexibleSchema(self::request(), $columns, expand: new ExpandPolicy('   '));
+        $sink    = new StringSink;
+
+        try {
+            (new Engine)->export(new ArraySource([['id' => 1, 'sku' => 'A']]), $schema, self::request(), new CsvWriter, $sink);
+            self::fail('Expected preflight to reject the whitespace-only expand relation.');
+        } catch (InvalidExportSchema $exception) {
+            self::assertStringContainsString('empty relation', $exception->getMessage());
+        }
+
+        self::assertSame('', $sink->contents(), 'No bytes may be written when preflight rejects the schema.');
+    }
+
+    /**
+     * A lenient empty-relation policy disables expansion entirely.
+     *
+     * The disabled axis must leave the marked column rendering from the parent
+     * rather than fanning a blank child row, so the value survives unblanked.
+     *
+     * @return void
+     */
+    public function testLenientEmptyRelationLeavesTheMarkedColumnRenderingFromTheParent(): void
+    {
+        $columns  = [Column::make('id', 'ID'), Column::make('sku', 'SKU')->expandRows()];
+        $schema   = new FlexibleSchema(self::request(), $columns, strictness: Strictness::LENIENT, expand: new ExpandPolicy(''));
+        $sink     = new StringSink;
+        $warnings = new WarningCollector;
+
+        (new Engine)->export(new ArraySource([['id' => 1, 'sku' => 'A']]), $schema, self::request(), new CsvWriter, $sink, $warnings);
+
+        self::assertSame("ID,SKU\n1,A\n", $sink->contents());
+    }
+
+    /**
+     * Preflight propagates an expanded child cell resolver failure.
+     *
+     * Under preflight a throwing child resolver is not blanked but raised, so
+     * the export fails fast rather than degrading the row.
+     *
+     * @return void
+     */
+    public function testPreflightPropagatesAThrowingExpandedChildCell(): void
+    {
+        $columns = [
+            Column::make('id', 'ID'),
+            Column::make('sku', 'SKU')->expandRows()->resolveUsing(static function (): string {
+                throw new \RuntimeException('child kaboom');
+            }),
+        ];
+        $schema = new FlexibleSchema(self::request(), $columns, expand: new ExpandPolicy('items'));
+
+        $item = ['id' => 1, 'items' => [['x' => 1]]];
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('child kaboom');
+
+        (new Engine)->export(new ArraySource([$item]), $schema, self::request(), new CsvWriter, new StringSink);
+    }
+
+    /**
      * A lenient schema blanks an expanded child cell whose resolver throws.
      *
      * @return void

@@ -4,8 +4,12 @@ declare(strict_types = 1);
 
 namespace Tests\Integration;
 
+use Illuminate\Auth\GenericUser;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\Event;
 use PHPUnit\Framework\Attributes\CoversClass;
+use SineMacula\Exporter\Events\ExportCompleted;
 use SineMacula\Exporter\Exceptions\NoTabularRepresentation;
 use SineMacula\Exporter\Exceptions\RowLimitExceeded;
 use SineMacula\Exporter\ResourceExport;
@@ -183,6 +187,129 @@ final class ResourceExportTest extends ExporterTestCase
     }
 
     /**
+     * It paginates by the built-in default page size of fifteen.
+     *
+     * @return void
+     */
+    public function testPerPageDefaultsToFifteen(): void
+    {
+        $this->seedUsers(20);
+
+        $response = ResourceExport::forQuery(User::query(), UserResource::class)
+            ->paginatedJsonOrStreamedExport($this->jsonRequest());
+
+        $payload = json_decode((string) $response->getContent(), true);
+
+        self::assertIsArray($payload);
+        self::assertCount(15, $payload['data']);
+        self::assertSame(15, $payload['meta']['per_page']);
+    }
+
+    /**
+     * It reads the configured page size, casting a numeric string to an int.
+     *
+     * @return void
+     */
+    public function testPerPageReadsTheConfiguredNumericString(): void
+    {
+        $this->seedUsers(20);
+
+        Config::set('exporter.negotiation.per_page', '9');
+
+        $response = ResourceExport::forQuery(User::query(), UserResource::class)
+            ->paginatedJsonOrStreamedExport($this->jsonRequest());
+
+        $payload = json_decode((string) $response->getContent(), true);
+
+        self::assertIsArray($payload);
+        self::assertCount(9, $payload['data']);
+        self::assertSame(9, $payload['meta']['per_page']);
+    }
+
+    /**
+     * It streams when the row count exactly equals the configured cap.
+     *
+     * @return void
+     */
+    public function testRowCapAllowsExactlyTheMaximum(): void
+    {
+        $this->seedUsers(5);
+
+        $response = ResourceExport::forQuery(User::query(), UserResource::class)
+            ->maxRows(5)
+            ->paginatedJsonOrStreamedExport($this->exportRequest());
+
+        self::assertInstanceOf(StreamedResponse::class, $response);
+        self::assertCount(5, $this->dataLines($this->streamToString($response)));
+    }
+
+    /**
+     * It dispatches the pinned ExportCompleted event with an integer actor id.
+     *
+     * @return void
+     */
+    public function testStreamedExportDispatchesExportCompletedWithIntegerActor(): void
+    {
+        Event::fake([ExportCompleted::class]);
+
+        $this->seedUsers(3);
+
+        $response = ResourceExport::forQuery(User::query(), UserResource::class)
+            ->paginatedJsonOrStreamedExport($this->exportRequestAs(42));
+
+        self::assertInstanceOf(StreamedResponse::class, $response);
+
+        $this->streamToString($response);
+
+        Event::assertDispatched(ExportCompleted::class, static fn (ExportCompleted $event): bool => $event->actorId === 42
+            && $event->rowCount                                                                                     === 3
+            && $event->format                                                                                       === 'csv'
+            && $event->filename                                                                                     === 'users');
+    }
+
+    /**
+     * It resolves a string actor identifier into the audit payload.
+     *
+     * @return void
+     */
+    public function testStreamedExportResolvesAStringActorIdentifier(): void
+    {
+        Event::fake([ExportCompleted::class]);
+
+        $this->seedUsers(2);
+
+        $response = ResourceExport::forQuery(User::query(), UserResource::class)
+            ->paginatedJsonOrStreamedExport($this->exportRequestAs('user-7'));
+
+        self::assertInstanceOf(StreamedResponse::class, $response);
+
+        $this->streamToString($response);
+
+        Event::assertDispatched(ExportCompleted::class, static fn (ExportCompleted $event): bool => $event->actorId === 'user-7');
+    }
+
+    /**
+     * It records a null actor id when the request carries no user.
+     *
+     * @return void
+     */
+    public function testStreamedExportRecordsNullActorWithoutAUser(): void
+    {
+        Event::fake([ExportCompleted::class]);
+
+        $this->seedUsers(2);
+
+        $response = ResourceExport::forQuery(User::query(), UserResource::class)
+            ->paginatedJsonOrStreamedExport($this->exportRequest());
+
+        self::assertInstanceOf(StreamedResponse::class, $response);
+
+        $this->streamToString($response);
+
+        Event::assertDispatched(ExportCompleted::class, static fn (ExportCompleted $event): bool => $event->actorId === null);
+    }
+
+    /**
      * Build a JSON-preferring request.
      *
      * @return \Illuminate\Http\Request
@@ -200,6 +327,21 @@ final class ResourceExportTest extends ExporterTestCase
     private function exportRequest(): Request
     {
         return Request::create('/users', 'GET', server: ['HTTP_ACCEPT' => 'text/csv']);
+    }
+
+    /**
+     * Build a CSV-preferring export request authenticated as the given actor.
+     *
+     * @param  int|string  $id
+     * @return \Illuminate\Http\Request
+     */
+    private function exportRequestAs(int|string $id): Request
+    {
+        $request = $this->exportRequest();
+
+        $request->setUserResolver(static fn (): GenericUser => new GenericUser(['id' => $id]));
+
+        return $request;
     }
 
     /**

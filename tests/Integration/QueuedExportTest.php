@@ -4,10 +4,13 @@ declare(strict_types = 1);
 
 namespace Tests\Integration;
 
+use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Facades\Bus;
+use Illuminate\Support\Facades\Config;
 use PHPUnit\Framework\Attributes\CoversClass;
 use SineMacula\Exporter\Export\ExportSpecification;
 use SineMacula\Exporter\Export\QueuedExport;
+use SineMacula\Exporter\Facades\Exporter;
 use SineMacula\Exporter\Jobs\ExportToDiskJob;
 use Tests\Support\V3\Models\User;
 use Tests\Support\V3\QueuedExportTestCase;
@@ -243,5 +246,324 @@ final class QueuedExportTest extends QueuedExportTestCase
             ->toSpecification();
 
         self::assertSame([2], $spec->query()->pluck('id')->all());
+    }
+
+    /**
+     * It actually filters the rebuilt query by a replayed where constraint,
+     * rather than leaving the base query untouched.
+     *
+     * @return void
+     */
+    public function testQueryReplaysAFilteringWhereConstraint(): void
+    {
+        $this->seedUsers(5);
+
+        $spec = QueuedExport::forModel(User::class, UserResource::class)
+            ->toDisk('exports', 'exports/users.csv')
+            ->where('score', 3)
+            ->toSpecification();
+
+        self::assertSame([3], $spec->query()->pluck('id')->all());
+    }
+
+    /**
+     * It actually filters the rebuilt query by a replayed where-not-null
+     * constraint, excluding the rows whose column is null.
+     *
+     * @return void
+     */
+    public function testQueryReplaysAFilteringWhereNotNullConstraint(): void
+    {
+        $this->seedUsers(3);
+
+        User::query()->where('id', 2)->update(['secret' => null]); // @phpstan-ignore staticMethod.dynamicCall
+
+        $spec = QueuedExport::forModel(User::class, UserResource::class)
+            ->toDisk('exports', 'exports/users.csv')
+            ->whereNotNull('secret')
+            ->orderBy('id')
+            ->toSpecification();
+
+        self::assertSame([1, 3], $spec->query()->pluck('id')->all());
+    }
+
+    /**
+     * It replays an argument-less named scope through the single-element
+     * scopes() form when rebuilding the query.
+     *
+     * @return void
+     */
+    public function testQueryReplaysAnArgumentLessNamedScope(): void
+    {
+        $this->seedUsers(10);
+
+        $spec = QueuedExport::forModel(User::class, UserResource::class)
+            ->toDisk('exports', 'exports/users.csv')
+            ->scope('highScorers')
+            ->orderBy('id')
+            ->toSpecification();
+
+        self::assertSame([8, 9, 10], $spec->query()->pluck('score')->all());
+    }
+
+    /**
+     * It applies a hard limit of zero rows when a limit descriptor carries no
+     * value, distinct from leaving the set unbounded or limiting to one row.
+     *
+     * @return void
+     */
+    public function testLimitDescriptorWithoutAValueYieldsNoRows(): void
+    {
+        $this->seedUsers(3);
+
+        $spec = new ExportSpecification(
+            model: User::class,
+            resource: UserResource::class,
+            schema: null,
+            format: 'csv',
+            disk: 'exports',
+            path: 'exports/users.csv',
+            constraints: [['type' => 'limit']],
+        );
+
+        self::assertSame([], $spec->query()->pluck('id')->all());
+    }
+
+    /**
+     * It applies a hard limit of zero rows when a limit descriptor carries a
+     * non-numeric value, pinning the zero coercion fallback.
+     *
+     * @return void
+     */
+    public function testLimitDescriptorWithANonNumericValueYieldsNoRows(): void
+    {
+        $this->seedUsers(3);
+
+        $spec = new ExportSpecification(
+            model: User::class,
+            resource: UserResource::class,
+            schema: null,
+            format: 'csv',
+            disk: 'exports',
+            path: 'exports/users.csv',
+            constraints: [['type' => 'limit', 'value' => 'not-a-number']],
+        );
+
+        self::assertSame([], $spec->query()->pluck('id')->all());
+    }
+
+    /**
+     * It carries the chunk, progress and URL-expiry defaults the queue tuning
+     * turns on when the specification is built without them.
+     *
+     * @return void
+     */
+    public function testSpecificationCarriesTheTuningDefaults(): void
+    {
+        $spec = new ExportSpecification(
+            model: User::class,
+            resource: UserResource::class,
+            schema: null,
+            format: 'csv',
+            disk: 'exports',
+            path: 'exports/users.csv',
+        );
+
+        self::assertSame(1000, $spec->chunkSize);
+        self::assertSame(1000, $spec->progressEvery);
+        self::assertSame(60, $spec->urlExpiresAfter);
+    }
+
+    /**
+     * It records the exact whereNotNull and named-scope constraint descriptors,
+     * keeping the type discriminator and re-indexing named scope arguments.
+     *
+     * @return void
+     */
+    public function testBuilderRecordsExactConstraintDescriptors(): void
+    {
+        $spec = QueuedExport::forModel(User::class, UserResource::class)
+            ->toDisk('exports', 'exports/users.csv')
+            ->whereNotNull('email')
+            ->scope('scoreAtLeast', minimum: 8)
+            ->toSpecification();
+
+        self::assertContains(['type' => 'whereNotNull', 'column' => 'email'], $spec->constraints);
+        self::assertContains(['type' => 'scope', 'name' => 'scoreAtLeast', 'arguments' => [8]], $spec->constraints);
+    }
+
+    /**
+     * It defaults the export format from configuration, keeping a string value
+     * and falling back to csv for a non-string one.
+     *
+     * @return void
+     */
+    public function testDefaultFormatComesFromConfiguration(): void
+    {
+        Config::set('exporter.default', 'xlsx');
+
+        $spec = QueuedExport::forModel(User::class, UserResource::class)
+            ->toDisk('exports', 'exports/users.xlsx')
+            ->toSpecification();
+
+        self::assertSame('xlsx', $spec->format);
+    }
+
+    /**
+     * It keeps int and string actor identifiers but drops a non-scalar one to
+     * null, alongside a null actor class for a non-Model authenticatable.
+     *
+     * @return void
+     */
+    public function testByNormalisesTheActorIdentifier(): void
+    {
+        $string = QueuedExport::forModel(User::class, UserResource::class)
+            ->toDisk('exports', 'exports/users.csv')
+            ->by($this->authenticatableWithId('actor-7'))
+            ->toSpecification();
+
+        self::assertSame('actor-7', $string->actorId);
+        self::assertNull($string->actorClass);
+
+        $nonScalar = QueuedExport::forModel(User::class, UserResource::class)
+            ->toDisk('exports', 'exports/users.csv')
+            ->by($this->authenticatableWithId(1.5))
+            ->toSpecification();
+
+        self::assertNull($nonScalar->actorId);
+        self::assertNull($nonScalar->actorClass);
+    }
+
+    /**
+     * It records the assembled specification on the active fake instead of
+     * dispatching the job for real while Exporter::fake() is active.
+     *
+     * @return void
+     */
+    public function testQueueRecordsTheSpecificationWhileFaking(): void
+    {
+        $fake = Exporter::fake();
+
+        QueuedExport::forModel(User::class, UserResource::class)
+            ->toDisk('exports', 'exports/users.csv')
+            ->queue();
+
+        $fake->assertQueued(static fn (ExportSpecification $spec): bool => $spec->disk === 'exports'
+            && $spec->path                                                             === 'exports/users.csv');
+    }
+
+    /**
+     * It requires both a disk and a path - not merely one of them - before a
+     * specification can be assembled.
+     *
+     * @return void
+     */
+    public function testToSpecificationRequiresBothDiskAndPath(): void
+    {
+        $builder = QueuedExport::forModel(User::class, UserResource::class)
+            ->toDisk('exports', 'exports/users.csv');
+
+        (new \ReflectionProperty(QueuedExport::class, 'path'))->setValue($builder, null);
+
+        $this->expectException(\LogicException::class);
+
+        $builder->toSpecification();
+    }
+
+    /**
+     * Build a non-Model authenticatable returning the given identifier.
+     *
+     * @param  mixed  $id
+     * @return \Illuminate\Contracts\Auth\Authenticatable
+     */
+    private function authenticatableWithId(mixed $id): Authenticatable
+    {
+        return new readonly class ($id) implements Authenticatable {
+            /**
+             * Create a new identifier-only authenticatable double.
+             *
+             * @param  mixed  $id
+             */
+            public function __construct(
+
+                /** The identifier returned to the queued-export builder. */
+                private mixed $id,
+            ) {}
+
+            /**
+             * Get the name of the unique identifier for the user.
+             *
+             * @return string
+             */
+            #[\Override]
+            public function getAuthIdentifierName(): string
+            {
+                return 'id';
+            }
+
+            /**
+             * Get the unique identifier for the user.
+             *
+             * @return mixed
+             */
+            #[\Override]
+            public function getAuthIdentifier(): mixed
+            {
+                return $this->id;
+            }
+
+            /**
+             * Get the name of the password attribute for the user.
+             *
+             * @return string
+             */
+            #[\Override]
+            public function getAuthPasswordName(): string
+            {
+                return 'password';
+            }
+
+            /**
+             * Get the password for the user.
+             *
+             * @return string
+             */
+            #[\Override]
+            public function getAuthPassword(): string
+            {
+                return '';
+            }
+
+            /**
+             * Get the token value for the "remember me" session.
+             *
+             * @return string
+             */
+            #[\Override]
+            public function getRememberToken(): string
+            {
+                return '';
+            }
+
+            /**
+             * Set the token value for the "remember me" session.
+             *
+             * @param  mixed  $value
+             * @return void
+             */
+            #[\Override]
+            public function setRememberToken(mixed $value): void {}
+
+            /**
+             * Get the column name for the "remember me" token.
+             *
+             * @return string
+             */
+            #[\Override]
+            public function getRememberTokenName(): string
+            {
+                return 'remember_token';
+            }
+        };
     }
 }

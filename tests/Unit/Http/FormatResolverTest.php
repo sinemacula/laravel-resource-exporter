@@ -92,4 +92,70 @@ final class FormatResolverTest extends TestCase
 
         self::assertSame('json', (new FormatResolver)->resolve($request));
     }
+
+    /**
+     * The query parameter outranks a whitelisted URL extension when both are
+     * present and disagree.
+     *
+     * @return void
+     */
+    public function testQueryParameterBeatsExtensionWhenBothPresent(): void
+    {
+        self::assertSame('csv', (new FormatResolver)->resolve(Request::create('/users.tsv?format=csv')));
+    }
+
+    /**
+     * The query parameter is matched case-insensitively against the registry.
+     *
+     * @return void
+     */
+    public function testQueryParameterIsCaseInsensitive(): void
+    {
+        self::assertSame('csv', (new FormatResolver)->resolve(Request::create('/users?format=CSV')));
+    }
+
+    /**
+     * A request with no Accept header at all resolves to the configured default
+     * rather than erroring on the missing header.
+     *
+     * @return void
+     */
+    public function testAbsentAcceptHeaderResolvesToTheDefault(): void
+    {
+        $request = Request::create('/users');
+        $request->headers->remove('Accept');
+
+        self::assertSame('json', (new FormatResolver)->resolve($request));
+    }
+
+    /**
+     * A "type/*" wildcard prefers the configured default format when its media
+     * type sits in that type, ahead of the first registered match.
+     *
+     * @return void
+     */
+    public function testTypeWildcardPrefersTheConfiguredDefaultFormat(): void
+    {
+        $registry = (new MediaTypeRegistry)->setDefault('xml');
+        $request  = Request::create('/users', 'GET', server: ['HTTP_ACCEPT' => 'application/*']);
+
+        self::assertSame('xml', (new FormatResolver($registry))->resolve($request));
+    }
+
+    /**
+     * A "type/*" wildcard matches on the full "type/" boundary, so a format
+     * whose media type merely shares the type prefix is not mistaken for it.
+     *
+     * @return void
+     */
+    public function testTypeWildcardMatchesOnTheTrailingSlashBoundary(): void
+    {
+        $registry = (new MediaTypeRegistry)
+            ->register(new ExportFormat('textual', 'txt', 'textual/plain', ['textual/plain'], false))
+            ->setDefault('textual');
+
+        $request = Request::create('/users', 'GET', server: ['HTTP_ACCEPT' => 'text/*']);
+
+        self::assertSame('csv', (new FormatResolver($registry))->resolve($request));
+    }
 }

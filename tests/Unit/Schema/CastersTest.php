@@ -83,6 +83,21 @@ final class CastersTest extends TestCase
     }
 
     /**
+     * It renders a date through an explicit string format option.
+     *
+     * The supplied pattern (not the caster's default) is carried as the format
+     * hint, proving the option wins over the default.
+     *
+     * @return void
+     */
+    public function testDateCasterUsesAStringFormatOption(): void
+    {
+        $cell = (new DateCaster)->cast('2026-01-02 03:04:05', ['format' => 'd/m/Y']);
+
+        self::assertSame('d/m/Y', $cell->format, 'The supplied format option must win over the default.');
+    }
+
+    /**
      * It yields a null cell for an unparseable or empty date string.
      *
      * @return void
@@ -121,6 +136,27 @@ final class CastersTest extends TestCase
         self::assertSame(CellType::FLOAT, $float->type);
         self::assertSame(41.56, $float->raw);
         self::assertSame('0.00', $float->format);
+
+        $roundedDown = (new NumberCaster)->cast('2.2');
+
+        self::assertSame(2, $roundedDown->raw, 'A fractional value below the half must round to nearest, not ceil up.');
+    }
+
+    /**
+     * It coerces a numeric-string decimals option into an integer precision.
+     *
+     * The precision is cast to int before it reaches round()/str_repeat(), so a
+     * numeric string drives the same float precision an integer would.
+     *
+     * @return void
+     */
+    public function testNumberCasterCoercesNumericStringDecimals(): void
+    {
+        $cell = (new NumberCaster)->cast('7.891', ['decimals' => '2']);
+
+        self::assertSame(CellType::FLOAT, $cell->type);
+        self::assertSame(7.89, $cell->raw);
+        self::assertSame('0.00', $cell->format);
     }
 
     /**

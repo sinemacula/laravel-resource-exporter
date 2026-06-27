@@ -384,6 +384,89 @@ final class ColumnTest extends TestCase
     }
 
     /**
+     * It reads a custom date format option back as the cell's format hint.
+     *
+     * @return void
+     */
+    public function testDateCastUsesACustomFormatHint(): void
+    {
+        $cell = $this->cell(Column::make('d')->date('d/m/Y'), ['d' => '2026-06-27 13:45:00']);
+
+        self::assertSame(CellType::DATE, $cell->type);
+        self::assertSame('d/m/Y', $cell->format, 'The declared date format must reach the caster as the hint.');
+        self::assertInstanceOf(\DateTimeImmutable::class, $cell->raw);
+    }
+
+    /**
+     * It coerces a numeric-string count aggregate to a native integer.
+     *
+     * @return void
+     */
+    public function testCountAggregateCoercesNumericStringToInt(): void
+    {
+        self::assertCell(CellType::INTEGER, 7, $this->cell(Column::make('orders')->count(), ['orders_count' => '7']));
+    }
+
+    /**
+     * It normalises a dotted sum path into the underscored alias it reads back.
+     *
+     * @return void
+     */
+    public function testSumAggregateNormalisesADottedPath(): void
+    {
+        self::assertCell(CellType::INTEGER, 99, $this->cell(Column::make('orders')->sum('items.total'), ['orders_sum_items_total' => 99]));
+    }
+
+    /**
+     * It reads an expansion child cell from the raw model path when opted out.
+     *
+     * @return void
+     */
+    public function testChildCellReadsTheRawModelPath(): void
+    {
+        $column = Column::make('sku')->fromModel('detail.code');
+
+        self::assertCell(CellType::STRING, 'X', $this->childCell($column, ['detail' => ['code' => 'X'], 'sku' => 'wrong']));
+    }
+
+    /**
+     * It stringifies a Stringable formatter result into a string cell.
+     *
+     * @return void
+     */
+    public function testFormatUsingStringableResultIsStringified(): void
+    {
+        $stringable = new class implements \Stringable {
+            /**
+             * Render the throwaway formatter result as a fixed string.
+             *
+             * @return string
+             */
+            #[\Override]
+            public function __toString(): string
+            {
+                return 'STR';
+            }
+        };
+
+        $column = Column::make('x')->formatUsing(static fn (mixed $value, Request $request): \Stringable => $stringable);
+
+        self::assertCell(CellType::STRING, 'STR', $this->cell($column, ['x' => 'abc']));
+    }
+
+    /**
+     * It renders an empty string for a non-scalar, non-Stringable result.
+     *
+     * @return void
+     */
+    public function testFormatUsingNonScalarResultBecomesEmptyString(): void
+    {
+        $column = Column::make('x')->formatUsing(static fn (mixed $value, Request $request): array => ['unrenderable']);
+
+        self::assertCell(CellType::STRING, '', $this->cell($column, ['x' => 'abc']));
+    }
+
+    /**
      * Assert a cell carries the expected type and raw value.
      *
      * @param  \SineMacula\Exporter\Schema\Enums\CellType  $type

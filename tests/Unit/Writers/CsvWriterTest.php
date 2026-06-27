@@ -226,6 +226,114 @@ final class CsvWriterTest extends TestCase
     }
 
     /**
+     * It honours the configured delimiter, enclosure and end-of-line bytes.
+     *
+     * @return void
+     */
+    public function testConfiguredDialectBytes(): void
+    {
+        $request = Request::create('/');
+        $columns = [Column::make('a'), Column::make('b')];
+        $schema  = new ArraySchema($request, $columns, headings: false);
+
+        $rows = [
+            ['a' => new CellValue('x', CellType::STRING), 'b' => new CellValue('p;q', CellType::STRING)],
+            ['a' => new CellValue('y', CellType::STRING), 'b' => new CellValue('z', CellType::STRING)],
+        ];
+
+        $sink = new StringSink;
+        (new CsvWriter(delimiter: ';', enclosure: '#', endOfLine: "\r\n", escapeFormula: false))->write($rows, $schema, $sink);
+
+        self::assertSame("x;#p;q#\r\ny;z\r\n", $sink->contents());
+    }
+
+    /**
+     * It applies RFC-4180 quote doubling - leaving a backslash field
+     * unenclosed - rather than the league default backslash escape.
+     *
+     * @return void
+     */
+    public function testEmptyEscapeLeavesBackslashFieldsUnenclosed(): void
+    {
+        $request = Request::create('/');
+        $columns = [Column::make('a')];
+        $schema  = new ArraySchema($request, $columns, headings: false);
+
+        $rows = [['a' => new CellValue('a\b', CellType::STRING)]];
+
+        $sink = new StringSink;
+        (new CsvWriter(escapeFormula: false))->write($rows, $schema, $sink);
+
+        self::assertSame("a\\b\n", $sink->contents());
+    }
+
+    /**
+     * It humanises a dotted column key into a spaced heading.
+     *
+     * @return void
+     */
+    public function testDottedKeyHeadingIsHumanised(): void
+    {
+        $request = Request::create('/');
+        $columns = [Column::make('user.full_name')];
+        $schema  = new ArraySchema($request, $columns);
+
+        $rows = [['user.full_name' => new CellValue('v', CellType::STRING)]];
+
+        $sink = new StringSink;
+        (new CsvWriter(escapeFormula: false))->write($rows, $schema, $sink);
+
+        // league/csv encloses the spaced heading; the dot must still become a
+        // space (mutating away the str_replace yields "User.full Name").
+        self::assertSame("\"User Full Name\"\nv\n", $sink->contents());
+    }
+
+    /**
+     * It renders date and date-time cells through their distinct format hints.
+     *
+     * @return void
+     */
+    public function testRendersDateAndDateTimeCellsThroughTheirFormat(): void
+    {
+        $request = Request::create('/');
+        $columns = [Column::make('d', 'D'), Column::make('dt', 'DT')];
+        $schema  = new ArraySchema($request, $columns, headings: false);
+
+        $moment = new \DateTimeImmutable('2026-06-27 13:45:30');
+        $rows   = [[
+            'd'  => new CellValue($moment, CellType::DATE, 'd/m/Y'),
+            'dt' => new CellValue($moment, CellType::DATE_TIME, 'Y-m-d H:i:s'),
+        ]];
+
+        $sink = new StringSink;
+        (new CsvWriter(escapeFormula: false))->write($rows, $schema, $sink);
+
+        // league/csv encloses the spaced date-time field; the date arm must use
+        // each cell's own format hint, not a forced 'Y-m-d'.
+        self::assertSame("27/06/2026,\"2026-06-27 13:45:30\"\n", $sink->contents());
+    }
+
+    /**
+     * It keeps later pipe-delimited boolean label segments intact for the false
+     * label.
+     *
+     * @return void
+     */
+    public function testBooleanFalseLabelRetainsTrailingPipeSegments(): void
+    {
+        $request = Request::create('/');
+        $columns = [Column::make('b', 'B')];
+        $schema  = new ArraySchema($request, $columns, headings: false);
+
+        $rows = [['b' => new CellValue(false, CellType::BOOLEAN, 'On|Off|Maybe')]];
+
+        $sink = new StringSink;
+        (new CsvWriter(escapeFormula: false))->write($rows, $schema, $sink);
+
+        self::assertSame("Off|Maybe\n", $sink->contents());
+    }
+
+    /**
      * Write the given items through the writer and return the buffered output.
      *
      * @param  \SineMacula\Exporter\Writers\CsvWriter  $writer

@@ -138,10 +138,19 @@ final class StreamTruncationTest extends TestCase
             (new NdjsonWriter)->write(self::hierarchicalRowsThenThrow(), $sink);
         });
 
-        $lines = array_values(array_filter(explode("\n", $sink->contents()), static fn (string $line): bool => $line !== ''));
+        $contents = $sink->contents();
+        $lines    = array_values(array_filter(explode("\n", $contents), static fn (string $line): bool => $line !== ''));
 
         self::assertSame(['id' => 1], json_decode($lines[0], true, flags: JSON_THROW_ON_ERROR));
         self::assertSame(Truncation::REASON, json_decode($lines[1], true, flags: JSON_THROW_ON_ERROR)[Truncation::JSON_KEY]);
+
+        // The marker line is the encoded object followed by the end-of-line, in
+        // that order - never the newline first and never without a terminator.
+        self::assertSame(
+            '{"id":1}' . "\n"
+            . '{"' . Truncation::JSON_KEY . '":"' . Truncation::REASON . '"}' . "\n",
+            $contents,
+        );
     }
 
     /**
