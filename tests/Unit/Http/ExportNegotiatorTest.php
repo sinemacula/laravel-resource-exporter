@@ -39,6 +39,8 @@ final class ExportNegotiatorTest extends TestCase
         yield 'q=0 is filtered out' => ['text/csv;q=0, application/json', 'json'];
         yield 'highest quality wins' => ['application/json, text/csv;q=0.9', 'json'];
         yield 'unknown falls to json' => ['text/html', 'json'];
+        yield 'browser default prefers json over lower-q xml' => ['text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8', 'json'];
+        yield 'lower-q registered type loses to higher-q unknown' => ['text/html, text/csv;q=0.9', 'json'];
     }
 
     /**

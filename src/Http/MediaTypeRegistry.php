@@ -4,9 +4,13 @@ declare(strict_types = 1);
 
 namespace SineMacula\Exporter\Http;
 
+use SineMacula\Exporter\Contracts\HierarchicalWriter;
 use SineMacula\Exporter\Contracts\Writer;
 use SineMacula\Exporter\Writers\CsvWriter;
+use SineMacula\Exporter\Writers\JsonWriter;
+use SineMacula\Exporter\Writers\NdjsonWriter;
 use SineMacula\Exporter\Writers\TsvWriter;
+use SineMacula\Exporter\Writers\XmlWriter;
 
 /**
  * Media type registry.
@@ -40,9 +44,19 @@ final class MediaTypeRegistry
      */
     public function __construct()
     {
-        $this->register(new ExportFormat('json', 'json', 'application/json', ['application/json'], false));
+        $this->register(new ExportFormat('json', 'json', 'application/json', ['application/json'], false, null, static fn (): HierarchicalWriter => new JsonWriter));
         $this->register(new ExportFormat('csv', 'csv', 'text/csv', ['text/csv'], true, static fn (): Writer => new CsvWriter));
         $this->register(new ExportFormat('tsv', 'tsv', 'text/tab-separated-values', ['text/tab-separated-values'], true, static fn (): Writer => new TsvWriter));
+        $this->register(new ExportFormat('xml', 'xml', 'application/xml', ['application/xml', 'text/xml'], false, null, static fn (): HierarchicalWriter => new XmlWriter));
+        $this->register(new ExportFormat(
+            'ndjson',
+            'ndjson',
+            'application/x-ndjson',
+            ['application/x-ndjson', 'application/jsonl'],
+            false,
+            null,
+            static fn (): HierarchicalWriter => new NdjsonWriter,
+        ));
     }
 
     /**
@@ -155,7 +169,8 @@ final class MediaTypeRegistry
     }
 
     /**
-     * Build a fresh writer for the named format, or null when hierarchical.
+     * Build a fresh tabular writer for the named format, or null when it has
+     * none.
      *
      * @param  string  $name
      * @return \SineMacula\Exporter\Contracts\Writer|null
@@ -163,5 +178,17 @@ final class MediaTypeRegistry
     public function writerFor(string $name): ?Writer
     {
         return ($this->formats[$name] ?? null)?->writer();
+    }
+
+    /**
+     * Build a fresh hierarchical writer for the named format, or null when it
+     * has none.
+     *
+     * @param  string  $name
+     * @return \SineMacula\Exporter\Contracts\HierarchicalWriter|null
+     */
+    public function hierarchicalWriterFor(string $name): ?HierarchicalWriter
+    {
+        return ($this->formats[$name] ?? null)?->hierarchicalWriter();
     }
 }

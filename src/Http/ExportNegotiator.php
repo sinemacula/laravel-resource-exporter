@@ -7,6 +7,7 @@ namespace SineMacula\Exporter\Http;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Http\Resources\Json\ResourceCollection;
+use SineMacula\Exporter\Contracts\HierarchicalWriter;
 use SineMacula\Exporter\Contracts\ProvidesTabularExport;
 use SineMacula\Exporter\Contracts\Sink;
 use SineMacula\Exporter\Contracts\Source;
@@ -106,10 +107,11 @@ final readonly class ExportNegotiator
     /**
      * Negotiate a single top-level resource.
      *
-     * Returns null when the negotiated format is hierarchical so the caller can
-     * fall back to the resource's own JSON response; otherwise streams the item
-     * as a one-row tabular export, or throws a 406 when the resource provides
-     * no tabular schema.
+     * A tabular format streams the item as a one-row tabular export (or 406s
+     * when the resource provides no tabular schema). A hierarchical format with
+     * a writer streams the item's own toArray shape; the default JSON format
+     * with no explicit override returns null so the caller defers to the
+     * resource's native JSON response.
      *
      * @param  \Illuminate\Http\Resources\Json\JsonResource  $resource
      * @param  \Illuminate\Http\Request  $request
@@ -121,29 +123,45 @@ final readonly class ExportNegotiator
     {
         $format = $this->resolve($request);
 
-        if (!$this->isTabular($format)) {
+        if ($this->isTabular($format)) {
+
+            if (!$resource instanceof ProvidesTabularExport) {
+                throw NoTabularRepresentation::forResource($resource::class);
+            }
+
+            return $this->streamExport(
+                new ResourceItemSource($resource),
+                $resource->tabular($request),
+                $format,
+                $request,
+            );
+        }
+
+        $writer = $this->hierarchicalWriterFor($format, $request);
+
+        if ($writer === null) {
             return null;
         }
 
-        if (!$resource instanceof ProvidesTabularExport) {
-            throw NoTabularRepresentation::forResource($resource::class);
-        }
+        $class = $resource::class;
 
-        return $this->streamExport(
+        return $this->streamHierarchical(
             new ResourceItemSource($resource),
-            $resource->tabular($request),
+            fn (mixed $item): array => $this->resolveItem($class, $item, $request),
+            $writer,
             $format,
-            $request,
         );
     }
 
     /**
      * Negotiate a top-level resource collection.
      *
-     * Returns null when the negotiated format is hierarchical so the caller can
-     * fall back to the framework's JSON collection response; otherwise streams
-     * the underlying items as a tabular export, or throws a 406 when the item
-     * resource provides no tabular schema.
+     * A tabular format streams the underlying items as a tabular export (or
+     * 406s when the item resource provides no tabular schema). A hierarchical
+     * format with a writer streams each item's own toArray shape - so a
+     * resource with no tabular schema can still be exported as XML, JSON, or
+     * NDJSON. The default JSON format with no explicit override returns null so
+     * the caller defers to the framework's native JSON collection response.
      *
      * @param  \Illuminate\Http\Resources\Json\ResourceCollection  $collection
      * @param  class-string|null  $collects
@@ -156,22 +174,34 @@ final readonly class ExportNegotiator
     {
         $format = $this->resolve($request);
 
-        if (!$this->isTabular($format)) {
+        if ($this->isTabular($format)) {
+
+            if ($collects === null || !is_a($collects, ProvidesTabularExport::class, true)) {
+                throw NoTabularRepresentation::forResource($collects ?? $collection::class);
+            }
+
+            /** @var \SineMacula\Exporter\Contracts\ProvidesTabularExport $probe */
+            $probe = new $collects(null);
+
+            return $this->streamExport(
+                new ResourceCollectionSource($collection),
+                $probe->tabular($request),
+                $format,
+                $request,
+            );
+        }
+
+        $writer = $this->hierarchicalWriterFor($format, $request);
+
+        if ($writer === null || $collects === null) {
             return null;
         }
 
-        if ($collects === null || !is_a($collects, ProvidesTabularExport::class, true)) {
-            throw NoTabularRepresentation::forResource($collects ?? $collection::class);
-        }
-
-        /** @var \SineMacula\Exporter\Contracts\ProvidesTabularExport $probe */
-        $probe = new $collects(null);
-
-        return $this->streamExport(
+        return $this->streamHierarchical(
             new ResourceCollectionSource($collection),
-            $probe->tabular($request),
+            fn (mixed $item): array => $this->resolveItem($collects, $item, $request),
+            $writer,
             $format,
-            $request,
         );
     }
 
@@ -203,7 +233,36 @@ final readonly class ExportNegotiator
             200,
             [
                 'Content-Type'        => $writer->mediaType() . '; charset=UTF-8',
-                'Content-Disposition' => $this->disposition($schema, $format),
+                'Content-Disposition' => $this->disposition($schema->filename(), $format),
+                'Vary'                => 'Accept',
+            ],
+        );
+    }
+
+    /**
+     * Stream a source's items through a hierarchical writer as a download.
+     *
+     * Each underlying item is resolved to its hierarchical array on demand and
+     * streamed into the writer, so the set is never materialised.
+     *
+     * @param  \SineMacula\Exporter\Contracts\Source  $source
+     * @param  \Closure(mixed): array<array-key, mixed>  $toArray
+     * @param  \SineMacula\Exporter\Contracts\HierarchicalWriter  $writer
+     * @param  string  $format
+     * @return \Symfony\Component\HttpFoundation\StreamedResponse
+     */
+    public function streamHierarchical(Source $source, \Closure $toArray, HierarchicalWriter $writer, string $format): StreamedResponse
+    {
+        $sink = new StreamedResponseSink;
+
+        return $sink->toResponse(
+            function (Sink $stream) use ($source, $toArray, $writer): void {
+                $writer->write($this->resolveRows($source, $toArray), $stream);
+            },
+            200,
+            [
+                'Content-Type'        => $writer->mediaType() . '; charset=UTF-8',
+                'Content-Disposition' => $this->disposition(null, $format),
                 'Vary'                => 'Accept',
             ],
         );
@@ -262,13 +321,7 @@ final readonly class ExportNegotiator
             return null;
         }
 
-        foreach (AcceptHeader::fromString($header)->all() as $item) {
-
-            if ($item->getQuality() <= 0.0) {
-                continue;
-            }
-
-            $value = strtolower(trim($item->getValue()));
+        foreach ($this->highestQualityValues($header) as $value) {
 
             $match = str_contains($value, '*')
                 ? $this->matchWildcard($value)
@@ -280,6 +333,42 @@ final readonly class ExportNegotiator
         }
 
         return null;
+    }
+
+    /**
+     * Get the Accept media-type values in the most-preferred quality band.
+     *
+     * Entries the client rejects with q=0 are dropped, and only the single
+     * highest quality present is kept. Otherwise a browser's lower-priority
+     * application/xml;q=0.9 would win over the default JSON representation it
+     * ranks beneath text/html.
+     *
+     * @param  string  $header
+     * @return list<string>
+     */
+    private function highestQualityValues(string $header): array
+    {
+        $highest = null;
+        $values  = [];
+
+        foreach (AcceptHeader::fromString($header)->all() as $item) {
+
+            $quality = $item->getQuality();
+
+            if ($quality <= 0.0) {
+                continue;
+            }
+
+            $highest ??= $quality;
+
+            if ($quality < $highest) {
+                break;
+            }
+
+            $values[] = strtolower(trim($item->getValue()));
+        }
+
+        return $values;
     }
 
     /**
@@ -325,20 +414,80 @@ final readonly class ExportNegotiator
     }
 
     /**
+     * Resolve the hierarchical writer for a negotiated format, deferring the
+     * default JSON representation to the resource's native response unless the
+     * format was explicitly requested via ?format= or a URL extension.
+     *
+     * @param  string  $format
+     * @param  \Illuminate\Http\Request  $request
+     * @return \SineMacula\Exporter\Contracts\HierarchicalWriter|null
+     */
+    private function hierarchicalWriterFor(string $format, Request $request): ?HierarchicalWriter
+    {
+        if ($format === $this->registry->defaultFormat() && !$this->isExplicitFormat($request)) {
+            return null;
+        }
+
+        return $this->registry->hierarchicalWriterFor($format);
+    }
+
+    /**
+     * Determine whether the request explicitly selected a format through the
+     * query parameter or a whitelisted URL extension.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return bool
+     */
+    private function isExplicitFormat(Request $request): bool
+    {
+        return $this->resolveFromParameter($request) !== null
+            || $this->resolveFromExtension($request) !== null;
+    }
+
+    /**
+     * Resolve an underlying item to its hierarchical array via the resource.
+     *
+     * @param  class-string<\Illuminate\Http\Resources\Json\JsonResource>  $resourceClass
+     * @param  mixed  $item
+     * @param  \Illuminate\Http\Request  $request
+     * @return array<array-key, mixed>
+     */
+    private function resolveItem(string $resourceClass, mixed $item, Request $request): array
+    {
+        $resource = $item instanceof JsonResource ? $item : new $resourceClass($item);
+
+        return $resource->resolve($request);
+    }
+
+    /**
+     * Lazily resolve each source item to its hierarchical array.
+     *
+     * @param  \SineMacula\Exporter\Contracts\Source  $source
+     * @param  \Closure(mixed): array<array-key, mixed>  $toArray
+     * @return \Generator<int, array<array-key, mixed>>
+     */
+    private function resolveRows(Source $source, \Closure $toArray): \Generator
+    {
+        foreach ($source->rows() as $item) {
+            yield $toArray($item);
+        }
+    }
+
+    /**
      * Build the Content-Disposition header for the negotiated download.
      *
-     * The schema filename is sanitised of path separators and given an ASCII
-     * fallback so makeDisposition() cannot reject it on control characters or
-     * non-ASCII bytes.
+     * The filename is sanitised of path separators and given an ASCII fallback
+     * so makeDisposition() cannot reject it on control characters or non-ASCII
+     * bytes.
      *
-     * @param  \SineMacula\Exporter\Schema\TabularSchema  $schema
+     * @param  string|null  $filename
      * @param  string  $format
      * @return string
      */
-    private function disposition(TabularSchema $schema, string $format): string
+    private function disposition(?string $filename, string $format): string
     {
         $extension = $this->registry->get($format)?->extension() ?? $format;
-        $base      = str_replace(['/', '\\'], '_', $schema->filename() ?? 'export');
+        $base      = str_replace(['/', '\\'], '_', $filename ?? 'export');
         $filename  = $base . '.' . $extension;
 
         return HeaderUtils::makeDisposition(

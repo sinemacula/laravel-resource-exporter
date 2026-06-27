@@ -5,6 +5,7 @@ declare(strict_types = 1);
 namespace SineMacula\Exporter\Http;
 
 use SineMacula\Exporter\Contracts\Format;
+use SineMacula\Exporter\Contracts\HierarchicalWriter;
 use SineMacula\Exporter\Contracts\Writer;
 
 /**
@@ -31,6 +32,7 @@ final readonly class ExportFormat implements Format
      * @param  list<string>  $mediaTypes
      * @param  bool  $tabular
      * @param  (\Closure(): \SineMacula\Exporter\Contracts\Writer)|null  $writerFactory
+     * @param  (\Closure(): \SineMacula\Exporter\Contracts\HierarchicalWriter)|null  $hierarchicalWriterFactory
      */
     public function __construct(
 
@@ -49,8 +51,11 @@ final readonly class ExportFormat implements Format
         /** Whether the format is tabular and requires a schema. */
         private bool $tabular,
 
-        /** @var (\Closure(): \SineMacula\Exporter\Contracts\Writer)|null The per-export writer factory */
+        /** @var (\Closure(): \SineMacula\Exporter\Contracts\Writer)|null The per-export tabular writer factory */
         private ?\Closure $writerFactory = null,
+
+        /** @var (\Closure(): \SineMacula\Exporter\Contracts\HierarchicalWriter)|null The per-export hierarchical writer factory */
+        private ?\Closure $hierarchicalWriterFactory = null,
     ) {}
 
     /**
@@ -109,7 +114,7 @@ final readonly class ExportFormat implements Format
     }
 
     /**
-     * Build a fresh writer for the format, or null when it is hierarchical.
+     * Build a fresh tabular writer for the format, or null when it has none.
      *
      * @return \SineMacula\Exporter\Contracts\Writer|null
      */
@@ -117,6 +122,20 @@ final readonly class ExportFormat implements Format
     {
         return $this->writerFactory !== null
             ? ($this->writerFactory)()
+            : null;
+    }
+
+    /**
+     * Build a fresh hierarchical writer for the format, or null when it has
+     * none (a hierarchical format without a writer defers to the resource's own
+     * JSON response).
+     *
+     * @return \SineMacula\Exporter\Contracts\HierarchicalWriter|null
+     */
+    public function hierarchicalWriter(): ?HierarchicalWriter
+    {
+        return $this->hierarchicalWriterFactory !== null
+            ? ($this->hierarchicalWriterFactory)()
             : null;
     }
 }
