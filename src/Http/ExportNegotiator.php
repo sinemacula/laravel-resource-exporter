@@ -17,6 +17,7 @@ use SineMacula\Exporter\Schema\TabularSchema;
 use SineMacula\Exporter\Sinks\StreamedResponseSink;
 use SineMacula\Exporter\Sources\ResourceCollectionSource;
 use SineMacula\Exporter\Sources\ResourceItemSource;
+use SineMacula\Exporter\Writers\CountingWriter;
 use Symfony\Component\HttpFoundation\AcceptHeader;
 use Symfony\Component\HttpFoundation\HeaderUtils;
 use Symfony\Component\HttpFoundation\Response;
@@ -208,15 +209,22 @@ final readonly class ExportNegotiator
     /**
      * Stream a source through a schema and writer as a tabular download.
      *
+     * An optional completion callback receives the number of data rows emitted
+     * once the stream finishes, so a full-set caller can fire its audit event
+     * with the real row count without the negotiator knowing about auditing.
+     * The writer is wrapped to count rows at constant memory; the callback is
+     * invoked with the final count, or skipped when none was supplied.
+     *
      * @param  \SineMacula\Exporter\Contracts\Source  $source
      * @param  \SineMacula\Exporter\Schema\TabularSchema  $schema
      * @param  string  $format
      * @param  \Illuminate\Http\Request  $request
+     * @param  \Closure(int): void|null  $onComplete
      * @return \Symfony\Component\HttpFoundation\StreamedResponse
      *
      * @throws \SineMacula\Exporter\Exceptions\NoTabularRepresentation
      */
-    public function streamExport(Source $source, TabularSchema $schema, string $format, Request $request): StreamedResponse
+    public function streamExport(Source $source, TabularSchema $schema, string $format, Request $request, ?\Closure $onComplete = null): StreamedResponse
     {
         $writer = $this->registry->writerFor($format);
 
@@ -227,8 +235,16 @@ final readonly class ExportNegotiator
         $sink = new StreamedResponseSink;
 
         return $sink->toResponse(
-            function (Sink $stream) use ($source, $schema, $request, $writer): void {
-                $this->engine->export($source, $schema, $request, $writer, $stream);
+            function (Sink $stream) use ($source, $schema, $request, $writer, $onComplete): void {
+                $rows = 0;
+
+                $counting = new CountingWriter($writer, static function (int $count) use (&$rows): void {
+                    $rows = $count;
+                });
+
+                $this->engine->export($source, $schema, $request, $counting, $stream);
+
+                $onComplete?->__invoke($rows);
             },
             200,
             [

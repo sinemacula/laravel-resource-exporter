@@ -5,12 +5,14 @@ declare(strict_types = 1);
 namespace SineMacula\Exporter;
 
 use Illuminate\Container\Container;
+use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Config;
 use SineMacula\Exporter\Contracts\ProvidesTabularExport;
 use SineMacula\Exporter\Exceptions\NoTabularRepresentation;
 use SineMacula\Exporter\Exceptions\RowLimitExceeded;
+use SineMacula\Exporter\Export\ExportAuditor;
 use SineMacula\Exporter\Http\ExportNegotiator;
 use SineMacula\Exporter\Schema\TabularSchema;
 use SineMacula\Exporter\Sources\QueryChunkSource;
@@ -230,18 +232,21 @@ final class ResourceExport
      */
     private function streamResponse(ExportNegotiator $negotiator, string $format, Request $request): Response
     {
-        $this->authorizeFullSet($request);
+        $auditor = new ExportAuditor;
+
+        $this->authorizeFullSet($auditor, $request);
         $this->enforceRowCap();
 
         $schema = $this->schema($request);
-
-        $this->audit($format, $schema);
 
         return $negotiator->streamExport(
             new QueryChunkSource($this->query, $this->chunkSize),
             $schema,
             $format,
             $request,
+            function (int $rows) use ($auditor, $request, $schema, $format): void {
+                $this->complete($auditor, $request, $schema, $format, $rows);
+            },
         );
     }
 
@@ -268,16 +273,22 @@ final class ResourceExport
     /**
      * Re-check authorization for the full dataset, not just the visible page.
      *
+     * Routed through the shared auditor so the streamed path and the queued
+     * pipeline enforce full-set authorization at the same point.
+     *
+     * @param  \SineMacula\Exporter\Export\ExportAuditor  $auditor
      * @param  \Illuminate\Http\Request  $request
      * @return void
      */
-    private function authorizeFullSet(Request $request): void
+    private function authorizeFullSet(ExportAuditor $auditor, Request $request): void
     {
-        if ($this->authorization === null) {
-            return;
-        }
+        $authorization = $this->authorization;
 
-        ($this->authorization)($request, $this->query);
+        $auditor->authorize(
+            callback: $authorization === null ? null : function () use ($authorization, $request): void {
+                $authorization($request, $this->query);
+            },
+        );
     }
 
     /**
@@ -301,25 +312,49 @@ final class ResourceExport
     }
 
     /**
-     * Fire the audit hook around a streamed export (placeholder shape).
+     * Fire the shared audit event once the streamed export has completed.
      *
-     * The pinned ExportCompleted event with the full row count lands with the
-     * queued pipeline; here the hook records the negotiated context known
-     * before the stream commits.
+     * Called with the real row count when the stream finishes, this dispatches
+     * the same pinned ExportCompleted event the queued pipeline fires - through
+     * the same auditor - then forwards the payload to the optional user audit
+     * hook for backwards compatibility.
      *
-     * @param  string  $format
+     * @param  \SineMacula\Exporter\Export\ExportAuditor  $auditor
+     * @param  \Illuminate\Http\Request  $request
      * @param  \SineMacula\Exporter\Schema\TabularSchema  $schema
+     * @param  string  $format
+     * @param  int  $rows
      * @return void
      */
-    private function audit(string $format, TabularSchema $schema): void
+    private function complete(ExportAuditor $auditor, Request $request, TabularSchema $schema, string $format, int $rows): void
     {
+        $actorId = $this->actorId($request);
+
+        $auditor->completed($actorId, $rows, $schema->filename(), $format);
+
         if ($this->audit === null) {
             return;
         }
 
         ($this->audit)([
-            'format'   => $format,
-            'filename' => $schema->filename(),
+            'actor_id'  => $actorId,
+            'row_count' => $rows,
+            'filename'  => $schema->filename(),
+            'format'    => $format,
         ]);
+    }
+
+    /**
+     * Resolve the initiating actor's identifier from the request.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return int|string|null
+     */
+    private function actorId(Request $request): int|string|null
+    {
+        $user = $request->user();
+        $id   = $user instanceof Authenticatable ? $user->getAuthIdentifier() : null;
+
+        return is_int($id) || is_string($id) ? $id : null;
     }
 }

@@ -32,6 +32,9 @@
         <exclude-pattern>src/Contracts/Source.php</exclude-pattern>
         <exclude-pattern>src/Engine.php</exclude-pattern>
         <exclude-pattern>src/ExportManager.php</exclude-pattern>
+        <exclude-pattern>src/Export/ExportAuditor.php</exclude-pattern>
+        <exclude-pattern>src/Export/ExportSpecification.php</exclude-pattern>
+        <exclude-pattern>src/Export/QueuedExport.php</exclude-pattern>
         <exclude-pattern>src/Exporters/*</exclude-pattern>
         <exclude-pattern>src/Facades/Exporter.php</exclude-pattern>
         <exclude-pattern>src/Http/Concerns/RespondsWithExports.php</exclude-pattern>

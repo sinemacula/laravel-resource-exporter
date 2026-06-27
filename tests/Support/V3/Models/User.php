@@ -4,6 +4,7 @@ declare(strict_types = 1);
 
 namespace Tests\Support\V3\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
@@ -45,6 +46,20 @@ final class User extends Model
     public function orders(): HasMany
     {
         return $this->hasMany(Order::class);
+    }
+
+    /**
+     * Scope the query to users scoring at least the given threshold.
+     *
+     * Exercised by the queued-export specification's named-scope replay.
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder<\Tests\Support\V3\Models\User>  $query
+     * @param  int  $minimum
+     * @return void
+     */
+    public function scopeScoreAtLeast(Builder $query, int $minimum): void
+    {
+        $query->where('score', '>=', $minimum);
     }
 
     /**
