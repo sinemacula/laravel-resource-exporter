@@ -10,6 +10,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use SineMacula\Exporter\Http\ExportFormat;
 use SineMacula\Exporter\Http\ExportNegotiator;
+use SineMacula\Exporter\Http\FormatResolver;
 use SineMacula\Exporter\Http\MediaTypeRegistry;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -22,6 +23,7 @@ use Symfony\Component\HttpFoundation\Response;
  * @internal
  */
 #[CoversClass(ExportNegotiator::class)]
+#[CoversClass(FormatResolver::class)]
 #[CoversClass(MediaTypeRegistry::class)]
 #[CoversClass(ExportFormat::class)]
 final class ExportNegotiatorTest extends TestCase
@@ -41,6 +43,10 @@ final class ExportNegotiatorTest extends TestCase
         yield 'unknown falls to json' => ['text/html', 'json'];
         yield 'browser default prefers json over lower-q xml' => ['text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8', 'json'];
         yield 'lower-q registered type loses to higher-q unknown' => ['text/html, text/csv;q=0.9', 'json'];
+        yield 'application wildcard resolves to the json default' => ['application/*', 'json'];
+        yield 'text wildcard resolves to the first text format' => ['text/*', 'csv'];
+        yield 'unmatched type wildcard falls back to json' => ['audio/*', 'json'];
+        yield 'blank accept falls back to json' => ['   ', 'json'];
     }
 
     /**
@@ -116,6 +122,35 @@ final class ExportNegotiatorTest extends TestCase
         self::assertTrue($negotiator->isTabular('csv'));
         self::assertTrue($negotiator->isTabular('tsv'));
         self::assertFalse($negotiator->isTabular('json'));
+    }
+
+    /**
+     * It registers a custom format and exposes the registry surface.
+     *
+     * @return void
+     */
+    public function testRegistrySurfaceAndDefault(): void
+    {
+        $registry = new MediaTypeRegistry;
+
+        self::assertSame('json', $registry->defaultFormat());
+        self::assertNotEmpty($registry->all());
+        self::assertContainsOnlyInstancesOf(ExportFormat::class, $registry->all());
+
+        $registry->register(new ExportFormat('pdf', 'pdf', 'application/pdf', ['application/pdf'], false));
+        $registry->setDefault('pdf');
+
+        self::assertSame('pdf', $registry->defaultFormat());
+        self::assertTrue($registry->has('pdf'));
+
+        $format = $registry->get('pdf');
+
+        self::assertInstanceOf(ExportFormat::class, $format);
+        self::assertSame('application/pdf', $format->defaultMediaType());
+        self::assertSame('pdf', $registry->formatForMediaType('application/pdf; charset=utf-8'));
+        self::assertSame('pdf', $registry->formatForExtension('pdf'));
+        self::assertNull($format->writer());
+        self::assertNull($format->hierarchicalWriter());
     }
 
     /**

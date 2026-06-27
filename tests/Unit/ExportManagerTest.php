@@ -8,10 +8,14 @@ use Illuminate\Contracts\Config\Repository;
 use Orchestra\Testbench\TestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use SineMacula\Exporter\Contracts\Exporter as ExporterContract;
+use SineMacula\Exporter\Export\QueuedExport;
+use SineMacula\Exporter\ExportBuilder;
 use SineMacula\Exporter\Exporters\Csv;
 use SineMacula\Exporter\Exporters\Xml;
 use SineMacula\Exporter\ExportManager;
 use Tests\Support\ExportManagerFakeExporter;
+use Tests\Support\V3\Models\User;
+use Tests\Support\V3\Resources\UserResource;
 
 /**
  * Tests for manager driver resolution and delegation behavior.
@@ -256,6 +260,22 @@ final class ExportManagerTest extends TestCase
         $this->expectExceptionMessage('Exporter [bad] does not have a configured driver.');
 
         $manager->format('bad');
+    }
+
+    /**
+     * It opens fluent v3 export builders and the queued export entry point.
+     *
+     * @return void
+     */
+    public function testFluentEntryPointsBuildExports(): void
+    {
+        $manager    = $this->makeManager();
+        $collection = UserResource::collection(collect([])); // @phpstan-ignore staticMethod.dynamicCall
+
+        self::assertInstanceOf(ExportBuilder::class, $manager->export(User::query()));
+        self::assertInstanceOf(ExportBuilder::class, $manager->collection($collection));
+        self::assertInstanceOf(ExportBuilder::class, $manager->query(User::query(), UserResource::class));
+        self::assertInstanceOf(QueuedExport::class, $manager->queue(User::class, UserResource::class));
     }
 
     /**

@@ -6,11 +6,13 @@ namespace Tests\Integration;
 
 use Illuminate\Http\Request;
 use PHPUnit\Framework\Attributes\CoversClass;
+use SineMacula\Exporter\Exceptions\NoTabularRepresentation;
 use SineMacula\Exporter\Exceptions\RowLimitExceeded;
 use SineMacula\Exporter\ResourceExport;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Tests\Support\V3\ExporterTestCase;
 use Tests\Support\V3\Models\User;
+use Tests\Support\V3\Resources\PlainUserResource;
 use Tests\Support\V3\Resources\UserResource;
 
 /**
@@ -133,6 +135,51 @@ final class ResourceExportTest extends ExporterTestCase
 
         self::assertCount(4000, $lines);
         self::assertLessThan(48 * 1024 * 1024, $delta, 'Streaming peak memory grew unexpectedly.');
+    }
+
+    /**
+     * It fires the audit hook with the pinned payload once the stream finishes.
+     *
+     * @return void
+     */
+    public function testAuditHookFiresWithThePinnedPayload(): void
+    {
+        $this->seedUsers(3);
+
+        $captured = null;
+
+        $response = ResourceExport::forQuery(User::query(), UserResource::class)
+            ->auditUsing(static function (array $payload) use (&$captured): void {
+                $captured = $payload;
+            })
+            ->paginatedJsonOrStreamedExport($this->exportRequest());
+
+        self::assertInstanceOf(StreamedResponse::class, $response);
+
+        // The audit fires from the stream's completion callback, so drain it.
+        $this->streamToString($response);
+
+        self::assertIsArray($captured);
+        self::assertSame(3, $captured['row_count']);
+        self::assertSame('csv', $captured['format']);
+        self::assertArrayHasKey('actor_id', $captured);
+        self::assertArrayHasKey('filename', $captured);
+    }
+
+    /**
+     * It returns 406 when the export resource declares no tabular schema.
+     *
+     * @return void
+     */
+    public function testExportWithoutATabularSchemaYields406(): void
+    {
+        $this->seedUsers(2);
+
+        $this->expectException(NoTabularRepresentation::class);
+
+        ResourceExport::forQuery(User::query(), PlainUserResource::class)
+            ->unlimited()
+            ->paginatedJsonOrStreamedExport($this->exportRequest());
     }
 
     /**

@@ -36,10 +36,8 @@ use Tests\Support\V3\Schema\FlexibleSchema;
  * @internal
  */
 #[CoversClass(Engine::class)]
-#[CoversClass(InvalidExportSchema::class)]
 #[CoversClass(WarningCollector::class)]
 #[CoversClass(ExportNegotiator::class)]
-#[CoversClass(NoTabularRepresentation::class)]
 final class EngineStrictnessTest extends TestCase
 {
     /**

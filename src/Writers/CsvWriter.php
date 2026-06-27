@@ -81,6 +81,8 @@ final readonly class CsvWriter implements Writer
      * @param  \SineMacula\Exporter\Schema\TabularSchema  $schema
      * @param  \SineMacula\Exporter\Contracts\Sink  $sink
      * @return void
+     *
+     * @throws \Throwable
      */
     #[\Override]
     public function write(iterable $rows, TabularSchema $schema, Sink $sink): void
@@ -96,20 +98,45 @@ final readonly class CsvWriter implements Writer
         /** @var list<string>|null $keys */
         $keys = null;
 
-        foreach ($rows as $row) {
+        try {
+            foreach ($rows as $row) {
 
-            if ($keys === null) {
-                $keys = array_keys($row);
+                if ($keys === null) {
+                    $keys = array_keys($row);
+                }
+
+                if (!$emitted && $schema->headings()) {
+                    $writer->insertOne($this->headingRow($keys, $headings));
+                }
+
+                $emitted = true;
+
+                $writer->insertOne($this->dataRow($row, $keys));
             }
+        } catch (\Throwable $exception) {
+            $this->markTruncated($writer, $sink);
 
-            if (!$emitted && $schema->headings()) {
-                $writer->insertOne($this->headingRow($keys, $headings));
-            }
-
-            $emitted = true;
-
-            $writer->insertOne($this->dataRow($row, $keys));
+            throw $exception;
         }
+
+        fflush($sink->stream());
+    }
+
+    /**
+     * Flush a trailing truncation record when a mid-stream failure occurs.
+     *
+     * The streamed response has already committed its status and bytes, so the
+     * partial output is finished with a clearly-marked final record before the
+     * exception propagates - leaving the consumer a detectable signal that the
+     * download is incomplete.
+     *
+     * @param  \League\Csv\Writer  $writer
+     * @param  \SineMacula\Exporter\Contracts\Sink  $sink
+     * @return void
+     */
+    private function markTruncated(LeagueWriter $writer, Sink $sink): void
+    {
+        $writer->insertOne([Truncation::CSV_FIELD]);
 
         fflush($sink->stream());
     }

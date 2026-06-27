@@ -6,6 +6,7 @@ namespace Tests\Integration;
 
 use Illuminate\Routing\Router;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\CoversTrait;
 use SineMacula\Exporter\Engine;
 use SineMacula\Exporter\Http\Concerns\RespondsWithExports;
 use SineMacula\Exporter\Http\ExportFormat;
@@ -32,13 +33,13 @@ use Tests\Support\V3\Resources\UserResource;
 #[CoversClass(ExportNegotiator::class)]
 #[CoversClass(MediaTypeRegistry::class)]
 #[CoversClass(ExportFormat::class)]
-#[CoversClass(RespondsWithExports::class)]
 #[CoversClass(ExportResourceCollection::class)]
 #[CoversClass(Engine::class)]
 #[CoversClass(CsvWriter::class)]
 #[CoversClass(StreamedResponseSink::class)]
 #[CoversClass(ResourceItemSource::class)]
 #[CoversClass(ResourceCollectionSource::class)]
+#[CoversTrait(RespondsWithExports::class)]
 final class ExportNegotiationHttpTest extends ExporterTestCase
 {
     /**

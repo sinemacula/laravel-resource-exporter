@@ -168,6 +168,42 @@ final class QueuedExportTest extends QueuedExportTestCase
     }
 
     /**
+     * It ignores a scope constraint whose name is empty when replaying.
+     *
+     * @return void
+     */
+    public function testQueryIgnoresAnEmptyScopeName(): void
+    {
+        $this->seedUsers(3);
+
+        $spec = QueuedExport::forModel(User::class, UserResource::class)
+            ->toDisk('exports', 'exports/users.csv')
+            ->scope('')
+            ->orderBy('id')
+            ->toSpecification();
+
+        self::assertSame([1, 2, 3], $spec->query()->pluck('id')->all());
+    }
+
+    /**
+     * It replays a where-in constraint when rebuilding the query.
+     *
+     * @return void
+     */
+    public function testQueryReplaysAWhereInConstraint(): void
+    {
+        $this->seedUsers(5);
+
+        $spec = QueuedExport::forModel(User::class, UserResource::class)
+            ->toDisk('exports', 'exports/users.csv')
+            ->whereIn('id', [2, 4])
+            ->orderBy('id')
+            ->toSpecification();
+
+        self::assertSame([2, 4], $spec->query()->pluck('id')->all());
+    }
+
+    /**
      * It replays a where-null constraint when rebuilding the query.
      *
      * @return void

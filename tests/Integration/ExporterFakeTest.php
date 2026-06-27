@@ -9,6 +9,7 @@ use PHPUnit\Framework\Assert as PHPUnit;
 use PHPUnit\Framework\AssertionFailedError;
 use PHPUnit\Framework\Attributes\CoversClass;
 use SineMacula\Exporter\Export\ExportSpecification;
+use SineMacula\Exporter\ExportBuilder;
 use SineMacula\Exporter\Facades\Exporter;
 use SineMacula\Exporter\Testing\ExporterFake;
 use SineMacula\Exporter\Testing\RecordedExport;
@@ -34,6 +35,7 @@ use Tests\Support\V3\Schema\UserExportSchema;
 #[CoversClass(ExporterFake::class)]
 #[CoversClass(RecordedExport::class)]
 #[CoversClass(Exporter::class)]
+#[CoversClass(ExportBuilder::class)]
 final class ExporterFakeTest extends QueuedExportTestCase
 {
     /**
@@ -145,6 +147,61 @@ final class ExporterFakeTest extends QueuedExportTestCase
         self::assertSame('', $bytes);
 
         $fake->assertExportedRows(3);
+    }
+
+    /**
+     * It reports no active fake when none is bound in the container.
+     *
+     * @return void
+     */
+    public function testActiveIsNullWhenNoFakeIsBound(): void
+    {
+        self::assertNull(ExporterFake::active());
+    }
+
+    /**
+     * It exposes the recorded export ledger in order.
+     *
+     * @return void
+     */
+    public function testRecordedExposesTheLedger(): void
+    {
+        $this->seedUsers(2);
+
+        $fake = Exporter::fake();
+
+        Exporter::collection($this->collection())->format('csv')->toString();
+
+        $recorded = $fake->recorded();
+
+        self::assertCount(1, $recorded);
+        self::assertInstanceOf(RecordedExport::class, $recorded[0]);
+    }
+
+    /**
+     * It records a streamed-into-resource export and writes no bytes.
+     *
+     * @return void
+     */
+    public function testToStreamIsRecorded(): void
+    {
+        $this->seedUsers(2);
+
+        $fake   = Exporter::fake();
+        $stream = fopen('php://temp', 'r+b');
+
+        self::assertIsResource($stream);
+
+        $rows = Exporter::collection($this->collection())->format('csv')->toStream($stream);
+
+        rewind($stream);
+
+        self::assertSame(2, $rows);
+        self::assertSame('', (string) stream_get_contents($stream));
+
+        fclose($stream);
+
+        $fake->assertExportedRows(2);
     }
 
     /**

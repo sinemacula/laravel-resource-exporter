@@ -54,7 +54,7 @@ final readonly class JsonWriter implements HierarchicalWriter
      * @param  \SineMacula\Exporter\Contracts\Sink  $sink
      * @return void
      *
-     * @throws \JsonException
+     * @throws \Throwable
      */
     #[\Override]
     public function write(iterable $items, Sink $sink): void
@@ -64,17 +64,49 @@ final readonly class JsonWriter implements HierarchicalWriter
 
         fwrite($stream, '[');
 
-        foreach ($items as $item) {
+        try {
+            foreach ($items as $item) {
 
-            if (!$first) {
-                fwrite($stream, ',');
+                if (!$first) {
+                    fwrite($stream, ',');
+                }
+
+                $first = false;
+
+                fwrite($stream, $this->encodeJson($item, $this->flags));
             }
+        } catch (\Throwable $exception) {
+            $this->markTruncated($stream, $first);
 
-            $first = false;
-
-            fwrite($stream, $this->encodeJson($item, $this->flags));
+            throw $exception;
         }
 
+        fwrite($stream, ']');
+
+        fflush($stream);
+    }
+
+    /**
+     * Close the array with a clearly-marked truncation element on failure.
+     *
+     * The streamed response has already committed its status and bytes, so the
+     * partial array is finished with a final marker object and a closing
+     * bracket, leaving the output valid JSON whose last element flags the
+     * truncation, before the exception propagates.
+     *
+     * @param  resource  $stream
+     * @param  bool  $first
+     * @return void
+     *
+     * @throws \JsonException
+     */
+    private function markTruncated($stream, bool $first): void // phpcs:ignore SineMaculaLaravel.TypeHints.ParameterTypeHint.MissingNativeTypeHint
+    {
+        if (!$first) {
+            fwrite($stream, ',');
+        }
+
+        fwrite($stream, $this->encodeJson([Truncation::JSON_KEY => Truncation::REASON], $this->flags));
         fwrite($stream, ']');
 
         fflush($stream);

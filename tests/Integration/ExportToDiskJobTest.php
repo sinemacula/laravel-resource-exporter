@@ -13,11 +13,13 @@ use SineMacula\Exporter\Events\ExportCompleted;
 use SineMacula\Exporter\Events\ExportFailed;
 use SineMacula\Exporter\Events\ExportStarting;
 use SineMacula\Exporter\Events\RowsExported;
+use SineMacula\Exporter\Exceptions\NoTabularRepresentation;
 use SineMacula\Exporter\Export\QueuedExport;
 use SineMacula\Exporter\Jobs\ExportToDiskJob;
 use Tests\Support\V3\Models\Actor;
 use Tests\Support\V3\Models\User;
 use Tests\Support\V3\QueuedExportTestCase;
+use Tests\Support\V3\Resources\PlainUserResource;
 use Tests\Support\V3\Resources\UserResource;
 use Tests\Support\V3\Schema\ExplodingExportSchema;
 
@@ -86,6 +88,33 @@ final class ExportToDiskJobTest extends QueuedExportTestCase
         Event::assertDispatched(
             ExportCompleted::class,
             static fn (ExportCompleted $event): bool => $event->url === 'https://signed.example/exports/users.csv',
+        );
+    }
+
+    /**
+     * It completes with a null URL when generating the signed URL throws.
+     *
+     * @return void
+     */
+    public function testCompletesWithoutAUrlWhenSigningThrows(): void
+    {
+        $disk = $this->fakeDisk('exports');
+        $disk->buildTemporaryUrlsUsing(static function (string $path, mixed $expiration): string {
+            throw new \RuntimeException('no signing');
+        });
+
+        Event::fake();
+        $this->seedUsers(2);
+
+        ExportToDiskJob::dispatchSync(
+            QueuedExport::forModel(User::class, UserResource::class)
+                ->toDisk('exports', 'exports/users.csv')
+                ->toSpecification(),
+        );
+
+        Event::assertDispatched(
+            ExportCompleted::class,
+            static fn (ExportCompleted $event): bool => $event->url === null && $event->rowCount === 2,
         );
     }
 
@@ -221,6 +250,49 @@ final class ExportToDiskJobTest extends QueuedExportTestCase
             ExportCompleted::class,
             static fn (ExportCompleted $event): bool => $event->actorId === $admin->id && $event->rowCount === 3,
         );
+    }
+
+    /**
+     * It rejects a non-tabular format before producing any output.
+     *
+     * @return void
+     */
+    public function testRejectsANonTabularFormat(): void
+    {
+        $this->fakeDisk('exports');
+        $this->seedUsers(1);
+
+        $job = new ExportToDiskJob(
+            QueuedExport::forModel(User::class, UserResource::class)
+                ->format('json')
+                ->toDisk('exports', 'exports/users.json')
+                ->toSpecification(),
+        );
+
+        $this->expectException(NoTabularRepresentation::class);
+
+        app()->call([$job, 'handle']);
+    }
+
+    /**
+     * It rejects a resource that declares no tabular schema.
+     *
+     * @return void
+     */
+    public function testRejectsAResourceWithoutATabularSchema(): void
+    {
+        $this->fakeDisk('exports');
+        $this->seedUsers(1);
+
+        $job = new ExportToDiskJob(
+            QueuedExport::forModel(User::class, PlainUserResource::class)
+                ->toDisk('exports', 'exports/users.csv')
+                ->toSpecification(),
+        );
+
+        $this->expectException(NoTabularRepresentation::class);
+
+        app()->call([$job, 'handle']);
     }
 
     /**

@@ -59,15 +59,22 @@ final readonly class NdjsonWriter implements HierarchicalWriter
      * @param  \SineMacula\Exporter\Contracts\Sink  $sink
      * @return void
      *
-     * @throws \JsonException
+     * @throws \Throwable
      */
     #[\Override]
     public function write(iterable $items, Sink $sink): void
     {
         $stream = $sink->stream();
 
-        foreach ($items as $item) {
-            fwrite($stream, $this->encodeJson($item, $this->flags) . $this->endOfLine);
+        try {
+            foreach ($items as $item) {
+                fwrite($stream, $this->encodeJson($item, $this->flags) . $this->endOfLine);
+            }
+        } catch (\Throwable $exception) {
+            fwrite($stream, $this->encodeJson([Truncation::JSON_KEY => Truncation::REASON], $this->flags) . $this->endOfLine);
+            fflush($stream);
+
+            throw $exception;
         }
 
         fflush($stream);

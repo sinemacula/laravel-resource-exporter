@@ -9,7 +9,9 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 use SineMacula\Exporter\Exceptions\MissingXlsxDependency;
 use SineMacula\Exporter\Exceptions\XlsxRowLimitExceeded;
+use SineMacula\Exporter\Schema\CellValue;
 use SineMacula\Exporter\Schema\Column;
+use SineMacula\Exporter\Schema\Enums\CellType;
 use SineMacula\Exporter\Sinks\StringSink;
 use SineMacula\Exporter\Sinks\TempFileSink;
 use SineMacula\Exporter\Writers\XlsxWriter;
@@ -33,8 +35,6 @@ use Tests\Support\V3\Schema\ArraySchema;
  * @internal
  */
 #[CoversClass(XlsxWriter::class)]
-#[CoversClass(XlsxRowLimitExceeded::class)]
-#[CoversClass(MissingXlsxDependency::class)]
 final class XlsxWriterTest extends TestCase
 {
     use ReadsXlsx;
@@ -109,6 +109,83 @@ final class XlsxWriterTest extends TestCase
         self::assertSame([2, 'Bob'], $read[2]);
 
         @unlink($sink->path());
+    }
+
+    /**
+     * It renders every typed-cell edge: loose numbers, label fallbacks and
+     * non-scalars.
+     *
+     * @return void
+     */
+    public function testRendersTypedCellEdgeCases(): void
+    {
+        $request = Request::create('/');
+        $columns = [
+            Column::make('int_ok', 'A'),
+            Column::make('int_bad', 'B'),
+            Column::make('float_ok', 'C'),
+            Column::make('float_bad', 'D'),
+            Column::make('bool', 'E'),
+            Column::make('scalar', 'F'),
+            Column::make('stringable', 'G'),
+            Column::make('array', 'H'),
+        ];
+
+        $stringable = new class implements \Stringable {
+            /**
+             * Render the throwaway value as a fixed string.
+             *
+             * @return string
+             */
+            #[\Override]
+            public function __toString(): string
+            {
+                return 'as-string';
+            }
+        };
+
+        $row = [
+            'int_ok'     => new CellValue('5', CellType::INTEGER),
+            'int_bad'    => new CellValue('x', CellType::INTEGER),
+            'float_ok'   => new CellValue('1.5', CellType::FLOAT),
+            'float_bad'  => new CellValue('x', CellType::FLOAT),
+            'bool'       => new CellValue(true, CellType::BOOLEAN),
+            'scalar'     => new CellValue(12, CellType::STRING),
+            'stringable' => new CellValue($stringable, CellType::STRING),
+            'array'      => new CellValue(['x'], CellType::STRING),
+        ];
+
+        $sink = new StringSink;
+        (new XlsxWriter)->write([$row], new ArraySchema($request, $columns, headings: false), $sink);
+
+        $read = $this->readWorkbookFromString($sink->contents());
+
+        self::assertEqualsWithDelta(5, $read[0][0], 0.0);
+        self::assertEqualsWithDelta(0, $read[0][1], 0.0);
+        self::assertEqualsWithDelta(1.5, $read[0][2], 0.0);
+        self::assertEqualsWithDelta(0.0, $read[0][3], 0.0);
+        self::assertSame('Yes', $read[0][4]);
+        self::assertSame('12', $read[0][5]);
+        self::assertSame('as-string', $read[0][6]);
+        self::assertEmpty($read[0][7]);
+    }
+
+    /**
+     * It renders a date cell whose raw value is not a date through its string.
+     *
+     * @return void
+     */
+    public function testRendersANonDateRawForADateCell(): void
+    {
+        $request = Request::create('/');
+        $columns = [Column::make('day', 'Day')];
+
+        $row  = ['day' => new CellValue('2026-06-27', CellType::DATE)];
+        $sink = new StringSink;
+
+        (new XlsxWriter)->write([$row], new ArraySchema($request, $columns, headings: false), $sink);
+
+        self::assertSame('2026-06-27', $this->readWorkbookFromString($sink->contents())[0][0]);
     }
 
     /**

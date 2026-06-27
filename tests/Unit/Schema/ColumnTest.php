@@ -252,6 +252,29 @@ final class ColumnTest extends TestCase
     }
 
     /**
+     * It joins only the scalar/stringable children and skips the rest.
+     *
+     * @return void
+     */
+    public function testJoinAggregateSkipsNonScalarChildren(): void
+    {
+        $children = ['a', ['nested'], 'b', new \stdClass];
+
+        self::assertCell(CellType::STRING, 'a, b', $this->cell(Column::make('tags')->join(), ['tags' => $children]));
+        self::assertCell(CellType::STRING, '', $this->cell(Column::make('tags')->join(), ['tags' => 'not-iterable']));
+    }
+
+    /**
+     * It coerces a non-numeric count aggregate to zero.
+     *
+     * @return void
+     */
+    public function testCountAggregateCoercesNonNumericToZero(): void
+    {
+        self::assertCell(CellType::INTEGER, 0, $this->cell(Column::make('orders')->count(), ['orders_count' => 'not-a-number']));
+    }
+
+    /**
      * It marks the single row-expansion axis.
      *
      * @return void
@@ -260,6 +283,89 @@ final class ColumnTest extends TestCase
     {
         self::assertFalse(Column::make('orders')->isExpanded());
         self::assertTrue(Column::make('orders')->expandRows()->isExpanded());
+    }
+
+    /**
+     * It casts a value as a date-time with the default pattern.
+     *
+     * @return void
+     */
+    public function testDateTimeCast(): void
+    {
+        $cell = $this->cell(Column::make('d')->dateTime(), ['d' => '2026-06-27 13:45:00']);
+
+        self::assertSame(CellType::DATE_TIME, $cell->type);
+        self::assertSame('Y-m-d H:i:s', $cell->format);
+    }
+
+    /**
+     * It casts through a named caster resolved from the registry.
+     *
+     * @return void
+     */
+    public function testCastEscapeHatchResolvesANamedCaster(): void
+    {
+        $column = Column::make('n')->cast('number');
+
+        self::assertSame('number', $column->getCastName());
+        self::assertCell(CellType::INTEGER, 5, $this->cell($column, ['n' => '5']));
+    }
+
+    /**
+     * It infers native cell types from uncast values, including the fallbacks.
+     *
+     * @return void
+     */
+    public function testInfersTheRemainingNativeTypes(): void
+    {
+        $dateTime = $this->cell(Column::make('d'), ['d' => new \DateTime('2026-01-02 03:04:05')]);
+        self::assertSame(CellType::DATE_TIME, $dateTime->type);
+        self::assertInstanceOf(\DateTimeImmutable::class, $dateTime->raw);
+
+        self::assertCell(CellType::STRING, 'admin', $this->cell(Column::make('r'), ['r' => Role::ADMIN]));
+
+        $stringable = new class implements \Stringable {
+            /**
+             * Render the throwaway value as a fixed string.
+             *
+             * @return string
+             */
+            #[\Override]
+            public function __toString(): string
+            {
+                return 'as-string';
+            }
+        };
+        self::assertCell(CellType::STRING, 'as-string', $this->cell(Column::make('s'), ['s' => $stringable]));
+
+        self::assertCell(CellType::STRING, '', $this->cell(Column::make('o'), ['o' => ['nested' => 1]]));
+    }
+
+    /**
+     * It resolves an expansion child cell from the child by key and resolver.
+     *
+     * @return void
+     */
+    public function testChildCellResolvesFromTheChild(): void
+    {
+        self::assertCell(CellType::STRING, 'SKU-9', $this->childCell(Column::make('sku'), ['sku' => 'SKU-9']));
+
+        $resolved = Column::make('label')->resolveUsing(static fn (mixed $child, Request $request): string => 'child-' . $child['sku']);
+        self::assertCell(CellType::STRING, 'child-X', $this->childCell($resolved, ['sku' => 'X']));
+    }
+
+    /**
+     * It formats an expansion child cell and blanks a null child.
+     *
+     * @return void
+     */
+    public function testChildCellFormatsAndBlanksNull(): void
+    {
+        $formatted = Column::make('sku')->formatUsing(static fn (mixed $value, Request $request): string => is_string($value) ? strtoupper($value) : '');
+        self::assertCell(CellType::STRING, 'AB', $this->childCell($formatted, ['sku' => 'ab']));
+
+        $blank = Column::make('sku')->toChildCellValue(null, $this->request, $this->registry);
+        self::assertSame(CellType::NULL, $blank->type);
     }
 
     /**
@@ -301,5 +407,17 @@ final class ColumnTest extends TestCase
     private function cell(Column $column, array $item): CellValue
     {
         return $column->toCellValue($item, $this->request, $this->registry);
+    }
+
+    /**
+     * Run the per-cell pipeline for the column against an expansion child.
+     *
+     * @param  \SineMacula\Exporter\Schema\Column  $column
+     * @param  array<string, mixed>  $child
+     * @return \SineMacula\Exporter\Schema\CellValue
+     */
+    private function childCell(Column $column, array $child): CellValue
+    {
+        return $column->toChildCellValue($child, $this->request, $this->registry);
     }
 }

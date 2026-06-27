@@ -7,7 +7,9 @@ namespace Tests\Unit\Writers;
 use Illuminate\Http\Request;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
+use SineMacula\Exporter\Schema\CellValue;
 use SineMacula\Exporter\Schema\Column;
+use SineMacula\Exporter\Schema\Enums\CellType;
 use SineMacula\Exporter\Sinks\StringSink;
 use SineMacula\Exporter\Writers\CsvWriter;
 use Tests\Support\V3\Concerns\ShapesRows;
@@ -135,6 +137,92 @@ final class CsvWriterTest extends TestCase
     public function testMediaType(): void
     {
         self::assertSame('text/csv', (new CsvWriter)->mediaType());
+    }
+
+    /**
+     * It honours a configured flush threshold.
+     *
+     * @return void
+     */
+    public function testFlushThresholdIsApplied(): void
+    {
+        $output = $this->write(new CsvWriter(flushThreshold: 1), [
+            ['id' => 1, 'name' => 'A', 'active' => true, 'note' => 'x'],
+        ]);
+
+        self::assertSame("ID,Name,Active,Note\n1,A,Yes,x\n", $output);
+    }
+
+    /**
+     * It renders every typed-cell edge: loose numbers, label fallbacks and
+     * non-scalars.
+     *
+     * @return void
+     */
+    public function testRendersTypedCellEdgeCases(): void
+    {
+        $request = Request::create('/');
+        $columns = [
+            Column::make('int_str', 'A'),
+            Column::make('int_bad', 'B'),
+            Column::make('float_str', 'C'),
+            Column::make('float_bad', 'D'),
+            Column::make('bool_default', 'E'),
+            Column::make('bool_false', 'F'),
+            Column::make('scalar', 'G'),
+            Column::make('stringable', 'H'),
+            Column::make('array', 'I'),
+        ];
+
+        $stringable = new class implements \Stringable {
+            /**
+             * Render the throwaway value as a fixed string.
+             *
+             * @return string
+             */
+            #[\Override]
+            public function __toString(): string
+            {
+                return 'as-string';
+            }
+        };
+
+        $row = [
+            'int_str'      => new CellValue('5', CellType::INTEGER),
+            'int_bad'      => new CellValue('x', CellType::INTEGER),
+            'float_str'    => new CellValue('1.5', CellType::FLOAT),
+            'float_bad'    => new CellValue('x', CellType::FLOAT),
+            'bool_default' => new CellValue(true, CellType::BOOLEAN),
+            'bool_false'   => new CellValue(false, CellType::BOOLEAN, 'On|Off'),
+            'scalar'       => new CellValue(12, CellType::STRING),
+            'stringable'   => new CellValue($stringable, CellType::STRING),
+            'array'        => new CellValue(['a'], CellType::STRING),
+        ];
+
+        $sink = new StringSink;
+        (new CsvWriter(escapeFormula: false))->write([$row], new ArraySchema($request, $columns), $sink);
+
+        $lines = explode("\n", $sink->contents());
+
+        self::assertSame('5,0,1.5,0,Yes,Off,12,as-string,', $lines[1]);
+    }
+
+    /**
+     * It renders a date cell whose raw value is not a date through its string.
+     *
+     * @return void
+     */
+    public function testRendersANonDateRawForADateCell(): void
+    {
+        $request = Request::create('/');
+        $columns = [Column::make('day', 'Day')];
+
+        $row  = ['day' => new CellValue('2026-06-27', CellType::DATE)];
+        $sink = new StringSink;
+
+        (new CsvWriter)->write([$row], new ArraySchema($request, $columns), $sink);
+
+        self::assertSame("Day\n2026-06-27\n", $sink->contents());
     }
 
     /**

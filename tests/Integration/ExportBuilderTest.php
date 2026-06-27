@@ -10,6 +10,7 @@ use Illuminate\Http\Resources\Json\ResourceCollection;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Storage;
 use PHPUnit\Framework\Attributes\CoversClass;
+use SineMacula\Exporter\Exceptions\NoTabularRepresentation;
 use SineMacula\Exporter\Export\ExportSpecification;
 use SineMacula\Exporter\ExportBuilder;
 use SineMacula\Exporter\Facades\Exporter;
@@ -193,6 +194,149 @@ final class ExportBuilderTest extends ExporterTestCase
             && $spec->disk                                                              === 'exports'
             && $spec->path                                                              === 'exports/users.csv'
             && $spec->filename                                                          === 'members');
+    }
+
+    /**
+     * It streams a hierarchical format and honours the chunk size.
+     *
+     * @return void
+     */
+    public function testChunkAndHierarchicalJsonToString(): void
+    {
+        $this->seedUsers(2);
+
+        $json = Exporter::collection($this->collection())->format('json')->chunk(1)->toString();
+
+        $decoded = json_decode($json, true);
+
+        self::assertIsArray($decoded);
+        self::assertCount(2, $decoded);
+        self::assertSame('User 1', $decoded[0]['name']);
+    }
+
+    /**
+     * It exports through an explicit schema instance.
+     *
+     * @return void
+     */
+    public function testSchemaInstanceDrivesTheExport(): void
+    {
+        $this->seedUsers(2);
+
+        $csv = Exporter::collection($this->collection())
+            ->schema(new UserExportSchema(Request::create('/')))
+            ->format('csv')
+            ->toString();
+
+        self::assertSame(self::CSV_BODY, $csv);
+    }
+
+    /**
+     * It falls back to the generic export filename for a hierarchical download.
+     *
+     * @return void
+     */
+    public function testHierarchicalDownloadFilenameFallsBackToExport(): void
+    {
+        $this->seedUsers(1);
+
+        $response = Exporter::collection($this->collection())->format('json')->download();
+
+        self::assertSame('attachment; filename=export.json', $response->headers->get('Content-Disposition'));
+    }
+
+    /**
+     * It records a faked toStream verb without writing the stream.
+     *
+     * @return void
+     */
+    public function testToStreamUnderFakeIsRecorded(): void
+    {
+        $this->seedUsers(3);
+
+        $fake   = Exporter::fake();
+        $stream = fopen('php://temp', 'r+b');
+
+        self::assertIsResource($stream);
+
+        $rows = Exporter::collection($this->collection())->format('csv')->toStream($stream);
+
+        rewind($stream);
+
+        self::assertSame(3, $rows);
+        self::assertSame('', (string) stream_get_contents($stream), 'A faked stream verb writes no bytes.');
+
+        fclose($stream);
+
+        $fake->assertExportedRows(3);
+    }
+
+    /**
+     * It resolves the schema from the resource when none is set explicitly.
+     *
+     * @return void
+     */
+    public function testResolvesTheSchemaFromTheResourceClass(): void
+    {
+        $this->seedUsers(2);
+
+        $csv = Exporter::query(User::query()->orderBy('id'), UserResource::class) // @phpstan-ignore staticMethod.dynamicCall
+            ->format('csv')
+            ->toString();
+
+        self::assertSame(self::CSV_BODY, $csv);
+    }
+
+    /**
+     * It throws a 406 when no schema and no tabular-capable resource are known.
+     *
+     * @return void
+     */
+    public function testThrowsWhenNoTabularRepresentationIsAvailable(): void
+    {
+        $this->expectException(NoTabularRepresentation::class);
+
+        Exporter::export(User::query())->format('csv')->toString();
+    }
+
+    /**
+     * It honours an explicit filename hint set with as() on a download.
+     *
+     * @return void
+     */
+    public function testDownloadUsesTheExplicitFilenameHint(): void
+    {
+        $this->seedUsers(1);
+
+        $response = Exporter::collection($this->collection())->format('csv')->as('custom')->download();
+
+        self::assertSame('attachment; filename=custom.csv', $response->headers->get('Content-Disposition'));
+    }
+
+    /**
+     * It refuses to queue when handed a schema instance instead of a class.
+     *
+     * @return void
+     */
+    public function testQueueRejectsASchemaInstance(): void
+    {
+        $this->expectException(\LogicException::class);
+
+        Exporter::query(User::query(), UserResource::class) // @phpstan-ignore staticMethod.dynamicCall
+            ->schema(new UserExportSchema(Request::create('/')))
+            ->queue('exports', 'exports/users.csv');
+    }
+
+    /**
+     * It refuses to queue a query subject with no resource class.
+     *
+     * @return void
+     */
+    public function testQueueRejectsAQueryWithoutAResource(): void
+    {
+        $this->expectException(\LogicException::class);
+
+        Exporter::export(User::query())->queue('exports', 'exports/users.csv');
     }
 
     /**

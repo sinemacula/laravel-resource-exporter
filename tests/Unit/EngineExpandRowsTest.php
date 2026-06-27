@@ -39,7 +39,6 @@ use Tests\Support\V3\Schema\FlexibleSchema;
 #[CoversClass(Engine::class)]
 #[CoversClass(ExpandAxis::class)]
 #[CoversClass(ExpandPolicy::class)]
-#[CoversClass(InvalidExportSchema::class)]
 #[CoversClass(WarningCollector::class)]
 final class EngineExpandRowsTest extends TestCase
 {
@@ -169,6 +168,49 @@ final class EngineExpandRowsTest extends TestCase
         self::assertSame("ID,SKU\n1,A\n", $sink->contents());
         self::assertNotEmpty($warnings->all());
         self::assertStringContainsString('Row expansion disabled', $warnings->all()[0]);
+    }
+
+    /**
+     * A lenient schema disables an expand policy with an empty relation.
+     *
+     * @return void
+     */
+    public function testLenientDisablesAnEmptyExpandRelationWithAWarning(): void
+    {
+        $columns  = [Column::make('id', 'ID'), Column::make('sku', 'SKU')];
+        $schema   = new FlexibleSchema(self::request(), $columns, strictness: Strictness::LENIENT, expand: new ExpandPolicy(''));
+        $sink     = new StringSink;
+        $warnings = new WarningCollector;
+
+        (new Engine)->export(new ArraySource([['id' => 1, 'sku' => 'A']]), $schema, self::request(), new CsvWriter, $sink, $warnings);
+
+        self::assertSame("ID,SKU\n1,A\n", $sink->contents());
+        self::assertStringContainsString('empty relation', $warnings->all()[0]);
+    }
+
+    /**
+     * A lenient schema blanks an expanded child cell whose resolver throws.
+     *
+     * @return void
+     */
+    public function testLenientBlanksAThrowingExpandedChildCell(): void
+    {
+        $columns = [
+            Column::make('id', 'ID'),
+            Column::make('sku', 'SKU')->expandRows()->resolveUsing(static function (): string {
+                throw new \RuntimeException('child kaboom');
+            }),
+        ];
+        $schema   = new FlexibleSchema(self::request(), $columns, strictness: Strictness::LENIENT, expand: new ExpandPolicy('items'));
+        $sink     = new StringSink;
+        $warnings = new WarningCollector;
+
+        $item = ['id' => 1, 'items' => [['x' => 1], ['x' => 2]]];
+
+        (new Engine)->export(new ArraySource([$item]), $schema, self::request(), new CsvWriter, $sink, $warnings);
+
+        self::assertSame("ID,SKU\n1,\n1,\n", $sink->contents());
+        self::assertStringContainsString('child kaboom', $warnings->all()[0]);
     }
 
     /**

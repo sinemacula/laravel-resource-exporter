@@ -97,12 +97,26 @@ final class XmlWriterTest extends TestCase
      */
     public function testRendersEnumAndDateTimeScalars(): void
     {
+        $stringable = new class implements \Stringable {
+            /**
+             * Render the throwaway value as a fixed string.
+             *
+             * @return string
+             */
+            #[\Override]
+            public function __toString(): string
+            {
+                return 'rendered';
+            }
+        };
+
         $output = $this->write(new XmlWriter, [
-            ['role' => Role::ADMIN, 'when' => new \DateTimeImmutable('2026-01-02T03:04:05+00:00')],
+            ['role' => Role::ADMIN, 'when' => new \DateTimeImmutable('2026-01-02T03:04:05+00:00'), 'label' => $stringable],
         ]);
 
         self::assertStringContainsString('<role>admin</role>', $output);
         self::assertStringContainsString('<when>2026-01-02T03:04:05+00:00</when>', $output);
+        self::assertStringContainsString('<label>rendered</label>', $output);
     }
 
     /**

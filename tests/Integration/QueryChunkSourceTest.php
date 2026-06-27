@@ -4,6 +4,7 @@ declare(strict_types = 1);
 
 namespace Tests\Integration;
 
+use Illuminate\Support\Facades\DB;
 use PHPUnit\Framework\Attributes\CoversClass;
 use SineMacula\Exporter\Sources\QueryChunkSource;
 use Tests\Support\V3\ExporterTestCase;
@@ -68,6 +69,49 @@ final class QueryChunkSourceTest extends ExporterTestCase
 
         self::assertSame([1, 2, 3, 4, 5], $ids);
         self::assertSame(['User 1', 'User 2', 'User 3', 'User 4', 'User 5'], $names);
+    }
+
+    /**
+     * It leaves a select that already names the key column untouched.
+     *
+     * @return void
+     */
+    public function testLeavesASelectThatAlreadyNamesTheKeyUntouched(): void
+    {
+        $this->seedUsers(3);
+
+        $source = new QueryChunkSource(User::query()->select(['id', 'name']), chunkSize: 2); // @phpstan-ignore staticMethod.dynamicCall
+
+        $ids = [];
+
+        foreach ($source->rows() as $user) {
+            self::assertInstanceOf(User::class, $user);
+            self::assertArrayNotHasKey('email', $user->getAttributes(), 'A narrowed select must not hydrate columns it did not request.');
+            $ids[] = $user->getKey();
+        }
+
+        self::assertSame([1, 2, 3], $ids);
+    }
+
+    /**
+     * It force-selects the key past a raw, non-string select expression.
+     *
+     * @return void
+     */
+    public function testForceSelectsTheKeyPastARawSelectExpression(): void
+    {
+        $this->seedUsers(3);
+
+        $source = new QueryChunkSource(User::query()->select([DB::raw('name')]), chunkSize: 2); // @phpstan-ignore staticMethod.dynamicCall
+
+        $ids = [];
+
+        foreach ($source->rows() as $user) {
+            self::assertInstanceOf(User::class, $user);
+            $ids[] = $user->getKey();
+        }
+
+        self::assertSame([1, 2, 3], $ids);
     }
 
     /**

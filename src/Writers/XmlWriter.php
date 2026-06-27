@@ -65,6 +65,8 @@ final readonly class XmlWriter implements HierarchicalWriter
      * @param  iterable<int, array<array-key, mixed>>  $items
      * @param  \SineMacula\Exporter\Contracts\Sink  $sink
      * @return void
+     *
+     * @throws \Throwable
      */
     #[\Override]
     public function write(iterable $items, Sink $sink): void
@@ -77,10 +79,41 @@ final readonly class XmlWriter implements HierarchicalWriter
         $xml->startDocument('1.0', 'UTF-8');
         $xml->startElement($this->root);
 
-        foreach ($items as $item) {
-            $this->writeNode($xml, $this->item, $item);
-            fwrite($stream, $xml->flush());
+        try {
+            foreach ($items as $item) {
+                $this->writeNode($xml, $this->item, $item);
+                fwrite($stream, $xml->flush());
+            }
+        } catch (\Throwable $exception) {
+            $this->markTruncated($xml, $stream);
+
+            throw $exception;
         }
+
+        $xml->endElement();
+        $xml->endDocument();
+
+        fwrite($stream, $xml->flush());
+        fflush($stream);
+    }
+
+    /**
+     * Close the document with a clearly-marked truncation element on failure.
+     *
+     * The streamed response has already committed its status and bytes, so the
+     * open root is finished with a final marker element and closed, leaving the
+     * output well-formed XML whose last child flags the truncation, before the
+     * exception propagates.
+     *
+     * @param  \XMLWriter  $xml
+     * @param  resource  $stream
+     * @return void
+     */
+    private function markTruncated(\XMLWriter $xml, $stream): void // phpcs:ignore SineMaculaLaravel.TypeHints.ParameterTypeHint.MissingNativeTypeHint
+    {
+        $xml->startElement(Truncation::XML_ELEMENT);
+        $xml->text(Truncation::REASON);
+        $xml->endElement();
 
         $xml->endElement();
         $xml->endDocument();

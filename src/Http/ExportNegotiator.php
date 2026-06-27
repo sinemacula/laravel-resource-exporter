@@ -4,21 +4,25 @@ declare(strict_types = 1);
 
 namespace SineMacula\Exporter\Http;
 
+use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Http\Resources\Json\ResourceCollection;
+use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Log;
 use SineMacula\Exporter\Contracts\HierarchicalWriter;
 use SineMacula\Exporter\Contracts\ProvidesTabularExport;
 use SineMacula\Exporter\Contracts\Sink;
 use SineMacula\Exporter\Contracts\Source;
 use SineMacula\Exporter\Engine;
+use SineMacula\Exporter\Events\StreamExportFailed;
 use SineMacula\Exporter\Exceptions\NoTabularRepresentation;
 use SineMacula\Exporter\Schema\TabularSchema;
 use SineMacula\Exporter\Sinks\StreamedResponseSink;
+use SineMacula\Exporter\Sources\ConnectionAwareSource;
 use SineMacula\Exporter\Sources\ResourceCollectionSource;
 use SineMacula\Exporter\Sources\ResourceItemSource;
 use SineMacula\Exporter\Writers\CountingWriter;
-use Symfony\Component\HttpFoundation\AcceptHeader;
 use Symfony\Component\HttpFoundation\HeaderUtils;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -44,11 +48,15 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  */
 final readonly class ExportNegotiator
 {
+    /** @var \SineMacula\Exporter\Http\FormatResolver The resolver turning a request into a negotiated format name */
+    private FormatResolver $resolver;
+
     /**
      * Create a new export negotiator.
      *
      * @param  \SineMacula\Exporter\Http\MediaTypeRegistry  $registry
      * @param  \SineMacula\Exporter\Engine  $engine
+     * @param  (\Closure(): bool)|null  $abortSignal
      * @param  string  $queryParameter
      */
     public function __construct(
@@ -59,9 +67,14 @@ final readonly class ExportNegotiator
         /** The export engine streaming rows into a writer. */
         private Engine $engine = new Engine,
 
-        /** The query parameter name carrying an explicit format. */
-        private string $queryParameter = 'format',
-    ) {}
+        /** @var (\Closure(): bool)|null The client-disconnect signal, or null for connection_aborted() */
+        private ?\Closure $abortSignal = null,
+
+        // The query parameter name carrying an explicit format.
+        string $queryParameter = 'format',
+    ) {
+        $this->resolver = new FormatResolver($registry, $queryParameter);
+    }
 
     /**
      * Ensure a response varies on the Accept header without duplicating it.
@@ -88,10 +101,7 @@ final readonly class ExportNegotiator
      */
     public function resolve(Request $request): string
     {
-        return $this->resolveFromParameter($request)
-            ?? $this->resolveFromExtension($request)
-            ?? $this->resolveFromAccept($request)
-            ?? $this->registry->defaultFormat();
+        return $this->resolver->resolve($request);
     }
 
     /**
@@ -151,6 +161,7 @@ final readonly class ExportNegotiator
             fn (mixed $item): array => $this->resolveItem($class, $item, $request),
             $writer,
             $format,
+            $request,
         );
     }
 
@@ -203,6 +214,7 @@ final readonly class ExportNegotiator
             fn (mixed $item): array => $this->resolveItem($collects, $item, $request),
             $writer,
             $format,
+            $request,
         );
     }
 
@@ -235,14 +247,20 @@ final readonly class ExportNegotiator
         $sink = new StreamedResponseSink;
 
         return $sink->toResponse(
-            function (Sink $stream) use ($source, $schema, $request, $writer, $onComplete): void {
+            function (Sink $stream) use ($source, $schema, $request, $writer, $format, $onComplete): void {
                 $rows = 0;
 
                 $counting = new CountingWriter($writer, static function (int $count) use (&$rows): void {
                     $rows = $count;
                 });
 
-                $this->engine->export($source, $schema, $request, $counting, $stream);
+                try {
+                    $this->engine->export($this->abortAware($source), $schema, $request, $counting, $stream);
+                } catch (\Throwable $exception) {
+                    $this->failStream($format, $rows, $request, $exception);
+
+                    return;
+                }
 
                 $onComplete?->__invoke($rows);
             },
@@ -265,15 +283,22 @@ final readonly class ExportNegotiator
      * @param  \Closure(mixed): array<array-key, mixed>  $toArray
      * @param  \SineMacula\Exporter\Contracts\HierarchicalWriter  $writer
      * @param  string  $format
+     * @param  \Illuminate\Http\Request  $request
      * @return \Symfony\Component\HttpFoundation\StreamedResponse
      */
-    public function streamHierarchical(Source $source, \Closure $toArray, HierarchicalWriter $writer, string $format): StreamedResponse
+    public function streamHierarchical(Source $source, \Closure $toArray, HierarchicalWriter $writer, string $format, Request $request): StreamedResponse
     {
         $sink = new StreamedResponseSink;
 
         return $sink->toResponse(
-            function (Sink $stream) use ($source, $toArray, $writer): void {
-                $writer->write($this->resolveRows($source, $toArray), $stream);
+            function (Sink $stream) use ($source, $toArray, $writer, $format, $request): void {
+                $rows = 0;
+
+                try {
+                    $writer->write($this->countedRows($this->resolveRows($this->abortAware($source), $toArray), $rows), $stream);
+                } catch (\Throwable $exception) {
+                    $this->failStream($format, $rows, $request, $exception);
+                }
             },
             200,
             [
@@ -282,151 +307,6 @@ final readonly class ExportNegotiator
                 'Vary'                => 'Accept',
             ],
         );
-    }
-
-    /**
-     * Resolve the format from an explicit, whitelisted ?format= parameter.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @return string|null
-     */
-    private function resolveFromParameter(Request $request): ?string
-    {
-        $value = $request->query($this->queryParameter);
-
-        if (!is_string($value) || $value === '') {
-            return null;
-        }
-
-        $value = strtolower($value);
-
-        return $this->registry->has($value) ? $value : null;
-    }
-
-    /**
-     * Resolve the format from a whitelisted URL extension suffix.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @return string|null
-     */
-    private function resolveFromExtension(Request $request): ?string
-    {
-        $extension = strtolower(pathinfo($request->path(), PATHINFO_EXTENSION));
-
-        if ($extension === '') {
-            return null;
-        }
-
-        return $this->registry->formatForExtension($extension);
-    }
-
-    /**
-     * Resolve the format from the Accept header at its highest quality.
-     *
-     * Entries with q=0 are filtered (the client explicitly rejects them) and
-     * wildcards resolve to JSON-first, matching the design's negotiation rules.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @return string|null
-     */
-    private function resolveFromAccept(Request $request): ?string
-    {
-        $header = $request->headers->get('Accept');
-
-        if ($header === null || trim($header) === '') {
-            return null;
-        }
-
-        foreach ($this->highestQualityValues($header) as $value) {
-
-            $match = str_contains($value, '*')
-                ? $this->matchWildcard($value)
-                : $this->registry->formatForMediaType($value);
-
-            if ($match !== null) {
-                return $match;
-            }
-        }
-
-        return null;
-    }
-
-    /**
-     * Get the Accept media-type values in the most-preferred quality band.
-     *
-     * Entries the client rejects with q=0 are dropped, and only the single
-     * highest quality present is kept. Otherwise a browser's lower-priority
-     * application/xml;q=0.9 would win over the default JSON representation it
-     * ranks beneath text/html.
-     *
-     * @param  string  $header
-     * @return list<string>
-     */
-    private function highestQualityValues(string $header): array
-    {
-        $highest = null;
-        $values  = [];
-
-        foreach (AcceptHeader::fromString($header)->all() as $item) {
-
-            $quality = $item->getQuality();
-
-            if ($quality <= 0.0) {
-                continue;
-            }
-
-            $highest ??= $quality;
-
-            if ($quality < $highest) {
-                break;
-            }
-
-            $values[] = strtolower(trim($item->getValue()));
-        }
-
-        return $values;
-    }
-
-    /**
-     * Resolve a wildcard Accept value, preferring the default (JSON) format.
-     *
-     * @param  string  $value
-     * @return string|null
-     */
-    private function matchWildcard(string $value): ?string
-    {
-        if ($value === '*' || $value === '*/*') {
-            return $this->registry->defaultFormat();
-        }
-
-        if (!str_ends_with($value, '/*')) {
-            return null;
-        }
-
-        return $this->matchTypeWildcard(substr($value, 0, -1));
-    }
-
-    /**
-     * Resolve a "type/*" wildcard to a format, preferring the default.
-     *
-     * @param  string  $type
-     * @return string|null
-     */
-    private function matchTypeWildcard(string $type): ?string
-    {
-        $default = $this->registry->get($this->registry->defaultFormat());
-
-        if ($default !== null && str_starts_with($default->defaultMediaType(), $type)) {
-            return $default->name();
-        }
-
-        foreach ($this->registry->all() as $format) {
-            if (str_starts_with($format->defaultMediaType(), $type)) {
-                return $format->name();
-            }
-        }
-
-        return null;
     }
 
     /**
@@ -440,24 +320,11 @@ final readonly class ExportNegotiator
      */
     private function hierarchicalWriterFor(string $format, Request $request): ?HierarchicalWriter
     {
-        if ($format === $this->registry->defaultFormat() && !$this->isExplicitFormat($request)) {
+        if ($format === $this->registry->defaultFormat() && !$this->resolver->isExplicitFormat($request)) {
             return null;
         }
 
         return $this->registry->hierarchicalWriterFor($format);
-    }
-
-    /**
-     * Determine whether the request explicitly selected a format through the
-     * query parameter or a whitelisted URL extension.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @return bool
-     */
-    private function isExplicitFormat(Request $request): bool
-    {
-        return $this->resolveFromParameter($request) !== null
-            || $this->resolveFromExtension($request) !== null;
     }
 
     /**
@@ -487,6 +354,76 @@ final readonly class ExportNegotiator
         foreach ($source->rows() as $item) {
             yield $toArray($item);
         }
+    }
+
+    /**
+     * Count each item as it streams through, recording the running total.
+     *
+     * The hierarchical writer has no row-counting decorator, so the count is
+     * taken here at the writer boundary - giving the failure handler the row
+     * context (how many items reached the client) without buffering the set.
+     *
+     * @param  iterable<int, array<array-key, mixed>>  $items
+     * @param  int  $rows
+     * @return \Generator<int, array<array-key, mixed>>
+     */
+    private function countedRows(iterable $items, int &$rows): \Generator
+    {
+        foreach ($items as $item) {
+            $rows++;
+
+            yield $item;
+        }
+    }
+
+    /**
+     * Wrap a source so it stops iterating the moment the client disconnects.
+     *
+     * @param  \SineMacula\Exporter\Contracts\Source  $source
+     * @return \SineMacula\Exporter\Contracts\Source
+     */
+    private function abortAware(Source $source): Source
+    {
+        return new ConnectionAwareSource($source, $this->abortSignal ?? static fn (): bool => connection_aborted() === 1);
+    }
+
+    /**
+     * Handle a mid-stream failure after the status and bytes are committed.
+     *
+     * The writer has already flushed its documented truncation marker, so the
+     * stream simply stops cleanly here: the failure is surfaced through a
+     * StreamExportFailed event carrying the row context and logged. It is never
+     * re-thrown, because the 200 response can no longer become an error.
+     *
+     * @param  string  $format
+     * @param  int  $rows
+     * @param  \Illuminate\Http\Request  $request
+     * @param  \Throwable  $exception
+     * @return void
+     */
+    private function failStream(string $format, int $rows, Request $request, \Throwable $exception): void
+    {
+        Event::dispatch(new StreamExportFailed($format, $rows, $this->actorId($request), $exception));
+
+        Log::warning('Resource export stream truncated after the response had begun.', [
+            'format'       => $format,
+            'rows_written' => $rows,
+            'exception'    => $exception->getMessage(),
+        ]);
+    }
+
+    /**
+     * Resolve the initiating actor's identifier from the request.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return int|string|null
+     */
+    private function actorId(Request $request): int|string|null
+    {
+        $user = $request->user();
+        $id   = $user instanceof Authenticatable ? $user->getAuthIdentifier() : null;
+
+        return is_int($id) || is_string($id) ? $id : null;
     }
 
     /**

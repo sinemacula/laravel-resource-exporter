@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Storage;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\CoversTrait;
 use SineMacula\Exporter\Engine;
 use SineMacula\Exporter\Http\Concerns\RespondsWithExports;
 use SineMacula\Exporter\Http\ExportFormat;
@@ -42,7 +43,6 @@ use Tests\Support\V3\Schema\UserExportSchema;
 #[CoversClass(ExportNegotiator::class)]
 #[CoversClass(MediaTypeRegistry::class)]
 #[CoversClass(ExportFormat::class)]
-#[CoversClass(RespondsWithExports::class)]
 #[CoversClass(ExportResourceCollection::class)]
 #[CoversClass(Engine::class)]
 #[CoversClass(XlsxWriter::class)]
@@ -50,6 +50,7 @@ use Tests\Support\V3\Schema\UserExportSchema;
 #[CoversClass(DiskSink::class)]
 #[CoversClass(ResourceItemSource::class)]
 #[CoversClass(ResourceCollectionSource::class)]
+#[CoversTrait(RespondsWithExports::class)]
 final class ExportXlsxNegotiationHttpTest extends ExporterTestCase
 {
     use ReadsXlsx;
