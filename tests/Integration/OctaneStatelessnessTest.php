@@ -26,8 +26,8 @@ use Tests\Support\V3\Schema\GatedSchema;
  * and cast registry inside it) are reused across exports whose request and auth
  * context differ, and each export reflects only its own request: a column the
  * request gates appears for the privileged request and is absent for the
- * unprivileged one, in either order, with no export leaking into the next.
- * No request is captured in a writer or driver; the request is passed in.
+ * unprivileged one, in either order, with no export leaking into the next. No
+ * request is captured in a writer or driver; the request is passed in.
  *
  * @author      Ben Carey <bdmc@sinemacula.co.uk>
  * @copyright   2026 Sine Macula Limited.

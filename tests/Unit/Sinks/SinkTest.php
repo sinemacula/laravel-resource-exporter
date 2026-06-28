@@ -20,12 +20,11 @@ use Tests\Support\V3\ExporterTestCase;
  * Tests the five export sinks.
  *
  * A sink is the byte destination a writer streams into. The seekable sinks
- * (string buffer, raw stream, streamed response) expose a stream a writer
- * rows through; the non-seekable sinks (storage disk, temp file) take a
- * finalised file via putFromFile, the path an XLSX-style finalise-on-close
- * format needs. These tests exercise each sink's contract directly, including
- * the seekability flag, the finalise-then-upload path and the open-failure
- * guards.
+ * (string buffer, raw stream, streamed response) expose a stream a writer rows
+ * through; the non-seekable sinks (storage disk, temp file) take a finalised
+ * file via putFromFile, the path an XLSX-style finalise-on-close format needs.
+ * These tests exercise each sink's contract directly, including the seekability
+ * flag, the finalise-then-upload path and the open-failure guards.
  *
  * @author      Ben Carey <bdmc@sinemacula.co.uk>
  * @copyright   2026 Sine Macula Limited.

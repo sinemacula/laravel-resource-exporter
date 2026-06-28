@@ -28,10 +28,10 @@ use Tests\Support\V3\Schema\FlexibleSchema;
  * Consolidated security guarantees for the export pipeline.
  *
  * Pins the three security properties the release gate requires: CSV formula
- * injection is neutralised by default for every dangerous leading character
- * (= + - @ tab CR); a field the request gates out cannot leak through any
- * export path, neither the raw accessor nor the aggregate derivation that
- * rewrites the same query; and the streamed full-dataset query export re-checks
+ * injection is neutralised by default for every dangerous leading character (=
+ * + - @ tab CR); a field the request gates out cannot leak through any export
+ * path, neither the raw accessor nor the aggregate derivation that rewrites the
+ * same query; and the streamed full-dataset query export re-checks
  * authorization for the whole set before a byte is sent, not just the page.
  *
  * @author      Ben Carey <bdmc@sinemacula.co.uk>

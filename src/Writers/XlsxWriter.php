@@ -171,9 +171,9 @@ final readonly class XlsxWriter implements Writer
     /**
      * Hand the finalised workbook to the sink.
      *
-     * A seekable sink receives the bytes through its stream; a
-     * non-seekable sink (an XLSX cannot stream into one in place)
-     * receives the finished file.
+     * A seekable sink receives the bytes through its stream; a non-seekable
+     * sink (an XLSX cannot stream into one in place) receives the finished
+     * file.
      *
      * @param  string  $path
      * @param  \SineMacula\Exporter\Contracts\Sink  $sink
@@ -303,11 +303,11 @@ final readonly class XlsxWriter implements Writer
     /**
      * Map a typed cell value to a native OpenSpout cell.
      *
-     * Numeric cells become numeric cells and dates become native date
-     * cells (so Excel can sort and filter them); booleans render to their
-     * configured label - so the spreadsheet reads the same as the CSV the
-     * schema also drives - and everything else becomes a string cell. A
-     * null becomes an empty cell.
+     * Numeric cells become numeric cells and dates become native date cells (so
+     * Excel can sort and filter them); booleans render to their configured
+     * label - so the spreadsheet reads the same as the CSV the schema also
+     * drives - and everything else becomes a string cell. A null becomes an
+     * empty cell.
      *
      * @param  \SineMacula\Exporter\Schema\CellValue  $cell
      * @param  \OpenSpout\Common\Entity\Style\Style  $dateStyle

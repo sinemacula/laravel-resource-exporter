@@ -157,8 +157,8 @@ final class ExportHierarchicalNegotiationHttpTest extends ExporterTestCase
     }
 
     /**
-     * It exports a non-tabular resource as XML, JSON and NDJSON, but 406s
-     * for a tabular format the resource cannot describe.
+     * It exports a non-tabular resource as XML, JSON and NDJSON, but 406s for a
+     * tabular format the resource cannot describe.
      *
      * @return void
      */

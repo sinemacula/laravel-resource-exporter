@@ -284,9 +284,9 @@ final class ExportToDiskJobTest extends QueuedExportTestCase
     }
 
     /**
-     * It re-checks full-set authorization on the worker and rejects a
-     * forbidden actor before any file is stored - the shared authz check
-     * exercised through the queued front door.
+     * It re-checks full-set authorization on the worker and rejects a forbidden
+     * actor before any file is stored - the shared authz check exercised
+     * through the queued front door.
      *
      * @return void
      */

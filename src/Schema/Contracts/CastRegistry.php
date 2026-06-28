@@ -7,8 +7,8 @@ namespace SineMacula\Exporter\Schema\Contracts;
 /**
  * Cast registry contract.
  *
- * The single registry mapping cast names to casters. Typed column casts and
- * the `cast()` escape hatch both resolve through here, giving one place to
+ * The single registry mapping cast names to casters. Typed column casts and the
+ * `cast()` escape hatch both resolve through here, giving one place to
  * register, override, and test casting behaviour.
  *
  * @author      Ben Carey <bdmc@sinemacula.co.uk>

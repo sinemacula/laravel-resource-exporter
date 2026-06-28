@@ -12,9 +12,9 @@ use SineMacula\Exporter\Exceptions\SinkException;
  * Storage disk sink.
  *
  * Places a fully-written file onto a Laravel Storage disk at a given path.
- * Remote disks cannot be streamed to in place, so this is a non-seekable
- * sink: writers finalise locally and hand the file over via putFromFile,
- * which uploads it as a stream at constant memory.
+ * Remote disks cannot be streamed to in place, so this is a non-seekable sink:
+ * writers finalise locally and hand the file over via putFromFile, which
+ * uploads it as a stream at constant memory.
  *
  * @author      Ben Carey <bdmc@sinemacula.co.uk>
  * @copyright   2026 Sine Macula Limited.

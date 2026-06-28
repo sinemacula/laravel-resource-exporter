@@ -169,8 +169,8 @@ final class ExportToDiskJob implements ShouldQueue
     }
 
     /**
-     * Dispatch the completion audit without rolling back a stored export when
-     * a listener fails.
+     * Dispatch the completion audit without rolling back a stored export when a
+     * listener fails.
      *
      * @param  \SineMacula\Exporter\Export\ExportAuditor  $auditor
      * @param  \SineMacula\Exporter\Events\ExportCompleted  $event

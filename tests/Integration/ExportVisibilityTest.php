@@ -21,8 +21,8 @@ use Tests\Support\V3\Schema\FlexibleSchema;
 /**
  * Tests for the column-level visibility gate, including the leak boundary.
  *
- * visible() is a build-time authorisation gate (fn(Request): bool, no item):
- * a column whose gate returns false is omitted entirely - from the heading row
+ * visible() is a build-time authorisation gate (fn(Request): bool, no item): a
+ * column whose gate returns false is omitted entirely - from the heading row
  * and from every data row. The security property is that a gated-out column
  * cannot leak its value through any other path, including the aggregate
  * eager-derivation that runs over the same query.

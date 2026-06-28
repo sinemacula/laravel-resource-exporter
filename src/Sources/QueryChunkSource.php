@@ -14,8 +14,8 @@ use SineMacula\Exporter\Schema\EagerLoadPlan;
  *
  * Normalises an Eloquent query into a keyset-paginated, lazy stream of its
  * models at constant memory. It uses lazyById() (stable under concurrent
- * inserts and self-ordering, unlike lazy()/cursor()) and force-selects the
- * key column so a constrained select() cannot abort the stream mid-flight.
+ * inserts and self-ordering, unlike lazy()/cursor()) and force-selects the key
+ * column so a constrained select() cannot abort the stream mid-flight.
  * Requested relations are applied to the query so each chunk eager-loads them,
  * and the schema's derived aggregates are applied as withCount()/withSum() so a
  * count or sum column carries its value without the caller wiring it by hand.

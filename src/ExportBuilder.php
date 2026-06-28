@@ -36,9 +36,9 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 /**
  * Fluent explicit-export builder.
  *
- * The single, top-level entry point for an explicit (non-negotiated) export.
- * It composes the existing pieces rather than re-implementing them: a subject
- * (a resource item, a resource collection, or an Eloquent query) is normalised
+ * The single, top-level entry point for an explicit (non-negotiated) export. It
+ * composes the existing pieces rather than re-implementing them: a subject (a
+ * resource item, a resource collection, or an Eloquent query) is normalised
  * into a Source adapter, a format selects a Writer from the media registry, and
  * a tabular schema (declared explicitly, or resolved from the resource) drives
  * the Engine; the shaped rows stream into whichever Sink the chosen verb wants.

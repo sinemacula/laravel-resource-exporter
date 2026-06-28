@@ -7,8 +7,8 @@ namespace Benchmarks\Support;
 /**
  * Builds representative row datasets for the exporter benchmarks.
  *
- * Produces a list of associative rows with a handful of mixed scalar columns
- * so the exporter benches exercise the real filter, escape and serialize paths.
+ * Produces a list of associative rows with a handful of mixed scalar columns so
+ * the exporter benches exercise the real filter, escape and serialize paths.
  *
  * @author      Ben Carey <bdmc@sinemacula.co.uk>
  * @copyright   2026 Sine Macula Limited.

@@ -248,8 +248,8 @@ final class CsvWriterTest extends TestCase
     }
 
     /**
-     * It applies RFC-4180 quote doubling - leaving a backslash field
-     * unenclosed - rather than the league default backslash escape.
+     * It applies RFC-4180 quote doubling - leaving a backslash field unenclosed
+     * - rather than the league default backslash escape.
      *
      * @return void
      */

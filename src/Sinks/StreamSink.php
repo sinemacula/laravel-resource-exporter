@@ -11,8 +11,8 @@ use SineMacula\Exporter\Sinks\Concerns\WritesThroughStream;
  * Output stream sink.
  *
  * Streams the written bytes directly into a writable stream (php://output by
- * default) for immediate emission. Treated as a streamable sink so writers
- * push rows straight through it.
+ * default) for immediate emission. Treated as a streamable sink so writers push
+ * rows straight through it.
  *
  * @author      Ben Carey <bdmc@sinemacula.co.uk>
  * @copyright   2026 Sine Macula Limited.
