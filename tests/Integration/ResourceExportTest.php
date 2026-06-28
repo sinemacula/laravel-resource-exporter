@@ -79,6 +79,23 @@ final class ResourceExportTest extends ExporterTestCase
     }
 
     /**
+     * It rejects non-key ordering before building a streamed response.
+     *
+     * @return void
+     */
+    public function testExportRequestRejectsNonKeyOrderingBeforeStreaming(): void
+    {
+        $this->seedUsers(5);
+
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage('score');
+
+        ResourceExport::forQuery(User::query()->orderBy('score', 'desc'), UserResource::class) // @phpstan-ignore staticMethod.dynamicCall
+            ->withoutAuthorization()
+            ->paginatedJsonOrStreamedExport($this->exportRequest());
+    }
+
+    /**
      * It enforces the row cap before any bytes are streamed.
      *
      * @return void
@@ -87,12 +104,18 @@ final class ResourceExportTest extends ExporterTestCase
     {
         $this->seedUsers(5);
 
-        $this->expectException(RowLimitExceeded::class);
+        try {
+            ResourceExport::forQuery(User::query(), UserResource::class)
+                ->maxRows(2)
+                ->withoutAuthorization()
+                ->paginatedJsonOrStreamedExport($this->exportRequest());
+        } catch (RowLimitExceeded $exception) {
+            self::assertSame(413, $exception->getStatusCode());
 
-        ResourceExport::forQuery(User::query(), UserResource::class)
-            ->maxRows(2)
-            ->withoutAuthorization()
-            ->paginatedJsonOrStreamedExport($this->exportRequest());
+            return;
+        }
+
+        self::fail('The row cap should reject oversized exports before streaming.');
     }
 
     /**
@@ -192,6 +215,35 @@ final class ResourceExportTest extends ExporterTestCase
             ->unlimited()
             ->withoutAuthorization()
             ->paginatedJsonOrStreamedExport($this->exportRequest());
+    }
+
+    /**
+     * It streams explicit hierarchical export requests over the full dataset.
+     *
+     * @return void
+     */
+    public function testHierarchicalExportRequestStreamsTheFullDataset(): void
+    {
+        Event::fake([ExportCompleted::class]);
+
+        $this->seedUsers(25);
+
+        $response = ResourceExport::forQuery(User::query()->orderBy('id'), PlainUserResource::class) // @phpstan-ignore staticMethod.dynamicCall
+            ->perPage(10)
+            ->chunk(10)
+            ->withoutAuthorization()
+            ->paginatedJsonOrStreamedExport($this->ndjsonRequest());
+
+        self::assertInstanceOf(StreamedResponse::class, $response);
+
+        $lines = array_values(array_filter(explode("\n", $this->streamToString($response)), static fn (string $line): bool => $line !== ''));
+
+        self::assertCount(25, $lines);
+        self::assertSame(['id' => 1, 'name' => 'User 1'], json_decode($lines[0], true));
+
+        Event::assertDispatched(ExportCompleted::class, static fn (ExportCompleted $event): bool => $event->rowCount === 25
+            && $event->filename                                                                                      === null
+            && $event->format                                                                                        === 'ndjson');
     }
 
     /**
@@ -332,6 +384,22 @@ final class ResourceExportTest extends ExporterTestCase
     }
 
     /**
+     * It rejects a forbidden actor when authorizeUsing() returns false.
+     *
+     * @return void
+     */
+    public function testAuthorizeUsingRejectsFalse(): void
+    {
+        $this->seedUsers(3);
+
+        $this->expectException(AuthorizationException::class);
+
+        ResourceExport::forQuery(User::query(), UserResource::class)
+            ->authorizeUsing(static fn (Request $request, Builder $query): bool => false)
+            ->paginatedJsonOrStreamedExport($this->exportRequest());
+    }
+
+    /**
      * It dispatches the pinned ExportCompleted event with an integer actor id.
      *
      * @return void
@@ -419,6 +487,16 @@ final class ResourceExportTest extends ExporterTestCase
     private function exportRequest(): Request
     {
         return Request::create('/users', 'GET', server: ['HTTP_ACCEPT' => 'text/csv']);
+    }
+
+    /**
+     * Build an NDJSON-preferring export request.
+     *
+     * @return \Illuminate\Http\Request
+     */
+    private function ndjsonRequest(): Request
+    {
+        return Request::create('/users', 'GET', server: ['HTTP_ACCEPT' => 'application/x-ndjson']);
     }
 
     /**

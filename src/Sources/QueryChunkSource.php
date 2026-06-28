@@ -55,6 +55,8 @@ final class QueryChunkSource implements DerivesAggregates, Source
     #[\Override]
     public function rows(): iterable
     {
+        $direction = $this->keysetDirection();
+
         $this->forceSelectKey();
 
         if ($this->with !== []) {
@@ -63,9 +65,25 @@ final class QueryChunkSource implements DerivesAggregates, Source
 
         $this->applyAggregates();
 
-        foreach ($this->query->lazyById($this->chunkSize) as $item) {
+        $rows = $direction === 'desc'
+            ? $this->query->lazyByIdDesc($this->chunkSize)
+            : $this->query->lazyById($this->chunkSize);
+
+        foreach ($rows as $item) {
             yield $item;
         }
+    }
+
+    /**
+     * Assert that the query can be streamed safely before bytes are committed.
+     *
+     * @return void
+     *
+     * @throws \LogicException
+     */
+    public function guardKeysetOrdering(): void
+    {
+        $this->keysetDirection();
     }
 
     /**
@@ -151,5 +169,109 @@ final class QueryChunkSource implements DerivesAggregates, Source
         }
 
         $this->query->getQuery()->addSelect($qualified);
+    }
+
+    /**
+     * Resolve whether the query can be streamed safely by primary key order.
+     *
+     * Eloquent's lazyById() appends a keyset predicate but does not make a
+     * non-key ORDER BY stable across chunks. Rejecting those orders is safer
+     * than silently duplicating or skipping rows in a full export.
+     *
+     * @return 'asc'|'desc'
+     *
+     * @throws \LogicException
+     */
+    private function keysetDirection(): string
+    {
+        $orders = $this->keysetOrders();
+
+        if ($orders === []) {
+            return 'asc';
+        }
+
+        $key        = $this->query->getModel()->getKeyName();
+        $qualified  = $this->query->qualifyColumn($key);
+        $directions = [];
+
+        foreach ($orders as $order) {
+            $this->guardKeysetOrder($order, $key, $qualified);
+            $directions[] = $this->orderDirection($order);
+        }
+
+        $unique = array_values(array_unique($directions));
+
+        if (count($unique) > 1) {
+            throw new \LogicException("QueryChunkSource cannot stream conflicting keyset directions for [{$key}].");
+        }
+
+        return $unique[0];
+    }
+
+    /**
+     * Read the query's configured order clauses.
+     *
+     * @return list<array{column: object|string|null, direction: string}>
+     */
+    private function keysetOrders(): array
+    {
+        $orders = array_merge(
+            $this->query->getQuery()->orders      ?? [],
+            $this->query->getQuery()->unionOrders ?? [],
+        );
+
+        $normalised = [];
+
+        foreach ($orders as $order) {
+            if (!is_array($order)) {
+                continue;
+            }
+
+            $column    = $order['column']    ?? null;
+            $direction = $order['direction'] ?? 'asc';
+
+            $normalised[] = [
+                'column'    => is_string($column) || is_object($column) ? $column : null,
+                'direction' => is_string($direction) ? $direction : 'asc',
+            ];
+        }
+
+        return $normalised;
+    }
+
+    /**
+     * Guard that an order clause sorts only by the model key.
+     *
+     * @param  array{column: object|string|null, direction: string}  $order
+     * @param  string  $key
+     * @param  string  $qualified
+     * @return void
+     *
+     * @throws \LogicException
+     */
+    private function guardKeysetOrder(array $order, string $key, string $qualified): void
+    {
+        $column = $order['column'] ?? null;
+
+        if ($column === $key || $column === $qualified) {
+            return;
+        }
+
+        $label = is_string($column) ? $column : 'raw expression';
+
+        throw new \LogicException("QueryChunkSource can only stream keyset-safe ordering by [{$key}]; [{$label}] would duplicate or skip rows across chunks.");
+    }
+
+    /**
+     * Resolve the normalised direction for an order clause.
+     *
+     * @param  array{column: object|string|null, direction: string}  $order
+     * @return 'asc'|'desc'
+     */
+    private function orderDirection(array $order): string
+    {
+        return strtolower($order['direction']) === 'desc'
+            ? 'desc'
+            : 'asc';
     }
 }

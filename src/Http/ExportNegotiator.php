@@ -288,21 +288,32 @@ final readonly class ExportNegotiator
      * @param  \SineMacula\Exporter\Contracts\HierarchicalWriter  $writer
      * @param  string  $format
      * @param  \Illuminate\Http\Request  $request
+     * @param  \Closure(int): void|null  $onComplete
      * @return \Symfony\Component\HttpFoundation\StreamedResponse
      */
-    public function streamHierarchical(Source $source, \Closure $toArray, HierarchicalWriter $writer, string $format, Request $request): StreamedResponse
-    {
+    public function streamHierarchical(
+        Source $source,
+        \Closure $toArray,
+        HierarchicalWriter $writer,
+        string $format,
+        Request $request,
+        ?\Closure $onComplete = null,
+    ): StreamedResponse {
         $sink = new StreamedResponseSink;
 
         return $sink->toResponse(
-            function (Sink $stream) use ($source, $toArray, $writer, $format, $request): void {
+            function (Sink $stream) use ($source, $toArray, $writer, $format, $request, $onComplete): void {
                 $rows = 0;
 
                 try {
                     $writer->write($this->countedRows($this->resolveRows($this->abortAware($source), $toArray), $rows), $stream);
                 } catch (\Throwable $exception) {
                     $this->failStream($format, $rows, $request, $exception);
+
+                    return;
                 }
+
+                $onComplete?->__invoke($rows);
             },
             200,
             [
@@ -322,7 +333,7 @@ final readonly class ExportNegotiator
      * @param  \Illuminate\Http\Request  $request
      * @return \SineMacula\Exporter\Contracts\HierarchicalWriter|null
      */
-    private function hierarchicalWriterFor(string $format, Request $request): ?HierarchicalWriter
+    public function hierarchicalWriterFor(string $format, Request $request): ?HierarchicalWriter
     {
         if ($format === $this->registry->defaultFormat() && !$this->resolver->isExplicitFormat($request)) {
             return null;

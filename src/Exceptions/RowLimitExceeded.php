@@ -4,6 +4,8 @@ declare(strict_types = 1);
 
 namespace SineMacula\Exporter\Exceptions;
 
+use Symfony\Component\HttpKernel\Exception\HttpException;
+
 /**
  * Row limit exceeded exception.
  *
@@ -14,7 +16,7 @@ namespace SineMacula\Exporter\Exceptions;
  * @author      Ben Carey <bdmc@sinemacula.co.uk>
  * @copyright   2026 Sine Macula Limited.
  */
-final class RowLimitExceeded extends \RuntimeException
+final class RowLimitExceeded extends HttpException
 {
     /**
      * Create an exception for an export whose row count exceeds the cap.
@@ -25,6 +27,6 @@ final class RowLimitExceeded extends \RuntimeException
      */
     public static function forCount(int $count, int $limit): self
     {
-        return new self("The export of [{$count}] rows exceeds the configured cap of [{$limit}]. Call unlimited() to lift it.");
+        return new self(413, "The export of [{$count}] rows exceeds the configured cap of [{$limit}]. Call unlimited() to lift it.");
     }
 }

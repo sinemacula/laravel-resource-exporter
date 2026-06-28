@@ -45,6 +45,45 @@ final class QueryChunkSourceTest extends ExporterTestCase
     }
 
     /**
+     * It streams every model in descending keyset order when requested.
+     *
+     * @return void
+     */
+    public function testStreamsEveryModelInDescendingKeysetOrder(): void
+    {
+        $this->seedUsers(5);
+
+        $source = new QueryChunkSource(User::query()->orderBy('id', 'desc'), chunkSize: 2); // @phpstan-ignore staticMethod.dynamicCall
+
+        $ids = [];
+
+        foreach ($source->rows() as $user) {
+            self::assertInstanceOf(User::class, $user);
+            $ids[] = $user->id;
+        }
+
+        self::assertSame([5, 4, 3, 2, 1], $ids);
+    }
+
+    /**
+     * It rejects non-key ordering because lazy keyset pagination cannot
+     * preserve it safely.
+     *
+     * @return void
+     */
+    public function testRejectsNonKeyOrdering(): void
+    {
+        $this->seedUsers(5);
+
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage('score');
+
+        $source = new QueryChunkSource(User::query()->orderBy('score', 'desc'), chunkSize: 2); // @phpstan-ignore staticMethod.dynamicCall
+
+        iterator_to_array($source->rows(), false);
+    }
+
+    /**
      * It force-selects the key column so a constrained select cannot abort the
      * keyset stream mid-flight.
      *
