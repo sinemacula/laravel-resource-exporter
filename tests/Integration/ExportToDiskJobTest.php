@@ -56,6 +56,7 @@ final class ExportToDiskJobTest extends QueuedExportTestCase
                 ->toDisk('exports', 'exports/users.csv')
                 ->orderBy('id')
                 ->chunk(10)
+                ->withoutAuthorization()
                 ->toSpecification(),
         );
 
@@ -88,6 +89,7 @@ final class ExportToDiskJobTest extends QueuedExportTestCase
         ExportToDiskJob::dispatchSync(
             QueuedExport::forModel(User::class, UserResource::class)
                 ->toDisk('exports', 'exports/users.csv')
+                ->withoutAuthorization()
                 ->toSpecification(),
         );
 
@@ -116,6 +118,7 @@ final class ExportToDiskJobTest extends QueuedExportTestCase
         ExportToDiskJob::dispatchSync(
             QueuedExport::forModel(User::class, UserResource::class)
                 ->toDisk('exports', 'exports/users.csv')
+                ->withoutAuthorization()
                 ->toSpecification(),
         );
 
@@ -144,6 +147,7 @@ final class ExportToDiskJobTest extends QueuedExportTestCase
         ExportToDiskJob::dispatchSync(
             QueuedExport::forModel(User::class, UserResource::class)
                 ->toDisk('exports', 'exports/users.csv')
+                ->withoutAuthorization()
                 ->toSpecification(),
         );
 
@@ -198,6 +202,7 @@ final class ExportToDiskJobTest extends QueuedExportTestCase
         $job = new ExportToDiskJob(
             QueuedExport::forModel(User::class, UserResource::class)
                 ->toDisk('exports', 'exports/users.csv')
+                ->withoutAuthorization()
                 ->toSpecification(),
         );
 
@@ -229,6 +234,7 @@ final class ExportToDiskJobTest extends QueuedExportTestCase
                 ->toDisk('exports', 'exports/users.csv')
                 ->as('members')
                 ->by($admin)
+                ->withoutAuthorization()
                 ->toSpecification(),
         );
 
@@ -268,6 +274,7 @@ final class ExportToDiskJobTest extends QueuedExportTestCase
                 ->toDisk('exports', 'exports/users.csv')
                 ->chunk(5)
                 ->progressEvery(10)
+                ->withoutAuthorization()
                 ->toSpecification(),
         );
 
@@ -309,6 +316,36 @@ final class ExportToDiskJobTest extends QueuedExportTestCase
 
         self::assertInstanceOf(AuthorizationException::class, $caught);
         self::assertFalse($disk->exists('exports/users.csv'));
+    }
+
+    /**
+     * It rejects a serialized specification that carries neither a full-set
+     * authorization ability nor an explicit authorization waiver.
+     *
+     * @return void
+     */
+    public function testSpecificationWithoutAnAuthorizationDecisionIsRejectedOnTheWorker(): void
+    {
+        $disk = $this->fakeDisk('exports');
+
+        Event::fake();
+
+        $this->seedUsers(3);
+
+        $job = new ExportToDiskJob(
+            QueuedExport::forModel(User::class, UserResource::class)
+                ->toDisk('exports', 'exports/users.csv')
+                ->toSpecification(),
+        );
+
+        $this->expectException(\LogicException::class);
+
+        try {
+            app()->call([$job, 'handle']);
+        } finally {
+            self::assertFalse($disk->exists('exports/users.csv'));
+            Event::assertNotDispatched(ExportStarting::class);
+        }
     }
 
     /**
@@ -357,6 +394,7 @@ final class ExportToDiskJobTest extends QueuedExportTestCase
             QueuedExport::forModel(User::class, UserResource::class)
                 ->format('json')
                 ->toDisk('exports', 'exports/users.json')
+                ->withoutAuthorization()
                 ->toSpecification(),
         );
 
@@ -378,6 +416,7 @@ final class ExportToDiskJobTest extends QueuedExportTestCase
         $job = new ExportToDiskJob(
             QueuedExport::forModel(User::class, PlainUserResource::class)
                 ->toDisk('exports', 'exports/users.csv')
+                ->withoutAuthorization()
                 ->toSpecification(),
         );
 
@@ -401,6 +440,7 @@ final class ExportToDiskJobTest extends QueuedExportTestCase
             QueuedExport::forModel(User::class, UserResource::class)
                 ->toDisk('exports', 'exports/users.csv')
                 ->by($admin)
+                ->withoutAuthorization()
                 ->toSpecification(),
         );
 
@@ -435,6 +475,7 @@ final class ExportToDiskJobTest extends QueuedExportTestCase
             QueuedExport::forModel(User::class, UserResource::class)
                 ->schema(ExplodingExportSchema::class)
                 ->toDisk('exports', 'exports/boom.csv')
+                ->withoutAuthorization()
                 ->toSpecification(),
         );
 
@@ -452,6 +493,40 @@ final class ExportToDiskJobTest extends QueuedExportTestCase
     }
 
     /**
+     * It does not delete a destination that existed before a failed export
+     * attempt.
+     *
+     * @return void
+     */
+    public function testDoesNotDeleteAPreExistingTargetAfterAFailedExport(): void
+    {
+        $disk = $this->fakeDisk('exports');
+
+        $disk->put('exports/boom.csv', 'existing export');
+
+        $this->seedUsers(3);
+
+        $job = new ExportToDiskJob(
+            QueuedExport::forModel(User::class, UserResource::class)
+                ->schema(ExplodingExportSchema::class)
+                ->toDisk('exports', 'exports/boom.csv')
+                ->withoutAuthorization()
+                ->toSpecification(),
+        );
+
+        $caught = null;
+
+        try {
+            app()->call([$job, 'handle']);
+        } catch (\Throwable $exception) {
+            $caught = $exception;
+        }
+
+        self::assertInstanceOf(\RuntimeException::class, $caught);
+        self::assertSame('existing export', $disk->get('exports/boom.csv'));
+    }
+
+    /**
      * It leaves no staging file behind after a successful export.
      *
      * @return void
@@ -466,6 +541,7 @@ final class ExportToDiskJobTest extends QueuedExportTestCase
         ExportToDiskJob::dispatchSync(
             QueuedExport::forModel(User::class, UserResource::class)
                 ->toDisk('exports', 'exports/users.csv')
+                ->withoutAuthorization()
                 ->toSpecification(),
         );
 
@@ -483,6 +559,7 @@ final class ExportToDiskJobTest extends QueuedExportTestCase
         $job = new ExportToDiskJob(
             QueuedExport::forModel(User::class, UserResource::class)
                 ->toDisk('exports', 'exports/users.csv')
+                ->withoutAuthorization()
                 ->toSpecification(),
         );
 
@@ -505,6 +582,7 @@ final class ExportToDiskJobTest extends QueuedExportTestCase
         ExportToDiskJob::dispatchSync(
             QueuedExport::forModel(User::class, UserResource::class)
                 ->toDisk('exports', 'exports/users.csv')
+                ->withoutAuthorization()
                 ->toSpecification(),
         );
 
@@ -534,6 +612,7 @@ final class ExportToDiskJobTest extends QueuedExportTestCase
                 ->toDisk('exports', 'exports/users.csv')
                 ->chunk(2)
                 ->progressEvery(0)
+                ->withoutAuthorization()
                 ->toSpecification(),
         );
 
@@ -547,14 +626,19 @@ final class ExportToDiskJobTest extends QueuedExportTestCase
     }
 
     /**
-     * It removes the partially written disk file when a failure occurs after
-     * the file has already been stored, leaving a retry a clean slate.
+     * It keeps a stored export when completion handling fails after storage has
+     * already succeeded.
      *
      * @return void
      */
-    public function testRemovesTheStoredFileWhenAFailureOccursAfterStoring(): void
+    public function testKeepsTheStoredFileWhenCompletionHandlingFailsAfterStoring(): void
     {
         $disk = $this->fakeDisk('exports');
+        $disk->buildTemporaryUrlsUsing(
+            fn (string $path, mixed $expiration): string => 'https://signed.example/' . $path,
+        );
+
+        Log::spy();
         $this->seedUsers(2);
 
         Event::listen(ExportCompleted::class, static function (): void {
@@ -564,19 +648,22 @@ final class ExportToDiskJobTest extends QueuedExportTestCase
         $job = new ExportToDiskJob(
             QueuedExport::forModel(User::class, UserResource::class)
                 ->toDisk('exports', 'exports/users.csv')
+                ->withoutAuthorization()
                 ->toSpecification(),
         );
 
-        $caught = null;
+        app()->call([$job, 'handle']);
 
-        try {
-            app()->call([$job, 'handle']);
-        } catch (\Throwable $exception) {
-            $caught = $exception;
-        }
+        $disk->assertExists('exports/users.csv');
 
-        self::assertInstanceOf(\RuntimeException::class, $caught);
-        self::assertFalse($disk->exists('exports/users.csv'));
+        Log::shouldHaveReceived('warning') // @phpstan-ignore staticMethod.notFound
+            ->once()
+            ->withArgs(static fn (string $message, array $context): bool => $message === 'Queued export completed, but completion handling failed.'
+                && $context['disk']                                                  === 'exports'
+                && $context['path']                                                  === 'exports/users.csv'
+                && $context['format']                                                === 'csv'
+                && $context['exception'] instanceof \RuntimeException
+                && $context['exception']->getMessage() === 'blew up after storing');
     }
 
     /**
@@ -601,6 +688,7 @@ final class ExportToDiskJobTest extends QueuedExportTestCase
             path: 'exports/users.csv',
             actorId: 999,
             actorClass: null,
+            authorizationWaived: true,
         ));
 
         $disk->assertExists('exports/users.csv');
@@ -630,6 +718,7 @@ final class ExportToDiskJobTest extends QueuedExportTestCase
                 ->toDisk('exports', 'exports/actor.csv')
                 ->orderBy('id')
                 ->by($admin)
+                ->withoutAuthorization()
                 ->toSpecification(),
         );
 

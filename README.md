@@ -12,8 +12,9 @@ make sense as a table, and the same endpoint that serves JSON will stream **CSV,
 the request asks for it - over the `Accept` header or a `?format=` query parameter - with no second controller and no
 bespoke serialization code.
 
-Exports stream at constant memory (a million rows in tens of megabytes), so the one engine drives an inline download, a
-queued export to disk behind a signed URL, or a one-off export through a fluent builder, all the same way.
+Rows are pulled lazily from the source, so CSV, TSV, JSON, XML, and NDJSON exports stay flat in memory even for large
+queries. XLSX is built as a temporary workbook before the response can flush, so large spreadsheets are best queued to
+disk behind a signed URL. The same engine drives inline downloads, queued exports, and one-off fluent exports.
 
 The package is registered automatically through Laravel's package auto-discovery; publish the config (see below) to
 register custom formats or tune the negotiation limits.
@@ -24,8 +25,9 @@ There are two doors onto one streaming engine:
 
 - **Content negotiation.** A `JsonResource` that uses the `RespondsWithExports` trait keeps serving JSON by default but
   answers `Accept: text/csv` (or `?format=csv`) by streaming the negotiated format instead - for both a single resource
-  and a collection. JSON stays first-class: a browser's default `Accept` always resolves to JSON, `q=0` is honoured, and
-  every response carries `Vary: Accept`.
+  and the collection/page returned by the route. Use `ResourceExport::forQuery()` or a queued export when the export
+  request should switch from paginated JSON to the full query. JSON stays first-class: a browser's default `Accept`
+  always resolves to JSON, `q=0` is honoured, and every response carries `Vary: Accept`.
 - **Explicit exports.** The `Exporter` facade builds an export from a resource, a collection, or a query and returns a
   fluent builder whose verbs - `download()`, `store()`, `toString()`, `toStream()`, `toResponse()`, `queue()` - decide
   where the bytes go.
@@ -41,8 +43,9 @@ Formats split by **dimensionality**:
 
 A few rules hold across the surface:
 
-- **Streamed, never buffered.** Rows are pulled from the source lazily (keyset `lazyById` pagination for queries) and
-  written straight to the output, so memory stays flat regardless of row count.
+- **Lazy row pipeline.** Rows are pulled from the source lazily (keyset `lazyById` pagination for queries) and passed
+  straight through the engine. Textual and hierarchical writers flush progressively; XLSX finalises a temporary workbook
+  before handing it to the sink.
 - **Stateless and Octane-safe.** Nothing caches the request or a mutable driver between exports; the media-type registry
   is built once at boot and read-only thereafter.
 - **Extensible by configuration.** Register a custom format in `config/exporter.php`; the negotiated and explicit paths
@@ -253,9 +256,10 @@ Exporter::queue(User::class, UserResource::class)
     ->queue();
 ```
 
-The job streams chunk by chunk at constant memory and fires `ExportStarting`, `RowsExported`, `ExportCompleted`
+The job streams chunk by chunk into a local staging file and fires `ExportStarting`, `RowsExported`, `ExportCompleted`
 (carrying a signed temporary URL), and `ExportFailed`. The query is described by a serializable specification - constrain
-it with the query verbs on the builder rather than passing a live builder.
+it with the query verbs on the builder rather than passing a live builder. HTTP streaming failures after bytes have
+started are reported separately through `StreamExportFailed`, with the format, actor and number of rows written.
 
 ### Testing
 

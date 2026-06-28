@@ -199,20 +199,7 @@ final class ExporterFake
      */
     public function assertStringExported(?string $format = null): self
     {
-        $matches = array_filter(
-            $this->exports,
-            static fn (RecordedExport $export): bool => $export->type === 'string'
-                && ($format === null || $export->format === $format),
-        );
-
-        PHPUnit::assertNotEmpty(
-            $matches,
-            $format === null
-                ? 'Expected an export to be buffered to a string, but none were.'
-                : "Expected an export to be buffered to a string as [{$format}], but none were.",
-        );
-
-        return $this;
+        return $this->assertExportedAs('string', 'buffered to a string', $format);
     }
 
     /**
@@ -226,20 +213,7 @@ final class ExporterFake
      */
     public function assertStreamedTo(?string $format = null): self
     {
-        $matches = array_filter(
-            $this->exports,
-            static fn (RecordedExport $export): bool => $export->type === 'stream'
-                && ($format === null || $export->format === $format),
-        );
-
-        PHPUnit::assertNotEmpty(
-            $matches,
-            $format === null
-                ? 'Expected an export to be streamed to a resource, but none were.'
-                : "Expected an export to be streamed to a resource as [{$format}], but none were.",
-        );
-
-        return $this;
+        return $this->assertExportedAs('stream', 'streamed to a resource', $format);
     }
 
     /**
@@ -297,6 +271,33 @@ final class ExporterFake
     public function assertNothingExported(): self
     {
         PHPUnit::assertEmpty($this->exports, 'Expected no exports, but some were recorded.');
+
+        return $this;
+    }
+
+    /**
+     * Assert an export terminal verb was recorded, optionally of a given
+     * format.
+     *
+     * @param  string  $type
+     * @param  string  $description
+     * @param  string|null  $format
+     * @return $this
+     */
+    private function assertExportedAs(string $type, string $description, ?string $format = null): self
+    {
+        $matches = array_filter(
+            $this->exports,
+            static fn (RecordedExport $export): bool => $export->type === $type
+                && ($format === null || $export->format === $format),
+        );
+
+        PHPUnit::assertNotEmpty(
+            $matches,
+            $format === null
+                ? "Expected an export to be {$description}, but none were."
+                : "Expected an export to be {$description} as [{$format}], but none were.",
+        );
 
         return $this;
     }
