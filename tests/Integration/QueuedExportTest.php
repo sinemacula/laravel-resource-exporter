@@ -144,6 +144,7 @@ final class QueuedExportTest extends QueuedExportTestCase
         self::assertSame($actor->id, $spec->actorId);
         self::assertSame($actor::class, $spec->actorClass);
         self::assertSame('export-users', $spec->ability);
+        self::assertFalse($spec->authorizationWaived);
         self::assertSame(250, $spec->chunkSize);
         self::assertSame(100, $spec->progressEvery);
         self::assertSame(15, $spec->urlExpiresAfter);
@@ -163,6 +164,7 @@ final class QueuedExportTest extends QueuedExportTestCase
         $spec = QueuedExport::forModel(User::class, UserResource::class)
             ->schema(UserExportSchema::class)
             ->toDisk('exports', 'exports/users.csv')
+            ->withoutAuthorization()
             ->where('role', 'user')
             ->whereIn('id', [1, 2, 3])
             ->orderBy('id')
@@ -177,7 +179,25 @@ final class QueuedExportTest extends QueuedExportTestCase
         self::assertSame($spec->format, $restored->format);
         self::assertSame($spec->disk, $restored->disk);
         self::assertSame($spec->path, $restored->path);
+        self::assertSame($spec->authorizationWaived, $restored->authorizationWaived);
         self::assertEquals($spec->constraints, $restored->constraints);
+    }
+
+    /**
+     * It carries the explicit authorization opt-out onto the serializable
+     * specification for the worker to enforce.
+     *
+     * @return void
+     */
+    public function testToSpecificationCarriesTheAuthorizationWaiver(): void
+    {
+        $spec = QueuedExport::forModel(User::class, UserResource::class)
+            ->toDisk('exports', 'exports/users.csv')
+            ->withoutAuthorization()
+            ->toSpecification();
+
+        self::assertNull($spec->ability);
+        self::assertTrue($spec->authorizationWaived);
     }
 
     /**
@@ -425,6 +445,7 @@ final class QueuedExportTest extends QueuedExportTestCase
         self::assertSame(1000, $spec->chunkSize);
         self::assertSame(1000, $spec->progressEvery);
         self::assertSame(60, $spec->urlExpiresAfter);
+        self::assertFalse($spec->authorizationWaived);
     }
 
     /**
@@ -503,7 +524,8 @@ final class QueuedExportTest extends QueuedExportTestCase
             ->queue();
 
         $fake->assertQueued(static fn (ExportSpecification $spec): bool => $spec->disk === 'exports'
-            && $spec->path                                                             === 'exports/users.csv');
+            && $spec->path                                                             === 'exports/users.csv'
+            && $spec->authorizationWaived                                              === true);
     }
 
     /**

@@ -26,7 +26,9 @@ use SineMacula\Exporter\Testing\ExporterFake;
  *
  * A live builder or closure is deliberately not accepted: neither serializes
  * reliably onto a queue. Express the selection as constraints instead, and the
- * worker rebuilds the query from the model.
+ * worker rebuilds the query from the model. The full-set authorization decision
+ * is carried in the specification too, so direct specification dispatches are
+ * checked by the job rather than only by the queue() convenience verb.
  *
  * @author      Ben Carey <bdmc@sinemacula.co.uk>
  * @copyright   2026 Sine Macula Limited.
@@ -267,6 +269,7 @@ final class QueuedExport
             $this->chunkSize,
             $this->progressEvery,
             $this->urlExpiresAfter,
+            $this->withoutAuthorization,
         );
     }
 

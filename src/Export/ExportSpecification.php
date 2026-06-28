@@ -18,8 +18,10 @@ use Illuminate\Database\Eloquent\Builder;
  * carries the download filename hint, the initiating actor (id plus class, so
  * the worker can resolve and re-authorize against the original user), an
  * optional gate ability for the full-set authorization re-check, and the chunk,
- * progress and signed-URL-expiry tuning. Every field is a string, int or array
- * of those, so the whole specification round-trips through the queue cleanly.
+ * progress and signed-URL-expiry tuning. A missing ability only means the
+ * caller deliberately waived the full-set check when authorizationWaived is
+ * true. Every field is a string, int, bool or array of those, so the whole
+ * specification round-trips through the queue cleanly.
  *
  * @author      Ben Carey <bdmc@sinemacula.co.uk>
  * @copyright   2026 Sine Macula Limited.
@@ -43,6 +45,7 @@ final readonly class ExportSpecification
      * @param  int  $chunkSize
      * @param  int  $progressEvery
      * @param  int  $urlExpiresAfter
+     * @param  bool  $authorizationWaived
      */
     public function __construct(
 
@@ -87,6 +90,9 @@ final readonly class ExportSpecification
 
         /** The lifetime, in minutes, of the signed temporary download URL. */
         public int $urlExpiresAfter = 60,
+
+        /** Whether the full-set authorization requirement was waived. */
+        public bool $authorizationWaived = false,
     ) {}
 
     /**

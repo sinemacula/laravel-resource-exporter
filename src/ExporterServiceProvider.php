@@ -70,7 +70,7 @@ final class ExporterServiceProvider extends ServiceProvider
         // @codeCoverageIgnoreEnd
         $this->publishes([
             __DIR__ . '/../config/exporter.php' => config_path('exporter.php'),
-        ], 'config');
+        ], ['config', 'exporter-config']);
     }
 
     /**

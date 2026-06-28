@@ -51,8 +51,9 @@ use SineMacula\Exporter\Writers\CountingWriter;
  * periodically as rows stream, ExportCompleted (the shared audit event) on
  * success, and ExportFailed once the job exhausts its retries. The job is
  * retry-safe: every attempt stages to its own temp file, cleans that file up,
- * and removes any partially written disk file before re-throwing, so a retry
- * starts from a clean slate.
+ * and removes a partially written disk file only when this attempt created the
+ * destination, so a retry starts from a clean slate without deleting a
+ * pre-existing file at the same path.
  *
  * @author      Ben Carey <bdmc@sinemacula.co.uk>
  * @copyright   2026 Sine Macula Limited.
@@ -97,10 +98,14 @@ final class ExportToDiskJob implements ShouldQueue
      */
     public function handle(Engine $engine, ExportAuditor $auditor, MediaTypeRegistry $registry, Factory $filesystem): void
     {
+        $this->guardAuthorizationDecision();
+
         Event::dispatch(new ExportStarting($this->spec->format, $this->spec->disk, $this->spec->path, $this->spec->actorId));
 
-        $disk    = $filesystem->disk($this->spec->disk);
-        $staging = null;
+        $disk             = $filesystem->disk($this->spec->disk);
+        $targetExisted    = $this->hasExistingTarget($disk);
+        $storageAttempted = false;
+        $staging          = null;
 
         try {
             $actor   = $this->actor();
@@ -119,6 +124,8 @@ final class ExportToDiskJob implements ShouldQueue
             $staging = $this->stagingPath();
             $rows    = $this->stream($engine, $query, $schema, $writer, $request, $staging);
 
+            $storageAttempted = true;
+
             (new DiskSink($disk, $this->spec->path))->putFromFile($staging);
 
             $auditor->completed(new ExportCompleted(
@@ -133,7 +140,7 @@ final class ExportToDiskJob implements ShouldQueue
                 queued: true,
             ));
         } catch (\Throwable $exception) {
-            $disk->delete($this->spec->path);
+            $this->cleanupFailedStorageAttempt($disk, $targetExisted, $storageAttempted);
 
             throw $exception;
         } finally {
@@ -158,6 +165,64 @@ final class ExportToDiskJob implements ShouldQueue
             $this->spec->actorId,
             $exception,
         ));
+    }
+
+    /**
+     * Require the serialized export to carry an explicit full-set authorization
+     * decision.
+     *
+     * @return void
+     *
+     * @throws \LogicException
+     */
+    private function guardAuthorizationDecision(): void
+    {
+        if ($this->spec->ability !== null || $this->spec->authorizationWaived) {
+            return;
+        }
+
+        throw new \LogicException('A queued export specification must carry a full-set authorization ability, or explicitly waive authorization.');
+    }
+
+    /**
+     * Determine whether the destination path existed before this attempt.
+     *
+     * @param  \Illuminate\Contracts\Filesystem\Filesystem  $disk
+     * @return bool|null
+     */
+    private function hasExistingTarget(Filesystem $disk): ?bool
+    {
+        try {
+            return $disk->exists($this->spec->path);
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    /**
+     * Remove a partial file from this attempt without deleting a pre-existing
+     * destination.
+     *
+     * @param  \Illuminate\Contracts\Filesystem\Filesystem  $disk
+     * @param  bool|null  $targetExisted
+     * @param  bool  $storageAttempted
+     * @return void
+     */
+    private function cleanupFailedStorageAttempt(Filesystem $disk, ?bool $targetExisted, bool $storageAttempted): void
+    {
+        if (!$storageAttempted || $targetExisted !== false) {
+            return;
+        }
+
+        try {
+            $disk->delete($this->spec->path);
+        } catch (\Throwable $exception) {
+            Log::warning('Unable to remove a failed queued export file.', [
+                'disk'      => $this->spec->disk,
+                'path'      => $this->spec->path,
+                'exception' => $exception,
+            ]);
+        }
     }
 
     /**

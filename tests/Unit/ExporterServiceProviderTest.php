@@ -138,9 +138,11 @@ final class ExporterServiceProviderTest extends TestCase
         }
 
         $publishable = ExporterServiceProvider::pathsToPublish(ExporterServiceProvider::class, 'config');
+        $tagged      = ExporterServiceProvider::pathsToPublish(ExporterServiceProvider::class, 'exporter-config');
         $source      = (string) array_key_first($publishable);
 
         self::assertCount(1, $publishable);
+        self::assertSame($publishable, $tagged);
         self::assertStringEndsWith('/config/exporter.php', $source);
         self::assertSame(
             realpath(dirname(__DIR__, 2) . '/config/exporter.php'),
