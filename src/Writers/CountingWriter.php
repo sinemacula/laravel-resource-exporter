@@ -14,12 +14,11 @@ use SineMacula\Exporter\Schema\TabularSchema;
  * Wraps any tabular writer and counts the data rows it emits, invoking a
  * callback with the running total as each row passes through. It lets the
  * streamed and queued export paths report progress and capture the final row
- * count for the audit event without the underlying writer or the engine
- * knowing anything about counting. The count is taken at the writer boundary so
- * it reflects the rows actually written (after row expansion), and the heading
- * row - emitted by the inner writer from the schema, not the row stream - is
- * not counted. The decorator adds no buffering, so constant memory is
- * preserved.
+ * count for the audit event without the underlying writer or the engine knowing
+ * anything about counting. The count is taken at the writer boundary so it
+ * reflects the rows actually written (after row expansion), and the heading row
+ * - emitted by the inner writer from the schema, not the row stream - is not
+ * counted. The decorator adds no buffering, so constant memory is preserved.
  *
  * @author      Ben Carey <bdmc@sinemacula.co.uk>
  * @copyright   2026 Sine Macula Limited.

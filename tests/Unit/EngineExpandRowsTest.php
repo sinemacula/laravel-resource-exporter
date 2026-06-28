@@ -23,10 +23,10 @@ use Tests\Support\V3\Schema\FlexibleSchema;
 /**
  * Tests for the engine's single row-expansion axis.
  *
- * A column marked expandRows() against a declared expand policy fans one
- * parent into one row per child, repeating the parent columns; a childless
- * parent keeps a single blank-child row by default or is dropped when
- * configured. Exactly one axis governs the fan-out (the schema exposes a single
+ * A column marked expandRows() against a declared expand policy fans one parent
+ * into one row per child, repeating the parent columns; a childless parent
+ * keeps a single blank-child row by default or is dropped when configured.
+ * Exactly one axis governs the fan-out (the schema exposes a single
  * ExpandPolicy), and a marked column with no declared axis is a configuration
  * error that preflight rejects before any bytes and lenient downgrades to a
  * warning.

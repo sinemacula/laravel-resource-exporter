@@ -14,8 +14,8 @@ use SineMacula\Exporter\Http\MediaTypeRegistry;
 /**
  * Tests the download-naming helper.
  *
- * Resolves the media type for a format (tabular or hierarchical writer),
- * the extension-bearing download filename, and the Content-Disposition header.
+ * Resolves the media type for a format (tabular or hierarchical writer), the
+ * extension-bearing download filename, and the Content-Disposition header.
  * Filenames are sanitised the way makeDisposition() demands - path and percent
  * characters replaced, a pure-ASCII fallback always supplied - so a non-ASCII
  * name never throws.

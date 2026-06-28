@@ -7,12 +7,12 @@ namespace SineMacula\Exporter\Schema;
 /**
  * Lenient-mode warning bag.
  *
- * Streaming cannot emit a clean error mid-body, so the lenient strictness
- * mode skips or blanks the offending column or cell and records why here
- * instead of throwing. A caller that wants to surface or log degraded
- * output passes its own collector into the engine and reads it afterwards;
- * preflight mode never adds to it (it fails fast before any bytes). Created
- * per export, so it holds no cross-request state.
+ * Streaming cannot emit a clean error mid-body, so the lenient strictness mode
+ * skips or blanks the offending column or cell and records why here instead of
+ * throwing. A caller that wants to surface or log degraded output passes its
+ * own collector into the engine and reads it afterwards; preflight mode never
+ * adds to it (it fails fast before any bytes). Created per export, so it holds
+ * no cross-request state.
  *
  * @author      Ben Carey <bdmc@sinemacula.co.uk>
  * @copyright   2026 Sine Macula Limited.

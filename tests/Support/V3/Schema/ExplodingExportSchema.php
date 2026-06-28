@@ -11,11 +11,11 @@ use SineMacula\Exporter\Schema\TabularSchema;
 /**
  * Schema that passes preflight but throws while shaping a row.
  *
- * The columns are structurally valid, so the engine's preflight validation
- * lets the export begin and a staging file is opened; the resolver then throws
- * on the first data row, mid-stream, after bytes have started flowing. It
- * forces a genuine mid-stream failure so the queued job's cleanup - unlinking
- * the staging file and removing any partial disk file - can be asserted.
+ * The columns are structurally valid, so the engine's preflight validation lets
+ * the export begin and a staging file is opened; the resolver then throws on
+ * the first data row, mid-stream, after bytes have started flowing. It forces a
+ * genuine mid-stream failure so the queued job's cleanup - unlinking the
+ * staging file and removing any partial disk file - can be asserted.
  *
  * @author      Ben Carey <bdmc@sinemacula.co.uk>
  * @copyright   2026 Sine Macula Limited.

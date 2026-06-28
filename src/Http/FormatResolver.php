@@ -15,8 +15,8 @@ use Symfony\Component\HttpFoundation\AcceptHeader;
  * used). Precedence is: an explicit ?format= query parameter or a whitelisted
  * URL extension, then the Accept header at its highest quality (filtering q=0
  * entries), then the configured default. JSON is a first-class candidate so a
- * wildcard or empty Accept resolves to it. The resolver is request-explicit
- * and holds no per-request state, so it is safe to reuse under Octane.
+ * wildcard or empty Accept resolves to it. The resolver is request-explicit and
+ * holds no per-request state, so it is safe to reuse under Octane.
  *
  * @author      Ben Carey <bdmc@sinemacula.co.uk>
  * @copyright   2026 Sine Macula Limited.

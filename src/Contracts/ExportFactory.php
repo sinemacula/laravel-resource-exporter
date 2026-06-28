@@ -8,9 +8,9 @@ namespace SineMacula\Exporter\Contracts;
  * Export factory contract.
  *
  * The public surface of the export manager, bound in the container under this
- * interface so the documented `app(...)->extend(...)` and constructor
- * injection resolve the same singleton. Implemented additively by the existing
- * manager; v2 behaviour is unchanged.
+ * interface so the documented `app(...)->extend(...)` and constructor injection
+ * resolve the same singleton. Implemented additively by the existing manager;
+ * v2 behaviour is unchanged.
  *
  * @author      Ben Carey <bdmc@sinemacula.co.uk>
  * @copyright   2026 Sine Macula Limited.

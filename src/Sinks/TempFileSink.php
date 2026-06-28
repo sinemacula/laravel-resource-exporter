@@ -11,8 +11,8 @@ use SineMacula\Exporter\Exceptions\SinkException;
  * Temporary file sink.
  *
  * Lands a fully-written export in a local temporary file whose path the caller
- * can read back. A temp file backs formats that finalise on close (an XLSX is
- * a ZIP), so it is a non-seekable sink: writers finalise locally and hand the
+ * can read back. A temp file backs formats that finalise on close (an XLSX is a
+ * ZIP), so it is a non-seekable sink: writers finalise locally and hand the
  * file over via putFromFile.
  *
  * @author      Ben Carey <bdmc@sinemacula.co.uk>

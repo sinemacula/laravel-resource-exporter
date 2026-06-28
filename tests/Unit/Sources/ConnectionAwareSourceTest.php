@@ -15,8 +15,8 @@ use Tests\Support\V3\ArraySource;
  * Tests the connection-aware source decorator.
  *
  * The decorator streams its wrapped source until an abort signal reports the
- * client has disconnected, then stops cleanly, so a streamed export abandons
- * an expensive query the moment the browser goes away. It is transparent
+ * client has disconnected, then stops cleanly, so a streamed export abandons an
+ * expensive query the moment the browser goes away. It is transparent
  * otherwise: eager-load hints and, where supported, the aggregate plan are
  * forwarded to the wrapped source. These tests drive it with a stub abort
  * signal so the disconnect is deterministic rather than reliant on a real

@@ -9,10 +9,10 @@ use SineMacula\Exporter\Schema\TabularSchema;
 /**
  * Writer contract.
  *
- * Streams a tabular representation into bytes for a single media type. A
- * writer is constructed per export, holds no request state, and emits rows
- * already shaped by the schema (a map of column key to typed cell value) one
- * at a time so the response stays at constant memory.
+ * Streams a tabular representation into bytes for a single media type. A writer
+ * is constructed per export, holds no request state, and emits rows already
+ * shaped by the schema (a map of column key to typed cell value) one at a time
+ * so the response stays at constant memory.
  *
  * @author      Ben Carey <bdmc@sinemacula.co.uk>
  * @copyright   2026 Sine Macula Limited.

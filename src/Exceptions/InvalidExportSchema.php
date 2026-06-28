@@ -9,10 +9,10 @@ namespace SineMacula\Exporter\Exceptions;
  *
  * Thrown in preflight strictness when a schema cannot be honoured: a column
  * with an empty key or an unresolvable cast, or a row-expansion declaration
- * with no relation to expand. Preflight fails fast here, before any bytes
- * are streamed, because a streamed response cannot emit a clean error
- * mid-body; the lenient mode skips the offending column or disables
- * expansion and records a warning instead.
+ * with no relation to expand. Preflight fails fast here, before any bytes are
+ * streamed, because a streamed response cannot emit a clean error mid-body; the
+ * lenient mode skips the offending column or disables expansion and records a
+ * warning instead.
  *
  * @author      Ben Carey <bdmc@sinemacula.co.uk>
  * @copyright   2026 Sine Macula Limited.

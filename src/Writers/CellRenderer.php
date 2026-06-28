@@ -9,13 +9,13 @@ use SineMacula\Exporter\Schema\CellValue;
 /**
  * Shared cell value coercion.
  *
- * The value-coercion semantics every tabular writer shares: a typed
- * CellValue is reduced to a native integer, float, boolean label, or string
- * the same way regardless of the target format, so the CSV/TSV text output
- * and the typed XLSX spreadsheet agree on what each cell holds. The writer
- * keeps ownership of the target type (a string field, a native numeric cell,
- * a date cell); this collaborator only decides the coerced value. It holds no
- * state and is safe to share under Octane.
+ * The value-coercion semantics every tabular writer shares: a typed CellValue
+ * is reduced to a native integer, float, boolean label, or string the same way
+ * regardless of the target format, so the CSV/TSV text output and the typed
+ * XLSX spreadsheet agree on what each cell holds. The writer keeps ownership of
+ * the target type (a string field, a native numeric cell, a date cell); this
+ * collaborator only decides the coerced value. It holds no state and is safe to
+ * share under Octane.
  *
  * @author      Ben Carey <bdmc@sinemacula.co.uk>
  * @copyright   2026 Sine Macula Limited.

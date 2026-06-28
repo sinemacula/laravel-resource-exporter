@@ -23,9 +23,9 @@ use Tests\Support\V3\Writers\ReportWriter;
  * The config('exporter.formats') extension seam is reachable and shared.
  *
  * A custom format declared in configuration is seeded into the single boot-time
- * media type registry, so it is negotiable over the Accept header and
- * reachable through the explicit Exporter::export() builder - both resolve the
- * same shared registry, so they agree on the available formats.
+ * media type registry, so it is negotiable over the Accept header and reachable
+ * through the explicit Exporter::export() builder - both resolve the same
+ * shared registry, so they agree on the available formats.
  *
  * @author      Ben Carey <bdmc@sinemacula.co.uk>
  * @copyright   2026 Sine Macula Limited.

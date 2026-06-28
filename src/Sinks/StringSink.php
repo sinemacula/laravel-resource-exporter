@@ -11,8 +11,8 @@ use SineMacula\Exporter\Sinks\Concerns\WritesThroughStream;
  * String buffer sink.
  *
  * Buffers the written bytes in a seekable in-memory stream (spilling to a
- * temporary file beyond a memory threshold) so the full export can be read
- * back as a single string. Seekable, so writers stream into it directly.
+ * temporary file beyond a memory threshold) so the full export can be read back
+ * as a single string. Seekable, so writers stream into it directly.
  *
  * @author      Ben Carey <bdmc@sinemacula.co.uk>
  * @copyright   2026 Sine Macula Limited.

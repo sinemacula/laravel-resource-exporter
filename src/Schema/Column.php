@@ -247,8 +247,8 @@ final class Column
      * given child (a resolver receives the child, otherwise the key or model
      * path is read off it) rather than the parent item, so each child yields
      * its own cell while the parent columns repeat. A null child - a parent
-     * with no children kept as a blank row - short-circuits to the
-     * null/default cell.
+     * with no children kept as a blank row - short-circuits to the null/default
+     * cell.
      *
      * @param  mixed  $child
      * @param  \Illuminate\Http\Request  $request

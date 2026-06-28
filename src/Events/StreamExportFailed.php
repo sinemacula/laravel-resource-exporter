@@ -13,8 +13,8 @@ namespace SineMacula\Exporter\Events;
  * response cannot retract headers or become a clean error, so the writer
  * flushes a documented truncation marker into the body and the engine fires
  * this event carrying the row context (the format and the number of data rows
- * that reached the client before the failure) plus the actor and the
- * underlying exception, so a listener can alert, audit, or compensate.
+ * that reached the client before the failure) plus the actor and the underlying
+ * exception, so a listener can alert, audit, or compensate.
  *
  * It is distinct from ExportFailed: there is no disk or path because a streamed
  * export has no stored file, and rowsWritten records exactly how much of the

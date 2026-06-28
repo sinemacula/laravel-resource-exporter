@@ -11,9 +11,9 @@ use SineMacula\Exporter\Schema\Enums\Strictness;
  * Tabular schema.
  *
  * The request-aware declaration of a tabular representation: ordered columns,
- * eager-load hints, an optional single row-expansion axis, a filename hint,
- * and the row-level strictness mode. Authored as a dedicated sibling class so
- * the export shape stays separate from the API representation.
+ * eager-load hints, an optional single row-expansion axis, a filename hint, and
+ * the row-level strictness mode. Authored as a dedicated sibling class so the
+ * export shape stays separate from the API representation.
  *
  * @author      Ben Carey <bdmc@sinemacula.co.uk>
  * @copyright   2026 Sine Macula Limited.
