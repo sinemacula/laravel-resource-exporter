@@ -53,7 +53,8 @@ use SineMacula\Exporter\Writers\CountingWriter;
  * retry-safe: every attempt stages to its own temp file, cleans that file up,
  * and removes a partially written disk file only when this attempt created the
  * destination, so a retry starts from a clean slate without deleting a
- * pre-existing file at the same path.
+ * pre-existing file at the same path. Once storage succeeds, completion
+ * listener failures are logged but do not roll back the stored export.
  *
  * @author      Ben Carey <bdmc@sinemacula.co.uk>
  * @copyright   2026 Sine Macula Limited.
@@ -128,7 +129,7 @@ final class ExportToDiskJob implements ShouldQueue
 
             (new DiskSink($disk, $this->spec->path))->putFromFile($staging);
 
-            $auditor->completed(new ExportCompleted(
+            $this->reportCompleted($auditor, new ExportCompleted(
                 $this->spec->actorId,
                 $rows,
                 $this->spec->filename,
@@ -165,6 +166,29 @@ final class ExportToDiskJob implements ShouldQueue
             $this->spec->actorId,
             $exception,
         ));
+    }
+
+    /**
+     * Dispatch the completion audit without rolling back a stored export when
+     * a listener fails.
+     *
+     * @param  \SineMacula\Exporter\Export\ExportAuditor  $auditor
+     * @param  \SineMacula\Exporter\Events\ExportCompleted  $event
+     * @return void
+     */
+    private function reportCompleted(ExportAuditor $auditor, ExportCompleted $event): void
+    {
+        try {
+            $auditor->completed($event);
+        } catch (\Throwable $exception) {
+            Log::warning('Queued export completed, but completion handling failed.', [
+                'disk'      => $this->spec->disk,
+                'path'      => $this->spec->path,
+                'format'    => $this->spec->format,
+                'actor_id'  => $this->spec->actorId,
+                'exception' => $exception,
+            ]);
+        }
     }
 
     /**

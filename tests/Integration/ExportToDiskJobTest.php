@@ -626,15 +626,19 @@ final class ExportToDiskJobTest extends QueuedExportTestCase
     }
 
     /**
-     * It removes the partially written disk file when a failure occurs after
-     * the file has already been stored and the destination did not previously
-     * exist, leaving a retry a clean slate.
+     * It keeps a stored export when completion handling fails after storage has
+     * already succeeded.
      *
      * @return void
      */
-    public function testRemovesTheStoredFileWhenAFailureOccursAfterStoring(): void
+    public function testKeepsTheStoredFileWhenCompletionHandlingFailsAfterStoring(): void
     {
         $disk = $this->fakeDisk('exports');
+        $disk->buildTemporaryUrlsUsing(
+            fn (string $path, mixed $expiration): string => 'https://signed.example/' . $path,
+        );
+
+        Log::spy();
         $this->seedUsers(2);
 
         Event::listen(ExportCompleted::class, static function (): void {
@@ -648,16 +652,18 @@ final class ExportToDiskJobTest extends QueuedExportTestCase
                 ->toSpecification(),
         );
 
-        $caught = null;
+        app()->call([$job, 'handle']);
 
-        try {
-            app()->call([$job, 'handle']);
-        } catch (\Throwable $exception) {
-            $caught = $exception;
-        }
+        $disk->assertExists('exports/users.csv');
 
-        self::assertInstanceOf(\RuntimeException::class, $caught);
-        self::assertFalse($disk->exists('exports/users.csv'));
+        Log::shouldHaveReceived('warning') // @phpstan-ignore staticMethod.notFound
+            ->once()
+            ->withArgs(static fn (string $message, array $context): bool => $message === 'Queued export completed, but completion handling failed.'
+                && $context['disk']                                                  === 'exports'
+                && $context['path']                                                  === 'exports/users.csv'
+                && $context['format']                                                === 'csv'
+                && $context['exception'] instanceof \RuntimeException
+                && $context['exception']->getMessage() === 'blew up after storing');
     }
 
     /**
