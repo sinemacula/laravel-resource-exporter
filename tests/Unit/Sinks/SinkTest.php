@@ -4,6 +4,7 @@ declare(strict_types = 1);
 
 namespace Tests\Unit\Sinks;
 
+use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Support\Facades\Storage;
 use PHPUnit\Framework\Attributes\CoversClass;
 use SineMacula\Exporter\Contracts\Sink;
@@ -146,6 +147,36 @@ final class SinkTest extends ExporterTestCase
     }
 
     /**
+     * It raises a sink exception when copying a file into the stream fails.
+     *
+     * @return void
+     */
+    public function testStreamSinkThrowsWhenTheCopyFails(): void
+    {
+        $file   = $this->makeFile('payload');
+        $path   = (string) tempnam(sys_get_temp_dir(), 'ro_dst_');
+        $handle = fopen($path, 'rb');
+
+        self::assertIsResource($handle);
+
+        $thrown = false;
+
+        $this->withSuppressedWarnings(function () use ($handle, $file, &$thrown): void {
+            try {
+                (new StreamSink($handle))->putFromFile($file);
+            } catch (SinkException) {
+                $thrown = true;
+            }
+        });
+
+        fclose($handle);
+
+        @unlink($path);
+
+        self::assertTrue($thrown, 'A failed stream copy should raise a sink exception.');
+    }
+
+    /**
      * It drives a producer over a streamed response at the right status.
      *
      * @return void
@@ -241,6 +272,29 @@ final class SinkTest extends ExporterTestCase
     public function testDiskSinkThrowsWhenFileIsUnreadable(): void
     {
         $this->assertPutFromFileThrows(new DiskSink(Storage::fake('exports'), 'x.csv'));
+    }
+
+    /**
+     * It raises a sink exception when the disk reports a failed write.
+     *
+     * A disk configured with throw=false returns false rather than throwing, so
+     * the sink must surface that as a failure instead of silently succeeding.
+     *
+     * @return void
+     */
+    public function testDiskSinkThrowsWhenTheWriteReportsFailure(): void
+    {
+        $file = $this->makeFile('disk-payload');
+
+        $disk = \Mockery::mock(Filesystem::class);
+
+        /** @var \Mockery\Expectation $writeStream */
+        $writeStream = $disk->shouldReceive('writeStream');
+        $writeStream->once()->andReturnFalse();
+
+        $this->expectException(SinkException::class);
+
+        (new DiskSink($disk, 'reports/users.csv'))->putFromFile($file);
     }
 
     /**

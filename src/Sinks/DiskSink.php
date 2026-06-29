@@ -85,7 +85,13 @@ final class DiskSink implements Sink
         }
 
         try {
-            $this->disk->writeStream($this->path, $source, $this->options);
+            // A disk configured with throw=false (the framework default)
+            // reports a failed write by returning false rather than throwing,
+            // so the export would otherwise complete and resolve a download URL
+            // for a file that was never written.
+            if ($this->disk->writeStream($this->path, $source, $this->options) === false) {
+                throw new SinkException("Unable to write the export to [{$this->path}] on the disk sink.");
+            }
         } finally {
             fclose($source);
         }

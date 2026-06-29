@@ -14,6 +14,7 @@ use PHPUnit\Framework\Attributes\CoversTrait;
 use PHPUnit\Framework\Attributes\DataProvider;
 use SineMacula\Exporter\Engine;
 use SineMacula\Exporter\Events\StreamExportFailed;
+use SineMacula\Exporter\Exceptions\InvalidExportSchema;
 use SineMacula\Exporter\Http\Concerns\RespondsWithExports;
 use SineMacula\Exporter\Http\ExportFormat;
 use SineMacula\Exporter\Http\ExportNegotiator;
@@ -255,6 +256,24 @@ final class ExportNegotiationHttpTest extends ExporterTestCase
                 && $context['format']                                                === 'csv'
                 && is_array($context['warnings'])
                 && $context['warnings'] !== []);
+    }
+
+    /**
+     * It fails fast on an invalid preflight schema before the stream begins.
+     *
+     * @return void
+     */
+    public function testStreamExportFailsFastOnAnInvalidPreflightSchema(): void
+    {
+        $request = Request::create('/', 'GET', server: ['HTTP_ACCEPT' => 'text/csv']);
+        $schema  = new FlexibleSchema($request, [
+            Column::make('id', 'ID'),
+            Column::make('broken', 'Broken')->cast('does-not-exist'),
+        ]);
+
+        $this->expectException(InvalidExportSchema::class);
+
+        (new ExportNegotiator)->streamExport(new ArraySource([['id' => 1]]), $schema, 'csv', $request);
     }
 
     /**

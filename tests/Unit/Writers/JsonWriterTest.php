@@ -5,8 +5,12 @@ declare(strict_types = 1);
 namespace Tests\Unit\Writers;
 
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\CoversTrait;
 use PHPUnit\Framework\TestCase;
+use SineMacula\Exporter\Exceptions\SinkException;
+use SineMacula\Exporter\Sinks\StreamSink;
 use SineMacula\Exporter\Sinks\StringSink;
+use SineMacula\Exporter\Writers\Concerns\WritesBytes;
 use SineMacula\Exporter\Writers\JsonWriter;
 
 /**
@@ -18,6 +22,7 @@ use SineMacula\Exporter\Writers\JsonWriter;
  * @internal
  */
 #[CoversClass(JsonWriter::class)]
+#[CoversTrait(WritesBytes::class)]
 final class JsonWriterTest extends TestCase
 {
     /**
@@ -99,6 +104,35 @@ final class JsonWriterTest extends TestCase
     public function testMediaType(): void
     {
         self::assertSame('application/json', (new JsonWriter)->mediaType());
+    }
+
+    /**
+     * It raises a sink exception when a write to the stream fails.
+     *
+     * @return void
+     */
+    public function testThrowsWhenAWriteToTheStreamFails(): void
+    {
+        $path   = (string) tempnam(sys_get_temp_dir(), 'jsonw_');
+        $handle = fopen($path, 'rb');
+
+        self::assertIsResource($handle);
+
+        $thrown = false;
+
+        set_error_handler(static fn (): bool => true);
+
+        try {
+            (new JsonWriter)->write([['id' => 1]], new StreamSink($handle));
+        } catch (SinkException) {
+            $thrown = true;
+        } finally {
+            restore_error_handler();
+            fclose($handle);
+            @unlink($path);
+        }
+
+        self::assertTrue($thrown, 'A failed write should raise a sink exception.');
     }
 
     /**

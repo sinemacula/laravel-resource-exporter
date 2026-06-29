@@ -7,6 +7,7 @@ namespace SineMacula\Exporter\Writers;
 use SineMacula\Exporter\Contracts\HierarchicalWriter;
 use SineMacula\Exporter\Contracts\Sink;
 use SineMacula\Exporter\Writers\Concerns\EncodesJson;
+use SineMacula\Exporter\Writers\Concerns\WritesBytes;
 
 /**
  * Streaming JSON writer.
@@ -24,6 +25,7 @@ use SineMacula\Exporter\Writers\Concerns\EncodesJson;
 final readonly class JsonWriter implements HierarchicalWriter
 {
     use EncodesJson;
+    use WritesBytes;
 
     /**
      * Create a new JSON writer.
@@ -62,18 +64,18 @@ final readonly class JsonWriter implements HierarchicalWriter
         $stream = $sink->stream();
         $first  = true;
 
-        fwrite($stream, '[');
+        $this->writeBytes($stream, '[');
 
         try {
             foreach ($items as $item) {
 
                 if (!$first) {
-                    fwrite($stream, ',');
+                    $this->writeBytes($stream, ',');
                 }
 
                 $first = false;
 
-                fwrite($stream, $this->encodeJson($item, $this->flags));
+                $this->writeBytes($stream, $this->encodeJson($item, $this->flags));
             }
         } catch (\Throwable $exception) {
             $this->markTruncated($stream, $first);
@@ -81,7 +83,7 @@ final readonly class JsonWriter implements HierarchicalWriter
             throw $exception;
         }
 
-        fwrite($stream, ']');
+        $this->writeBytes($stream, ']');
 
         fflush($stream);
     }

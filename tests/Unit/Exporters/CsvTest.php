@@ -69,6 +69,49 @@ final class CsvTest extends ResourceTestCase
     }
 
     /**
+     * It neutralises spreadsheet formula triggers in string fields.
+     *
+     * @return void
+     */
+    public function testNeutralisesSpreadsheetFormulaTriggers(): void
+    {
+        $csv = (new Csv([]))->exportArray([
+            [
+                'equals' => '=1+2',
+                'plus'   => '+1',
+                'minus'  => '-1',
+                'at'     => '@SUM(A1)',
+                'tab'    => "\tcmd",
+                'safe'   => 'hello',
+            ],
+        ]);
+
+        self::assertStringContainsString('"\'=1+2"', $csv);
+        self::assertStringContainsString('"\'+1"', $csv);
+        self::assertStringContainsString('"\'-1"', $csv);
+        self::assertStringContainsString('"\'@SUM(A1)"', $csv);
+        self::assertStringContainsString("\"'\tcmd\"", $csv);
+        self::assertStringContainsString('"hello"', $csv);
+        self::assertStringNotContainsString('"\'hello"', $csv);
+    }
+
+    /**
+     * It leaves native numeric values untouched by formula neutralisation.
+     *
+     * @return void
+     */
+    public function testDoesNotNeutraliseNativeNumbers(): void
+    {
+        $csv = (new Csv([]))->exportArray([
+            ['amount' => -5, 'rate' => 3.5],
+        ]);
+
+        self::assertStringContainsString('"-5"', $csv);
+        self::assertStringContainsString('"3.5"', $csv);
+        self::assertStringNotContainsString('\'-5', $csv);
+    }
+
+    /**
      * It omits headers when disabled.
      *
      * @return void

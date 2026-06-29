@@ -7,6 +7,7 @@ namespace SineMacula\Exporter\Writers;
 use SineMacula\Exporter\Contracts\HierarchicalWriter;
 use SineMacula\Exporter\Contracts\Sink;
 use SineMacula\Exporter\Exceptions\XmlExportException;
+use SineMacula\Exporter\Writers\Concerns\WritesBytes;
 
 /**
  * Streaming XML writer.
@@ -24,6 +25,8 @@ use SineMacula\Exporter\Exceptions\XmlExportException;
  */
 final readonly class XmlWriter implements HierarchicalWriter
 {
+    use WritesBytes;
+
     /**
      * Create a new XML writer.
      *
@@ -82,7 +85,7 @@ final readonly class XmlWriter implements HierarchicalWriter
         try {
             foreach ($items as $item) {
                 $this->writeNode($xml, $this->item, $item);
-                fwrite($stream, $xml->flush());
+                $this->writeBytes($stream, $xml->flush());
             }
         } catch (\Throwable $exception) {
             $this->markTruncated($xml, $stream);
@@ -93,7 +96,7 @@ final readonly class XmlWriter implements HierarchicalWriter
         $xml->endElement();
         $xml->endDocument();
 
-        fwrite($stream, $xml->flush());
+        $this->writeBytes($stream, $xml->flush());
         fflush($stream);
     }
 

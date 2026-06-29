@@ -81,7 +81,9 @@ trait WritesThroughStream
         }
 
         try {
-            stream_copy_to_stream($source, $this->stream());
+            if (stream_copy_to_stream($source, $this->stream()) === false) {
+                throw new SinkException(sprintf('Unable to copy the export into the %s sink.', $this->streamLabel()));
+            }
         } finally {
             fclose($source);
         }

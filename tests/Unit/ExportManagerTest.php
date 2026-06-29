@@ -73,16 +73,16 @@ final class ExportManagerTest extends TestCase
     }
 
     /**
-     * It supports direct driver factory methods.
+     * It resolves the built-in drivers through the public format() entry point.
      *
      * @return void
      */
-    public function testCreateDriverMethodsReturnExpectedInstances(): void
+    public function testFormatResolvesBuiltInDriverInstances(): void
     {
         $manager = $this->makeManager();
 
-        self::assertInstanceOf(Csv::class, $manager->createCsvDriver([]));
-        self::assertInstanceOf(Xml::class, $manager->createXmlDriver([]));
+        self::assertInstanceOf(Csv::class, $manager->format('csv'));
+        self::assertInstanceOf(Xml::class, $manager->format('xml'));
     }
 
     /**

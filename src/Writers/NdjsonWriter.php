@@ -7,6 +7,7 @@ namespace SineMacula\Exporter\Writers;
 use SineMacula\Exporter\Contracts\HierarchicalWriter;
 use SineMacula\Exporter\Contracts\Sink;
 use SineMacula\Exporter\Writers\Concerns\EncodesJson;
+use SineMacula\Exporter\Writers\Concerns\WritesBytes;
 
 /**
  * Streaming NDJSON writer.
@@ -24,6 +25,7 @@ use SineMacula\Exporter\Writers\Concerns\EncodesJson;
 final readonly class NdjsonWriter implements HierarchicalWriter
 {
     use EncodesJson;
+    use WritesBytes;
 
     /**
      * Create a new NDJSON writer.
@@ -68,7 +70,7 @@ final readonly class NdjsonWriter implements HierarchicalWriter
 
         try {
             foreach ($items as $item) {
-                fwrite($stream, $this->encodeJson($item, $this->flags) . $this->endOfLine);
+                $this->writeBytes($stream, $this->encodeJson($item, $this->flags) . $this->endOfLine);
             }
         } catch (\Throwable $exception) {
             fwrite($stream, $this->encodeJson([Truncation::JSON_KEY => Truncation::REASON], $this->flags) . $this->endOfLine);
