@@ -391,10 +391,10 @@ final class ExportBuilder // phpcs:ignore SineMacula.Metrics.MaxMethodCount.TooM
     /**
      * Validate a tabular schema before a streamed response commits its 200.
      *
-     * The writer and media type are already resolved (and a missing one
-     * already thrown) while building the response headers; this adds the
-     * schema check so a preflight-strict schema fault throws here - before any
-     * bytes are streamed, rather than mid-body into an already-committed 200.
+     * The writer and media type are already resolved (and a missing one already
+     * thrown) while building the response headers; this adds the schema check
+     * so a preflight-strict schema fault throws here - before any bytes are
+     * streamed, rather than mid-body into an already-committed 200.
      *
      * @return void
      *
