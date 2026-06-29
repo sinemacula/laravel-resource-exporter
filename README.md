@@ -46,7 +46,7 @@ A few rules hold across the surface:
 - **Lazy row pipeline.** Rows are pulled from the source lazily (keyset `lazyById` pagination for queries) and passed
   straight through the engine. Textual and hierarchical writers flush progressively; XLSX finalises a temporary workbook
   before handing it to the sink.
-- **Stateless and Octane-safe.** Nothing caches the request or a mutable driver between exports; the media-type registry
+- **Stateless and Octane-safe.** Nothing caches the request or mutable state between exports; the media-type registry
   is built once at boot and read-only thereafter.
 - **Extensible by configuration.** Register a custom format in `config/exporter.php`; the negotiated and explicit paths
   resolve the same registry, so they always agree on the available formats.
@@ -73,14 +73,13 @@ php artisan vendor:publish --provider="SineMacula\Exporter\ExporterServiceProvid
 
 This creates `config/exporter.php`, where you can control:
 
-| Key           | Description                                                                      | Default      |
-|---------------|----------------------------------------------------------------------------------|--------------|
-| `default`     | Default format for the legacy `format()` API (env `EXPORTER_DEFAULT`).           | `csv`        |
-| `exporters`   | Named legacy drivers (`csv`, `xml`) and their per-driver options.                | `csv`, `xml` |
-| `alias`       | The container / facade accessor alias for the manager (env `EXPORTER_ALIAS`).    | `exporter`   |
-| `formats`     | Custom negotiable formats registered with the shared media-type registry.        | `[]`         |
-| `negotiation` | Query-endpoint limits: `max_rows` (10000), `per_page` (15), `chunk_size` (1000). | see file     |
-| `audit`       | Optional log `channel` for the `ExportCompleted` audit payload.                  | `null`       |
+| Key           | Description                                                                      | Default    |
+| ------------- | -------------------------------------------------------------------------------- | ---------- |
+| `default`     | Default export format when none is requested (env `EXPORTER_DEFAULT`).           | `csv`      |
+| `alias`       | The container / facade accessor alias for the manager (env `EXPORTER_ALIAS`).    | `exporter` |
+| `formats`     | Custom negotiable formats registered with the shared media-type registry.        | `[]`       |
+| `negotiation` | Query-endpoint settings: `default_format`, `max_rows`, `per_page`, `chunk_size`. | see file   |
+| `audit`       | Optional log `channel` for the `ExportCompleted` audit payload.                  | `null`     |
 
 ## Usage
 
@@ -257,7 +256,8 @@ Exporter::queue(User::class, UserResource::class)
 ```
 
 The job streams chunk by chunk into a local staging file and fires `ExportStarting`, `RowsExported`, `ExportCompleted`
-(carrying a signed temporary URL), and `ExportFailed`. The query is described by a serializable specification - constrain
+(carrying a signed temporary URL), and `ExportFailed`. The query is described by a serializable specification -
+constrain
 it with the query verbs on the builder rather than passing a live builder. HTTP streaming failures after bytes have
 started are reported separately through `StreamExportFailed`, with the format, actor and number of rows written.
 
@@ -289,15 +289,6 @@ negotiated and explicit paths share one registry, so a custom format is reachabl
 'formats' => [
     \App\Exports\ParquetFormat::class,
 ],
-```
-
-### Legacy array and string API
-
-The original v2 surface still works for turning a single resource, a collection, or a raw array of rows into a string:
-
-```php
-$csv = Exporter::format('csv')->exportCollection(UserResource::collection($users));
-$xml = Exporter::format('xml')->withoutFields(['internal_id'])->exportArray($rows);
 ```
 
 ## Requirements

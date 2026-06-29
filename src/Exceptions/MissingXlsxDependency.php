@@ -26,6 +26,6 @@ final class MissingXlsxDependency extends \RuntimeException implements ExporterE
      */
     public static function create(): self
     {
-        return new self('The XLSX writer requires the openspout/openspout package. Run: composer require openspout/openspout');
+        return new self('The XLSX writer requires the openspout/openspout package. Run: composer require openspout/openspout:^4.0');
     }
 }

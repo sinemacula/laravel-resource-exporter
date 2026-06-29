@@ -6,74 +6,25 @@ return [
 
     /*
     |---------------------------------------------------------------------------
-    | Default Exporter
+    | Default Format
     |---------------------------------------------------------------------------
     |
-    | This option controls the default exporter format that will be used when no
-    | specific format is requested. You can set this to any of the supported
-    | formats provided in the 'exporters' configuration below.
-    |
-    | The environment variable was renamed from DEFAULT_EXPORTER to
-    | EXPORTER_DEFAULT in v3. The legacy DEFAULT_EXPORTER name is still honoured
-    | as a fallback for one release to ease the upgrade; migrate to
-    | EXPORTER_DEFAULT, as the legacy name will be removed in a future major.
+    | The format an explicit export emits when no format is requested - the
+    | Exporter::export(), Exporter::query() and Exporter::queue() entry points.
+    | Set it to any built-in format (json, csv, tsv, xlsx, xml, ndjson) or a
+    | custom format registered in the 'formats' block below.
     |
     */
 
-    'default' => env('EXPORTER_DEFAULT', env('DEFAULT_EXPORTER', 'csv')),
-
-    /*
-    |---------------------------------------------------------------------------
-    | Exporter Configurations
-    |---------------------------------------------------------------------------
-    |
-    | Here you may define all of the exporters that your application supports.
-    | Each exporter corresponds to a specific driver that handles the conversion
-    | of resources to the desired format. You can customize each exporter by
-    | setting additional options like whether to include sub-resources in the
-    | output.
-    |
-    | Supported Drivers: "csv", "xml"
-    |
-    | Available Options:
-    |
-    | CSV Driver:
-    |   - 'delimiter' (string): The delimiter used to separate values.
-    |                           Default is ','.
-    |   - 'enclosure' (string): The enclosure character used to wrap values.
-    |                           Default is '"'.
-    |
-    | XML Driver:
-    |   - 'root_element' (string|null): The name of the root XML element.
-    |                                   Default is null, which uses the resource
-    |                                   name as the root element.
-    |   - 'pretty_print' (bool): Whether to pretty-print the XML output.
-    |                            Default is true.
-    |   - 'include_sub_resources' (bool): Whether to include sub-resources in
-    |                                     the output. Default is true.
-    |
-    */
-
-    'exporters' => [
-
-        'csv' => [
-            'driver' => 'csv',
-        ],
-
-        'xml' => [
-            'driver' => 'xml',
-        ],
-
-    ],
+    'default' => env('EXPORTER_DEFAULT', 'csv'),
 
     /*
     |---------------------------------------------------------------------------
     | Exporter Alias
     |---------------------------------------------------------------------------
     |
-    | This option controls the alias name used for the Exporter facade in your
-    | application. By default, it is set to 'exporter', but you can change this
-    | value to any alias that suits your application's needs.
+    | The container alias the Exporter facade resolves. Change it only if the
+    | default 'exporter' binding name clashes with another package.
     |
     */
 
@@ -117,6 +68,10 @@ return [
     |
     | Available Options:
     |
+    |   - 'default_format' (string|null): The format the negotiator falls
+    |                            back to when neither the Accept header nor a
+    |                            ?format= query parameter matches. Null defers
+    |                            to the registry's built-in default (json).
     |   - 'max_rows' (int|null): The hard cap on how many rows a single
     |                            synchronous, streamed export may emit. The
     |                            full set is a different, larger response than
@@ -135,9 +90,10 @@ return [
     */
 
     'negotiation' => [
-        'max_rows'   => env('EXPORTER_MAX_ROWS', 10000),
-        'per_page'   => env('EXPORTER_PER_PAGE', 15),
-        'chunk_size' => env('EXPORTER_CHUNK_SIZE', 1000),
+        'default_format' => env('EXPORTER_NEGOTIATION_DEFAULT'),
+        'max_rows'       => env('EXPORTER_MAX_ROWS', 10000),
+        'per_page'       => env('EXPORTER_PER_PAGE', 15),
+        'chunk_size'     => env('EXPORTER_CHUNK_SIZE', 1000),
     ],
 
     /*

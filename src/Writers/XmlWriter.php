@@ -198,7 +198,7 @@ final readonly class XmlWriter implements HierarchicalWriter
      */
     private function scalar(mixed $value): string
     {
-        return match (true) {
+        $text = match (true) {
             $value === null                      => '',
             is_bool($value)                      => $value ? 'true' : 'false',
             $value instanceof \BackedEnum        => (string) $value->value,
@@ -207,6 +207,11 @@ final readonly class XmlWriter implements HierarchicalWriter
             $value instanceof \Stringable        => (string) $value,
             default                              => '',
         };
+
+        // Strip characters an XML 1.0 document may not contain (e.g. a vertical
+        // tab), so a single poisoned data value cannot make the streamed
+        // document malformed and unparseable for every other row.
+        return (string) preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F]/', '', $text);
     }
 
     /**

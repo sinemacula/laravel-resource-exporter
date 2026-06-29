@@ -35,8 +35,8 @@ resource exports. It targets Laravel 12 and PHP 8.3 only.
 
 - **BREAKING:** Renamed the default-format environment variable from
   `DEFAULT_EXPORTER` to `EXPORTER_DEFAULT`. The config key (`exporter.default`)
-  is unchanged. The legacy `DEFAULT_EXPORTER` name is honoured as a fallback for
-  one release and will be removed in a future major. See `UPGRADE.md`.
+  is unchanged. The old `DEFAULT_EXPORTER` name is no longer read. See
+  `UPGRADE.md`.
 - **BREAKING:** `ExporterServiceProvider` is now `final`, and its previously
   `protected` extension points (`resolveConfigPath()`,
   `hasConfigPathFunction()`) have been removed. Customise behaviour through the

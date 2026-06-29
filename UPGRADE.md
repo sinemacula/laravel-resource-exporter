@@ -19,16 +19,8 @@ consistency with the package's other `EXPORTER_*` variables.
 
 The config key itself (`exporter.default`) is unchanged.
 
-For one release the legacy name is still honoured as a fallback, so an existing
-`DEFAULT_EXPORTER` keeps working without immediate changes:
-
-```php
-'default' => env('EXPORTER_DEFAULT', env('DEFAULT_EXPORTER', 'csv')),
-```
-
-Migrate at your convenience - rename the variable in every `.env`, deployment
-secret, and CI definition - because the legacy `DEFAULT_EXPORTER` fallback will
-be removed in a future major:
+v3 does not read the old name, so rename the variable in every `.env`,
+deployment secret, and CI definition before deploying:
 
 ```diff
 -DEFAULT_EXPORTER=csv

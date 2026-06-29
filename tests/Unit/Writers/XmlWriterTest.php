@@ -50,6 +50,20 @@ final class XmlWriterTest extends TestCase
     }
 
     /**
+     * It strips XML-1.0-illegal control characters from data values so a
+     * poisoned field cannot make the document malformed.
+     *
+     * @return void
+     */
+    public function testStripsXmlIllegalControlCharactersFromValues(): void
+    {
+        $output = $this->write(new XmlWriter, [['note' => "a\x0Bb\x00c\x1Fd"]]);
+
+        self::assertStringContainsString('<note>abcd</note>', $output);
+        self::assertSame(0, preg_match('/[\x00-\x08\x0B\x0C\x0E-\x1F]/', $output));
+    }
+
+    /**
      * It honours configured root and item element names.
      *
      * @return void
