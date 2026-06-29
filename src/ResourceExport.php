@@ -404,6 +404,11 @@ final class ResourceExport
      * maxRows()) when the count is known to be safe and the round-trip is not
      * wanted.
      *
+     * The cap counts parent rows. A schema that expands a relation emits one
+     * row per child, so the streamed output can exceed the cap; set maxRows()
+     * with the expansion fan-out in mind, or queue the export when the
+     * post-expansion size is unbounded.
+     *
      * @return void
      *
      * @throws \SineMacula\Exporter\Exceptions\RowLimitExceeded

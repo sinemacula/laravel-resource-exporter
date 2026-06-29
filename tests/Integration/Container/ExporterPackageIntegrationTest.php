@@ -6,14 +6,22 @@ namespace Tests\Integration\Container;
 
 use Illuminate\Contracts\Config\Repository;
 use Illuminate\Foundation\Application;
+use Illuminate\Http\Request;
 use Illuminate\Routing\Router;
 use Orchestra\Testbench\TestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use SineMacula\Exporter\ExporterServiceProvider;
 use SineMacula\Exporter\ExportManager;
+use SineMacula\Exporter\Facades\Exporter;
 use SineMacula\Exporter\Http\ExportNegotiator;
 use SineMacula\Exporter\Http\MediaTypeRegistry;
 use SineMacula\Exporter\Http\Middleware\NegotiateExports;
+use SineMacula\Exporter\Schema\Column;
+use SineMacula\Exporter\Schema\Contracts\CastRegistry;
+use Tests\Support\Models\User;
+use Tests\Support\Resources\UserResource;
+use Tests\Support\Schema\FlexibleSchema;
+use Tests\Support\Schema\ShoutCaster;
 
 /**
  * Integration tests for package container wiring and runtime behavior.
@@ -59,6 +67,30 @@ final class ExporterPackageIntegrationTest extends TestCase
 
         self::assertInstanceOf(ExportNegotiator::class, $negotiator);
         self::assertSame($negotiator, $app->make(ExportNegotiator::class));
+    }
+
+    /**
+     * It routes a caster registered on the shared registry through the engine
+     * that every export resolves, so a custom cast reaches the output.
+     *
+     * @return void
+     */
+    public function testACasterRegisteredOnTheSharedRegistryReachesExports(): void
+    {
+        $app = $this->application();
+
+        $app->make(CastRegistry::class)->register('shout', new ShoutCaster);
+
+        $request = $app->make('request');
+        assert($request instanceof Request);
+
+        $schema     = new FlexibleSchema($request, [Column::make('name', 'Name')->cast('shout')]);
+        $user       = (new User)->forceFill(['name' => 'alice']);
+        $collection = UserResource::collection(collect([$user])); // @phpstan-ignore staticMethod.dynamicCall
+
+        $csv = Exporter::collection($collection)->schema($schema)->format('csv')->toString();
+
+        self::assertStringContainsString('ALICE', $csv);
     }
 
     /**

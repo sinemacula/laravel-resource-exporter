@@ -4,7 +4,6 @@ declare(strict_types = 1);
 
 namespace SineMacula\Exporter\Http;
 
-use SineMacula\Exporter\Contracts\Format;
 use SineMacula\Exporter\Contracts\HierarchicalWriter;
 use SineMacula\Exporter\Contracts\Writer;
 
@@ -21,7 +20,7 @@ use SineMacula\Exporter\Contracts\Writer;
  * @author      Ben Carey <bdmc@sinemacula.co.uk>
  * @copyright   2026 Sine Macula Limited.
  */
-final readonly class ExportFormat implements Format
+final readonly class ExportFormat
 {
     /**
      * Create a new export format descriptor.
@@ -63,7 +62,6 @@ final readonly class ExportFormat implements Format
      *
      * @return string
      */
-    #[\Override]
     public function name(): string
     {
         return $this->name;
@@ -74,7 +72,6 @@ final readonly class ExportFormat implements Format
      *
      * @return string
      */
-    #[\Override]
     public function extension(): string
     {
         return $this->extension;
@@ -85,7 +82,6 @@ final readonly class ExportFormat implements Format
      *
      * @return string
      */
-    #[\Override]
     public function defaultMediaType(): string
     {
         return $this->defaultMediaType;
@@ -96,7 +92,6 @@ final readonly class ExportFormat implements Format
      *
      * @return list<string>
      */
-    #[\Override]
     public function mediaTypes(): array
     {
         return $this->mediaTypes;
@@ -107,7 +102,6 @@ final readonly class ExportFormat implements Format
      *
      * @return bool
      */
-    #[\Override]
     public function isTabular(): bool
     {
         return $this->tabular;

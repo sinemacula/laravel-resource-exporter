@@ -14,6 +14,11 @@ use SineMacula\Exporter\Schema\Enums\AggregateType;
  * (`withCount`/`withSum`/`with`) and the column reads it to fold the loaded
  * relation into a single cell. Kept stateless and immutable.
  *
+ * The aggregated relation is the declaring column's key, not a field on this
+ * marker: a column carrying a count or sum aggregate must therefore be keyed by
+ * the Eloquent relation name (e.g. a column keyed `orders` counts `orders()`),
+ * and `withCount`/`withSum` name their alias columns from that same key.
+ *
  * @author      Ben Carey <bdmc@sinemacula.co.uk>
  * @copyright   2026 Sine Macula Limited.
  */

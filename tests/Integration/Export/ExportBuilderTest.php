@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
+use SineMacula\Exporter\Engine;
 use SineMacula\Exporter\Events\StreamExportFailed;
 use SineMacula\Exporter\Exceptions\InvalidExportSchema;
 use SineMacula\Exporter\Exceptions\NoTabularRepresentation;
@@ -86,6 +87,35 @@ final class ExportBuilderTest extends ExporterTestCase
         $response = Exporter::collection($this->collection())->download();
 
         self::assertSame('attachment; filename=users.csv', $response->headers->get('Content-Disposition'));
+    }
+
+    /**
+     * It abandons a streamed download the moment the client disconnects rather
+     * than draining the whole query into a response nobody is reading.
+     *
+     * @return void
+     */
+    public function testDownloadStopsStreamingWhenTheClientDisconnects(): void
+    {
+        $this->seedUsers(5);
+
+        $seen    = 0;
+        $builder = new ExportBuilder(
+            $this->collection(),
+            null,
+            new MediaTypeRegistry,
+            new Engine,
+            static function () use (&$seen): bool {
+                return ++$seen > 2;
+            },
+        );
+
+        $body = $this->streamToString($builder->format('csv')->download());
+
+        self::assertStringContainsString('User 1', $body);
+        self::assertStringContainsString('User 2', $body);
+        self::assertStringNotContainsString('User 3', $body);
+        self::assertStringNotContainsString('User 5', $body);
     }
 
     /**

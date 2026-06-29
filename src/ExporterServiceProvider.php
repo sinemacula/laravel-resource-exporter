@@ -13,6 +13,8 @@ use SineMacula\Exporter\Http\ExportFormat;
 use SineMacula\Exporter\Http\ExportNegotiator;
 use SineMacula\Exporter\Http\MediaTypeRegistry;
 use SineMacula\Exporter\Http\Middleware\NegotiateExports;
+use SineMacula\Exporter\Schema\CastRegistry;
+use SineMacula\Exporter\Schema\Contracts\CastRegistry as CastRegistryContract;
 
 /**
  * Exporter service provider.
@@ -47,6 +49,7 @@ final class ExporterServiceProvider extends ServiceProvider
         );
 
         $this->registerManager();
+        $this->registerEngine();
         $this->registerNegotiation();
     }
 
@@ -110,6 +113,27 @@ final class ExporterServiceProvider extends ServiceProvider
     }
 
     /**
+     * Bind the cast registry and engine as shared singletons.
+     *
+     * The cast registry is a single boot-time singleton, so a caster registered
+     * on it (app(CastRegistry::class)->register(...)) is reachable to every
+     * export. The engine is bound over that registry so the explicit and
+     * negotiated paths resolve the same casters; both hold no per-request state
+     * and are Octane-safe.
+     *
+     * @return void
+     */
+    private function registerEngine(): void
+    {
+        $this->app->singleton(CastRegistryContract::class, static fn (): CastRegistry => new CastRegistry);
+
+        $this->app->singleton(
+            Engine::class,
+            static fn (Application $app): Engine => new Engine($app->make(CastRegistryContract::class)),
+        );
+    }
+
+    /**
      * Bind the content-negotiation collaborators to the service container.
      *
      * The media type registry is a single boot-time singleton seeded from the
@@ -142,7 +166,10 @@ final class ExporterServiceProvider extends ServiceProvider
 
         $this->app->singleton(
             ExportNegotiator::class,
-            static fn (Application $app): ExportNegotiator => new ExportNegotiator($app->make(MediaTypeRegistry::class)),
+            static fn (Application $app): ExportNegotiator => new ExportNegotiator(
+                $app->make(MediaTypeRegistry::class),
+                $app->make(Engine::class),
+            ),
         );
     }
 

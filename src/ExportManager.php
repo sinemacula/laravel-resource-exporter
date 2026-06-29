@@ -50,7 +50,12 @@ final readonly class ExportManager implements ExportFactory
     #[\Override]
     public function export(Builder|JsonResource $subject, ?string $resource = null): ExportBuilder
     {
-        return new ExportBuilder($subject, $resource, $this->app->make(MediaTypeRegistry::class));
+        return new ExportBuilder(
+            $subject,
+            $resource,
+            $this->app->make(MediaTypeRegistry::class),
+            $this->app->make(Engine::class),
+        );
     }
 
     /**
