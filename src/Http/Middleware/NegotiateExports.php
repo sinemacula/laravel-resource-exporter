@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\LazyCollection;
 use SineMacula\Exporter\Http\ExportNegotiator;
 use SineMacula\Exporter\Schema\Column;
+use SineMacula\Exporter\Schema\DecodedPayloadSchema;
 use SineMacula\Exporter\Schema\TabularSchema;
 use SineMacula\Exporter\Sources\LazyCollectionSource;
 use Symfony\Component\HttpFoundation\Response;
@@ -150,39 +151,7 @@ final readonly class NegotiateExports
             );
         }
 
-        return new class ($request, $columns) extends TabularSchema {
-            /** @var list<\SineMacula\Exporter\Schema\Column> The ad-hoc columns mirroring the decoded payload */
-            private readonly array $columns;
-
-            /**
-             * Create the ad-hoc legacy schema.
-             *
-             * @param  \Illuminate\Http\Request  $request
-             * @param  list<\SineMacula\Exporter\Schema\Column>  $columns
-             */
-            public function __construct(
-
-                // The request the export is built for.
-                Request $request,
-
-                array $columns,
-            ) {
-                parent::__construct($request);
-
-                $this->columns = $columns;
-            }
-
-            /**
-             * Get the ad-hoc columns mirroring the decoded payload.
-             *
-             * @return list<\SineMacula\Exporter\Schema\Column>
-             */
-            #[\Override]
-            public function columns(): array
-            {
-                return $this->columns;
-            }
-        };
+        return new DecodedPayloadSchema($request, $columns);
     }
 
     /**

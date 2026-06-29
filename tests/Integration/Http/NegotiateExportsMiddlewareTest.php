@@ -8,6 +8,7 @@ use Illuminate\Routing\Router;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use SineMacula\Exporter\Http\Middleware\NegotiateExports;
+use SineMacula\Exporter\Schema\DecodedPayloadSchema;
 use Tests\Support\ExporterTestCase;
 
 /**
@@ -25,6 +26,7 @@ use Tests\Support\ExporterTestCase;
  * @internal
  */
 #[CoversClass(NegotiateExports::class)]
+#[CoversClass(DecodedPayloadSchema::class)]
 final class NegotiateExportsMiddlewareTest extends ExporterTestCase
 {
     /**
