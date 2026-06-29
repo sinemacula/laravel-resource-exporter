@@ -130,10 +130,14 @@ final class SecurityTest extends ExporterTestCase
 
         self::assertInstanceOf(StreamedResponse::class, $response);
 
-        $lines = array_values(array_filter(explode("\n", $this->streamToString($response)), static fn (string $line): bool => $line !== ''));
+        $body  = $this->streamToString($response);
+        $lines = array_values(array_filter(explode("\n", $body), static fn (string $line): bool => $line !== ''));
 
         self::assertTrue($checked, 'The full-set authorization callback must run.');
         self::assertCount(6, $lines, 'The heading row plus all five data rows must stream.');
+        self::assertSame('ID,Name,Email,Active,Joined', $lines[0]);
+        self::assertStringContainsString('1,"User 1",user1@example.test', $body);
+        self::assertStringContainsString('5,"User 5",user5@example.test', $body);
     }
 
     /**
