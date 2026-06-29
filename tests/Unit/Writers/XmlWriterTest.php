@@ -9,8 +9,8 @@ use PHPUnit\Framework\TestCase;
 use SineMacula\Exporter\Exceptions\XmlExportException;
 use SineMacula\Exporter\Sinks\StringSink;
 use SineMacula\Exporter\Writers\XmlWriter;
-use Tests\Support\V3\Enums\Priority;
-use Tests\Support\V3\Enums\Role;
+use Tests\Support\Enums\Priority;
+use Tests\Support\Enums\Role;
 
 /**
  * Golden-output tests for the streaming XML writer.

@@ -11,8 +11,8 @@ use SineMacula\Exporter\Schema\Casters\DateCaster;
 use SineMacula\Exporter\Schema\Casters\EnumCaster;
 use SineMacula\Exporter\Schema\Casters\NumberCaster;
 use SineMacula\Exporter\Schema\Enums\CellType;
-use Tests\Support\V3\Enums\Role;
-use Tests\Support\V3\Enums\Suit;
+use Tests\Support\Enums\Role;
+use Tests\Support\Enums\Suit;
 
 /**
  * Tests the built-in typed-cell casters.

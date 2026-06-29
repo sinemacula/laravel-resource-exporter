@@ -12,8 +12,8 @@ use Illuminate\Support\Facades\Log;
 use PHPUnit\Framework\Attributes\CoversClass;
 use SineMacula\Exporter\Events\ExportCompleted;
 use SineMacula\Exporter\Export\ExportAuditor;
-use Tests\Support\V3\ExporterTestCase;
-use Tests\Support\V3\Models\Actor;
+use Tests\Support\ExporterTestCase;
+use Tests\Support\Models\Actor;
 
 /**
  * Unit tests for the shared full-set authorization and audit collaborator.
@@ -45,6 +45,18 @@ final class ExportAuditorTest extends ExporterTestCase
         });
 
         self::assertTrue($ran);
+    }
+
+    /**
+     * It throws when the caller-supplied authorization callback denies access.
+     *
+     * @return void
+     */
+    public function testAuthorizeThrowsWhenTheCallbackReturnsFalse(): void
+    {
+        $this->expectException(AuthorizationException::class);
+
+        (new ExportAuditor)->authorize(callback: static fn (): bool => false);
     }
 
     /**

@@ -14,7 +14,7 @@ use SineMacula\Exporter\Sinks\StreamSink;
 use SineMacula\Exporter\Sinks\StringSink;
 use SineMacula\Exporter\Sinks\TempFileSink;
 use Symfony\Component\HttpFoundation\StreamedResponse;
-use Tests\Support\V3\ExporterTestCase;
+use Tests\Support\ExporterTestCase;
 
 /**
  * Tests the five export sinks.

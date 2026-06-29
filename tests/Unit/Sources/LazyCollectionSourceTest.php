@@ -7,8 +7,8 @@ namespace Tests\Unit\Sources;
 use Illuminate\Support\LazyCollection;
 use PHPUnit\Framework\Attributes\CoversClass;
 use SineMacula\Exporter\Sources\LazyCollectionSource;
-use Tests\Support\V3\ExporterTestCase;
-use Tests\Support\V3\Models\User;
+use Tests\Support\ExporterTestCase;
+use Tests\Support\Models\User;
 
 /**
  * Tests for the lazy collection source adapter's chunked eager-loading.
@@ -36,7 +36,7 @@ final class LazyCollectionSourceTest extends ExporterTestCase
         $this->seedUsers(1);
         $this->seedOrders(1, [5]);
 
-        /** @var \Tests\Support\V3\Models\User $user */
+        /** @var \Tests\Support\Models\User $user */
         $user = User::query()->firstOrFail(); // @phpstan-ignore staticMethod.dynamicCall
 
         self::assertFalse($user->relationLoaded('orders'));

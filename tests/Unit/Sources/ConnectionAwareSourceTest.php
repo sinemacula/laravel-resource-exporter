@@ -8,8 +8,8 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 use SineMacula\Exporter\Schema\EagerLoadPlan;
 use SineMacula\Exporter\Sources\ConnectionAwareSource;
-use Tests\Support\V3\AggregateRecordingSource;
-use Tests\Support\V3\ArraySource;
+use Tests\Support\AggregateRecordingSource;
+use Tests\Support\ArraySource;
 
 /**
  * Tests the connection-aware source decorator.

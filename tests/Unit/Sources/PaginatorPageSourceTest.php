@@ -7,8 +7,8 @@ namespace Tests\Unit\Sources;
 use Illuminate\Pagination\Paginator;
 use PHPUnit\Framework\Attributes\CoversClass;
 use SineMacula\Exporter\Sources\PaginatorPageSource;
-use Tests\Support\V3\ExporterTestCase;
-use Tests\Support\V3\Models\User;
+use Tests\Support\ExporterTestCase;
+use Tests\Support\Models\User;
 
 /**
  * Tests for the paginator page source adapter's eager-loading.
@@ -35,7 +35,7 @@ final class PaginatorPageSourceTest extends ExporterTestCase
         $this->seedUsers(1);
         $this->seedOrders(1, [5]);
 
-        /** @var \Tests\Support\V3\Models\User $user */
+        /** @var \Tests\Support\Models\User $user */
         $user = User::query()->firstOrFail(); // @phpstan-ignore staticMethod.dynamicCall
 
         self::assertFalse($user->relationLoaded('orders'));

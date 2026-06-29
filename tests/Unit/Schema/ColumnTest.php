@@ -11,7 +11,7 @@ use SineMacula\Exporter\Schema\CastRegistry;
 use SineMacula\Exporter\Schema\CellValue;
 use SineMacula\Exporter\Schema\Column;
 use SineMacula\Exporter\Schema\Enums\CellType;
-use Tests\Support\V3\Enums\Role;
+use Tests\Support\Enums\Role;
 
 /**
  * Tests for the per-cell pipeline of a tabular column.

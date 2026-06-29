@@ -15,9 +15,9 @@ use SineMacula\Exporter\Schema\Enums\CellType;
 use SineMacula\Exporter\Sinks\StringSink;
 use SineMacula\Exporter\Sinks\TempFileSink;
 use SineMacula\Exporter\Writers\XlsxWriter;
-use Tests\Support\V3\Concerns\ReadsXlsx;
-use Tests\Support\V3\Concerns\ShapesRows;
-use Tests\Support\V3\Schema\ArraySchema;
+use Tests\Support\Concerns\ReadsXlsx;
+use Tests\Support\Concerns\ShapesRows;
+use Tests\Support\Schema\ArraySchema;
 
 /**
  * Golden read-back tests for the tabular XLSX writer.

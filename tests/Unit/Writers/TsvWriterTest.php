@@ -10,8 +10,8 @@ use PHPUnit\Framework\TestCase;
 use SineMacula\Exporter\Schema\Column;
 use SineMacula\Exporter\Sinks\StringSink;
 use SineMacula\Exporter\Writers\TsvWriter;
-use Tests\Support\V3\Concerns\ShapesRows;
-use Tests\Support\V3\Schema\ArraySchema;
+use Tests\Support\Concerns\ShapesRows;
+use Tests\Support\Schema\ArraySchema;
 
 /**
  * Golden-output tests for the streaming TSV writer.

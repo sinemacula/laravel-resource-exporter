@@ -12,9 +12,9 @@ use SineMacula\Exporter\Schema\Column;
 use SineMacula\Exporter\Schema\TabularSchema;
 use SineMacula\Exporter\Sinks\StringSink;
 use SineMacula\Exporter\Writers\CsvWriter;
-use Tests\Support\V3\ArraySource;
-use Tests\Support\V3\Schema\FlexibleSchema;
-use Tests\Support\V3\Schema\GatedSchema;
+use Tests\Support\ArraySource;
+use Tests\Support\Schema\FlexibleSchema;
+use Tests\Support\Schema\GatedSchema;
 
 /**
  * Tests for the export engine: column gating, the attribute-leak boundary, and

@@ -12,8 +12,8 @@ use SineMacula\Exporter\Schema\Column;
 use SineMacula\Exporter\Schema\Enums\CellType;
 use SineMacula\Exporter\Sinks\TempFileSink;
 use SineMacula\Exporter\Writers\XlsxWriter;
-use Tests\Support\V3\Concerns\ReadsXlsx;
-use Tests\Support\V3\Schema\ArraySchema;
+use Tests\Support\Concerns\ReadsXlsx;
+use Tests\Support\Schema\ArraySchema;
 
 /**
  * Constant-memory streaming test for a large XLSX export.

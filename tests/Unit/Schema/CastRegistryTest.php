@@ -15,8 +15,8 @@ use SineMacula\Exporter\Schema\CastRegistry;
 use SineMacula\Exporter\Schema\CellValue;
 use SineMacula\Exporter\Schema\Contracts\Caster;
 use SineMacula\Exporter\Schema\Enums\CellType;
-use Tests\Support\V3\Enums\Role;
-use Tests\Support\V3\Enums\Suit;
+use Tests\Support\Enums\Role;
+use Tests\Support\Enums\Suit;
 
 /**
  * Tests for the single cast registry and the built-in casters.
