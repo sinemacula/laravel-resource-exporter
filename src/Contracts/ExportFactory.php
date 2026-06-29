@@ -14,10 +14,8 @@ use SineMacula\Exporter\ExportBuilder;
  * Export factory contract.
  *
  * The public surface of the export manager, bound in the container under this
- * interface so the documented fluent entry points and `app(...)->extend(...)`
- * resolve the same singleton whether a consumer type-hints the interface or the
- * concrete manager. Covers both the fluent v3 verbs (export, collection, query,
- * queue) and the legacy driver surface (format, build, extend).
+ * interface so the documented fluent entry points resolve the same singleton
+ * whether a consumer type-hints the interface or the concrete manager.
  *
  * @author      Ben Carey <bdmc@sinemacula.co.uk>
  * @copyright   2026 Sine Macula Limited.
@@ -58,29 +56,4 @@ interface ExportFactory
      * @return \SineMacula\Exporter\Export\QueuedExport
      */
     public function queue(string $model, string $resource): QueuedExport;
-
-    /**
-     * Get an exporter instance for the given driver name.
-     *
-     * @param  string|null  $name
-     * @return \SineMacula\Exporter\Contracts\Exporter
-     */
-    public function format(?string $name = null): Exporter;
-
-    /**
-     * Build an on-demand exporter from the given configuration.
-     *
-     * @param  array<string, mixed>|null  $config
-     * @return \SineMacula\Exporter\Contracts\Exporter
-     */
-    public function build(?array $config = null): Exporter;
-
-    /**
-     * Register a custom driver creator Closure.
-     *
-     * @param  string  $driver
-     * @param  \Closure(\Illuminate\Contracts\Foundation\Application, array<string, mixed>): \SineMacula\Exporter\Contracts\Exporter  $callback
-     * @return self
-     */
-    public function extend(string $driver, \Closure $callback): self;
 }

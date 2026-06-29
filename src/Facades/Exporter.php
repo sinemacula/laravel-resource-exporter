@@ -15,12 +15,6 @@ use SineMacula\Exporter\Testing\ExporterFake;
  * @author      Ben Carey <bdmc@sinemacula.co.uk>
  * @copyright   2026 Sine Macula Limited.
  *
- * @method static \SineMacula\Exporter\Contracts\Exporter format(string|null $format)
- * @method static array<string, mixed> getConfig()
- * @method static \SineMacula\Exporter\Contracts\Exporter withoutFields(string|array<int, string> $fields)
- * @method static string exportArray(array<int, array<string, mixed> > $rows)
- * @method static string exportItem(\Illuminate\Http\Resources\Json\JsonResource $resource)
- * @method static string exportCollection(\Illuminate\Http\Resources\Json\ResourceCollection $collection)
  * @method static \SineMacula\Exporter\ExportBuilder export(\Illuminate\Database\Eloquent\Builder|\Illuminate\Http\Resources\Json\JsonResource $subject, ?string $resource = null)
  * @method static \SineMacula\Exporter\ExportBuilder collection(\Illuminate\Http\Resources\Json\ResourceCollection $collection)
  * @method static \SineMacula\Exporter\ExportBuilder query(\Illuminate\Database\Eloquent\Builder<\Illuminate\Database\Eloquent\Model> $query, string $resource)

@@ -388,11 +388,13 @@ final readonly class Engine
     /**
      * Stream every shaped row for one parent against the expansion axis.
      *
-     * The axis children are iterated directly - never buffered into an
-     * intermediate list - so a parent with a million children fans out at
-     * constant memory. A parent with children yields one row per child; a
-     * childless parent yields a single blank-child row, or no rows when the
-     * axis drops empties.
+     * The axis children are iterated directly - never copied into an
+     * intermediate list - so the fan-out itself adds no memory. The children
+     * are, however, eager-loaded with their parent chunk, so peak memory scales
+     * with the children per chunk; keep the chunk size and child cardinality
+     * bounded for a high-cardinality expansion relation. A parent with children
+     * yields one row per child; a childless parent yields a single blank-child
+     * row, or no rows when the axis drops empties.
      *
      * @param  array<array-key, mixed>|object  $item
      * @param  \SineMacula\Exporter\Schema\ExpandAxis  $axis

@@ -19,8 +19,11 @@ use Carbon\CarbonInterface;
  * The delivery fields - disk, path, and the signed temporary URL - are present
  * only for the queued-to-disk path (a streamed response has no stored file) so
  * a listener can notify the actor where the finished export can be downloaded.
- * The queued flag discriminates the two front doors directly, so a listener can
- * branch on it without inferring the path from the presence of a disk.
+ * The signed URL is a bearer capability that grants download access for its
+ * lifetime, so a listener must treat it as a secret - never log it, broadcast
+ * it, or persist it beyond the intended recipient. The queued flag
+ * discriminates the two front doors directly, so a listener can branch on it
+ * without inferring the path from the presence of a disk.
  *
  * @author      Ben Carey <bdmc@sinemacula.co.uk>
  * @copyright   2026 Sine Macula Limited.

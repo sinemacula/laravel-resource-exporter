@@ -140,17 +140,20 @@ final class CsvWriterTest extends TestCase
     }
 
     /**
-     * It honours a configured flush threshold.
+     * It preserves every row in order when a low flush threshold forces a flush
+     * after each row rather than buffering the whole export.
      *
      * @return void
      */
-    public function testFlushThresholdIsApplied(): void
+    public function testFlushThresholdPreservesRowsAcrossFlushBoundaries(): void
     {
         $output = $this->write(new CsvWriter(flushThreshold: 1), [
             ['id' => 1, 'name' => 'A', 'active' => true, 'note' => 'x'],
+            ['id' => 2, 'name' => 'B', 'active' => false, 'note' => 'y'],
+            ['id' => 3, 'name' => 'C', 'active' => true, 'note' => 'z'],
         ]);
 
-        self::assertSame("ID,Name,Active,Note\n1,A,Yes,x\n", $output);
+        self::assertSame("ID,Name,Active,Note\n1,A,Yes,x\n2,B,No,y\n3,C,Yes,z\n", $output);
     }
 
     /**

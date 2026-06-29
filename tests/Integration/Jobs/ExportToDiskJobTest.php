@@ -128,8 +128,15 @@ final class ExportToDiskJobTest extends QueuedExportTestCase
     public function testGeneratesASignedTemporaryUrlForTheStoredFile(): void
     {
         $disk = $this->fakeDisk('exports');
+
+        $captured = null;
+
         $disk->buildTemporaryUrlsUsing(
-            fn (string $path, mixed $expiration): string => 'https://signed.example/' . $path,
+            function (string $path, mixed $expiration) use (&$captured): string {
+                $captured = $expiration;
+
+                return 'https://signed.example/' . $path;
+            },
         );
 
         Event::fake();
@@ -138,6 +145,7 @@ final class ExportToDiskJobTest extends QueuedExportTestCase
         ExportToDiskJob::dispatchSync(
             QueuedExport::forModel(User::class, UserResource::class)
                 ->toDisk('exports', 'exports/users.csv')
+                ->expireAfter(15)
                 ->withoutAuthorization()
                 ->toSpecification(),
         );
@@ -147,6 +155,11 @@ final class ExportToDiskJobTest extends QueuedExportTestCase
             static fn (ExportCompleted $event): bool => $event->url === 'https://signed.example/exports/users.csv'
                 && $event->queued                                   === true,
         );
+
+        // The configured lifetime must reach temporaryUrl() as a real expiry
+        // instant, not be silently dropped.
+        self::assertInstanceOf(\DateTimeInterface::class, $captured);
+        self::assertEqualsWithDelta(now()->addMinutes(15)->getTimestamp(), $captured->getTimestamp(), 5);
     }
 
     /**

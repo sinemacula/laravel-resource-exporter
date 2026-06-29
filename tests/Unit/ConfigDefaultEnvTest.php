@@ -10,10 +10,8 @@ use PHPUnit\Framework\TestCase;
 /**
  * Tests for the EXPORTER_DEFAULT environment binding of the default format.
  *
- * The default-format environment variable changed from DEFAULT_EXPORTER to
- * EXPORTER_DEFAULT while keeping the config key exporter.default. These tests
- * evaluate the shipped config file directly so the rename is pinned by
- * behaviour, not by reading the source.
+ * These tests evaluate the shipped config file directly so the env binding is
+ * pinned by behaviour, not by reading the source.
  *
  * @author      Ben Carey <bdmc@sinemacula.co.uk>
  * @copyright   2026 Sine Macula Limited.
@@ -34,14 +32,8 @@ final class ConfigDefaultEnvTest extends TestCase
     #[\Override]
     protected function tearDown(): void
     {
-        unset(
-            $_ENV['EXPORTER_DEFAULT'],
-            $_SERVER['EXPORTER_DEFAULT'],
-            $_ENV['DEFAULT_EXPORTER'],
-            $_SERVER['DEFAULT_EXPORTER'],
-        );
+        unset($_ENV['EXPORTER_DEFAULT'], $_SERVER['EXPORTER_DEFAULT']);
         putenv('EXPORTER_DEFAULT');
-        putenv('DEFAULT_EXPORTER');
 
         parent::tearDown();
     }
@@ -78,35 +70,16 @@ final class ConfigDefaultEnvTest extends TestCase
     }
 
     /**
-     * It still honours the legacy DEFAULT_EXPORTER name as a fallback when the
-     * renamed EXPORTER_DEFAULT is not set (one-release backwards
-     * compatibility).
-     *
-     * @return void
-     */
-    public function testDefaultFallsBackToTheLegacyEnvironmentVariable(): void
-    {
-        unset($_ENV['EXPORTER_DEFAULT'], $_SERVER['EXPORTER_DEFAULT']);
-        putenv('EXPORTER_DEFAULT');
-
-        $_ENV['DEFAULT_EXPORTER']    = 'tsv';
-        $_SERVER['DEFAULT_EXPORTER'] = 'tsv';
-        putenv('DEFAULT_EXPORTER=tsv');
-
-        $config = $this->loadConfig();
-
-        self::assertSame('tsv', $config['default']);
-    }
-
-    /**
      * It ships the negotiation block with the documented defaults, including
-     * the 10,000-row synchronous export cap.
+     * the 10,000-row synchronous export cap and a null negotiation fallback.
      *
      * @return void
      */
     public function testNegotiationBlockShipsWithTheDocumentedDefaults(): void
     {
         unset(
+            $_ENV['EXPORTER_NEGOTIATION_DEFAULT'],
+            $_SERVER['EXPORTER_NEGOTIATION_DEFAULT'],
             $_ENV['EXPORTER_MAX_ROWS'],
             $_SERVER['EXPORTER_MAX_ROWS'],
             $_ENV['EXPORTER_PER_PAGE'],
@@ -114,6 +87,7 @@ final class ConfigDefaultEnvTest extends TestCase
             $_ENV['EXPORTER_CHUNK_SIZE'],
             $_SERVER['EXPORTER_CHUNK_SIZE'],
         );
+        putenv('EXPORTER_NEGOTIATION_DEFAULT');
         putenv('EXPORTER_MAX_ROWS');
         putenv('EXPORTER_PER_PAGE');
         putenv('EXPORTER_CHUNK_SIZE');
@@ -121,6 +95,7 @@ final class ConfigDefaultEnvTest extends TestCase
         $config = $this->loadConfig();
 
         self::assertIsArray($config['negotiation']);
+        self::assertNull($config['negotiation']['default_format']);
         self::assertSame(10000, $config['negotiation']['max_rows']);
         self::assertSame(15, $config['negotiation']['per_page']);
         self::assertSame(1000, $config['negotiation']['chunk_size']);

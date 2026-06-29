@@ -74,8 +74,6 @@ final class ExporterServiceProviderTest extends TestCase
         self::assertSame(ExportManager::class, $app->aliasBindings()['custom-exporter']);
         self::assertSame(ExportManager::class, $app->aliasBindings()[ExportFactory::class]);
         self::assertSame('csv', $app->config()->get('exporter.default'));
-        self::assertSame('csv', $app->config()->get('exporter.exporters.csv.driver'));
-        self::assertSame('xml', $app->config()->get('exporter.exporters.xml.driver'));
     }
 
     /**

@@ -28,6 +28,7 @@ use SineMacula\Exporter\Sinks\DiskSink;
 use SineMacula\Exporter\Sinks\StreamedResponseSink;
 use SineMacula\Exporter\Sinks\StreamSink;
 use SineMacula\Exporter\Sinks\StringSink;
+use SineMacula\Exporter\Sources\ConnectionAwareSource;
 use SineMacula\Exporter\Sources\QueryChunkSource;
 use SineMacula\Exporter\Sources\SourceFactory;
 use SineMacula\Exporter\Testing\ExporterFake;
@@ -88,10 +89,18 @@ final class ExportBuilder // phpcs:ignore SineMacula.Metrics.MaxMethodCount.TooM
     /**
      * Create a new explicit-export builder.
      *
+     * Construct it through Exporter::export()/collection()/query() rather than
+     * directly: those resolve the shared, config-seeded media-type registry and
+     * engine, whereas a direct construction falls back to empty defaults that
+     * see no custom formats or casters.
+     *
      * @param  \Illuminate\Database\Eloquent\Builder<\Illuminate\Database\Eloquent\Model>|\Illuminate\Http\Resources\Json\JsonResource  $subject
      * @param  class-string<\Illuminate\Http\Resources\Json\JsonResource>|null  $resourceClass
      * @param  \SineMacula\Exporter\Http\MediaTypeRegistry  $registry
      * @param  \SineMacula\Exporter\Engine  $engine
+     * @param  (\Closure(): bool)|null  $abortSignal
+     *
+     * @internal
      */
     public function __construct(
 
@@ -106,6 +115,9 @@ final class ExportBuilder // phpcs:ignore SineMacula.Metrics.MaxMethodCount.TooM
 
         /** The export engine streaming rows into a writer. */
         private readonly Engine $engine = new Engine,
+
+        /** @var (\Closure(): bool)|null The client-disconnect signal, or null for connection_aborted() */
+        private readonly ?\Closure $abortSignal = null,
     ) {
         $default      = Config::get('exporter.default', 'csv');
         $this->format = is_string($default) ? $default : 'csv';
@@ -337,7 +349,7 @@ final class ExportBuilder // phpcs:ignore SineMacula.Metrics.MaxMethodCount.TooM
                 try {
                     $this->writeInto($sink, static function (int $count) use (&$rows): void {
                         $rows = $count;
-                    });
+                    }, true);
                 } catch (\Throwable $exception) {
                     $this->failStream($this->format, $rows, $exception);
                 }
@@ -460,15 +472,20 @@ final class ExportBuilder // phpcs:ignore SineMacula.Metrics.MaxMethodCount.TooM
      *
      * @param  \SineMacula\Exporter\Contracts\Sink  $sink
      * @param  (\Closure(int): void)|null  $onProgress
+     * @param  bool  $abortAware
      * @return int
      *
      * @throws \SineMacula\Exporter\Exceptions\NoTabularRepresentation
      */
-    private function writeInto(Sink $sink, ?\Closure $onProgress = null): int
+    private function writeInto(Sink $sink, ?\Closure $onProgress = null, bool $abortAware = false): int
     {
         $rows    = 0;
         $request = $this->currentRequest();
         $source  = SourceFactory::for($this->subject, $this->chunkSize);
+
+        if ($abortAware) {
+            $source = new ConnectionAwareSource($source, $this->abortSignal ?? static fn (): bool => connection_aborted() === 1);
+        }
 
         if ($this->registry->isTabular($this->format)) {
 

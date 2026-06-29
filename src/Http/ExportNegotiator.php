@@ -17,6 +17,7 @@ use SineMacula\Exporter\Contracts\Source;
 use SineMacula\Exporter\Engine;
 use SineMacula\Exporter\Events\StreamExportFailed;
 use SineMacula\Exporter\Exceptions\NoTabularRepresentation;
+use SineMacula\Exporter\Export\ExportFilename;
 use SineMacula\Exporter\Schema\TabularSchema;
 use SineMacula\Exporter\Schema\WarningCollector;
 use SineMacula\Exporter\Sinks\StreamedResponseSink;
@@ -24,7 +25,6 @@ use SineMacula\Exporter\Sources\ConnectionAwareSource;
 use SineMacula\Exporter\Sources\ResourceCollectionSource;
 use SineMacula\Exporter\Sources\ResourceItemSource;
 use SineMacula\Exporter\Writers\CountingWriter;
-use Symfony\Component\HttpFoundation\HeaderUtils;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -469,9 +469,9 @@ final readonly class ExportNegotiator
     /**
      * Build the Content-Disposition header for the negotiated download.
      *
-     * The filename is sanitised of path separators and given an ASCII fallback
-     * so makeDisposition() cannot reject it on control characters or non-ASCII
-     * bytes.
+     * Delegates to the shared ExportFilename so the extension resolution and
+     * path / non-ASCII sanitisation live in one place for both the negotiated
+     * and explicit export paths.
      *
      * @param  string|null  $filename
      * @param  string  $format
@@ -479,28 +479,6 @@ final readonly class ExportNegotiator
      */
     private function disposition(?string $filename, string $format): string
     {
-        $extension = $this->registry->get($format)?->extension() ?? $format;
-        $base      = str_replace(['/', '\\'], '_', $filename ?? 'export');
-        $filename  = $base . '.' . $extension;
-
-        return HeaderUtils::makeDisposition(
-            HeaderUtils::DISPOSITION_ATTACHMENT,
-            $filename,
-            $this->asciiFallback($filename),
-        );
-    }
-
-    /**
-     * Build an ASCII-safe fallback filename for the Content-Disposition header.
-     *
-     * @param  string  $filename
-     * @return string
-     */
-    private function asciiFallback(string $filename): string
-    {
-        $ascii = (string) preg_replace('/[^\x20-\x7E]/', '', $filename);
-        $ascii = str_replace(['/', '\\', '%'], '_', $ascii);
-
-        return $ascii === '' ? 'export' : $ascii;
+        return (new ExportFilename($this->registry, $format))->disposition($filename ?? 'export');
     }
 }
