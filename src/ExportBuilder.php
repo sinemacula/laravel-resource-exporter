@@ -62,8 +62,10 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  *
  * @author      Ben Carey <bdmc@sinemacula.co.uk>
  * @copyright   2026 Sine Macula Limited.
+ *
+ * @SuppressWarnings("php:S1448")
  */
-final class ExportBuilder
+final class ExportBuilder // phpcs:ignore SineMacula.Metrics.MaxMethodCount.TooManyMethods
 {
     /** @var string The negotiated export format name */
     private string $format;
@@ -79,6 +81,9 @@ final class ExportBuilder
 
     /** @var int The keyset chunk size used while streaming a query */
     private int $chunkSize = 1000;
+
+    /** @var list<string> The extra eager-load relations applied to a query subject */
+    private array $with = [];
 
     /**
      * Create a new explicit-export builder.
@@ -167,6 +172,25 @@ final class ExportBuilder
     public function chunk(int $size): static
     {
         $this->chunkSize = $size;
+
+        return $this;
+    }
+
+    /**
+     * Add eager-load relations applied to a query subject before streaming.
+     *
+     * Mirrors the relations a tabular schema derives automatically: the
+     * hierarchical (JSON, NDJSON, XML) formats have no schema to derive from,
+     * so declare here the relations the resource's toArray() touches to avoid
+     * an N+1 across the streamed set. Accepts a single relation or a list, and
+     * merges across calls.
+     *
+     * @param  list<string>|string  $relations
+     * @return $this
+     */
+    public function with(array|string $relations): static
+    {
+        $this->with = array_values(array_unique([...$this->with, ...(array) $relations]));
 
         return $this;
     }
@@ -304,6 +328,8 @@ final class ExportBuilder
             return new StreamedResponse(static fn (): null => null, 200, $headers);
         }
 
+        $this->preflight();
+
         $rows = 0;
 
         return (new StreamedResponseSink)->toResponse(
@@ -351,6 +377,27 @@ final class ExportBuilder
     }
 
     /**
+     * Validate a tabular schema before a streamed response commits its 200.
+     *
+     * The writer and media type are already resolved (and a missing one
+     * already thrown) while building the response headers; this adds the
+     * schema check so a preflight-strict schema fault throws here - before any
+     * bytes are streamed, rather than mid-body into an already-committed 200.
+     *
+     * @return void
+     *
+     * @throws \SineMacula\Exporter\Exceptions\InvalidExportSchema
+     */
+    private function preflight(): void
+    {
+        if (!$this->registry->isTabular($this->format)) {
+            return;
+        }
+
+        $this->engine->preflight($this->resolveSchema(), $this->currentRequest());
+    }
+
+    /**
      * Stage the export to a local seekable file and return its path.
      *
      * @return string
@@ -359,7 +406,7 @@ final class ExportBuilder
      */
     private function stage(): string
     {
-        $staging = tempnam(sys_get_temp_dir(), 'export_');
+        $staging = tempnam(sys_get_temp_dir(), 'export_store_');
 
         // tempnam() falls back to the system temp directory rather than failing
         // on a bad directory, so this guard cannot be exercised without
@@ -382,12 +429,23 @@ final class ExportBuilder
         }
 
         // @codeCoverageIgnoreEnd
+        $written = false;
+
         try {
             $this->writeInto(new StreamSink($handle));
 
             fflush($handle);
+
+            $written = true;
         } finally {
             fclose($handle);
+
+            // A failure mid-write leaves a partially written staging file that
+            // store() never reaches to clean up, so remove it here rather than
+            // orphaning it in the system temp directory.
+            if (!$written) {
+                @unlink($staging);
+            }
         }
 
         return $staging;
@@ -428,7 +486,7 @@ final class ExportBuilder
 
             $warnings = new WarningCollector;
 
-            $this->engine->export($source, $this->resolveSchema(), $request, $counting, $sink, $warnings);
+            $this->engine->export($source, $this->resolveSchema(), $request, $counting, $sink, $warnings, $this->with);
 
             if (!$warnings->isEmpty()) {
                 Log::warning('Resource export completed with warnings.', [
@@ -447,6 +505,8 @@ final class ExportBuilder
         }
 
         $resolver = new HierarchicalRows($this->resourceClassOrNull());
+
+        $source = $source->withRelations($this->with);
 
         $writer->write($resolver->resolve($source, $request, static function () use (&$rows, $onProgress): void {
             $rows++;

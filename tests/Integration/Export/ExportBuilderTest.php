@@ -8,12 +8,14 @@ use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\ResourceCollection;
 use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use SineMacula\Exporter\Events\StreamExportFailed;
+use SineMacula\Exporter\Exceptions\InvalidExportSchema;
 use SineMacula\Exporter\Exceptions\NoTabularRepresentation;
 use SineMacula\Exporter\ExportBuilder;
 use SineMacula\Exporter\Facades\Exporter;
@@ -158,6 +160,35 @@ final class ExportBuilderTest extends ExporterTestCase
         $disk->assertExists('reports/users.csv');
 
         self::assertSame(self::CSV_BODY, $disk->get('reports/users.csv'));
+    }
+
+    /**
+     * It removes the staging file when a mid-stream failure aborts store().
+     *
+     * @return void
+     */
+    public function testStoreCleansUpTheStagingFileWhenWritingFails(): void
+    {
+        $this->seedUsers(3);
+
+        $disk = Storage::fake('exports');
+
+        $before = $this->storeStagingFiles();
+
+        try {
+            Exporter::query(User::query(), UserResource::class) // @phpstan-ignore staticMethod.dynamicCall
+                ->schema(ExplodingExportSchema::class)
+                ->format('csv')
+                ->store('exports', 'reports/boom.csv');
+
+            self::fail('Expected the mid-stream failure to be re-thrown.');
+        } catch (\RuntimeException) {
+            // Mid-stream failure: store() must still clean up the staging file.
+        }
+
+        self::assertEmpty(array_diff($this->storeStagingFiles(), $before));
+
+        $disk->assertMissing('reports/boom.csv');
     }
 
     /**
@@ -625,6 +656,93 @@ final class ExportBuilderTest extends ExporterTestCase
                 && $context['format']                                                === 'csv'
                 && is_array($context['warnings'])
                 && $context['warnings'] !== []);
+    }
+
+    /**
+     * The formats that both honour an explicit eager-load hint.
+     *
+     * @return iterable<string, array{0: string}>
+     */
+    public static function eagerLoadFormats(): iterable
+    {
+        yield 'tabular csv' => ['csv'];
+        yield 'hierarchical json' => ['json'];
+    }
+
+    /**
+     * It eager-loads the relations declared with with() for a query export, so
+     * a nested resource does not N+1 across the streamed set.
+     *
+     * @param  string  $format
+     * @return void
+     */
+    #[DataProvider('eagerLoadFormats')]
+    public function testQueryExportEagerLoadsRelationsDeclaredWithWith(string $format): void
+    {
+        $this->seedUsers(3);
+        $this->seedOrders(1, [10, 20]);
+
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+
+        Exporter::query(User::query()->orderBy('id'), UserResource::class) // @phpstan-ignore staticMethod.dynamicCall
+            ->format($format)
+            ->with('orders')
+            ->toString();
+
+        $ordersQueries = 0;
+
+        foreach (DB::getQueryLog() as $entry) {
+            $sql = is_string($entry['query'] ?? null) ? $entry['query'] : '';
+
+            if (!str_contains($sql, 'from "orders"')) {
+                continue;
+            }
+
+            $ordersQueries++;
+        }
+
+        DB::disableQueryLog();
+
+        self::assertSame(1, $ordersQueries, "The {$format} export must eager-load the declared relation in a single query.");
+    }
+
+    /**
+     * It fails fast on an invalid preflight schema before the response begins.
+     *
+     * @return void
+     */
+    public function testDownloadFailsFastOnAnInvalidPreflightSchema(): void
+    {
+        $this->seedUsers(1);
+
+        $schema = new FlexibleSchema(Request::create('/'), [
+            Column::make('id', 'ID'),
+            Column::make('broken', 'Broken')->cast('does-not-exist'),
+        ]);
+
+        $this->expectException(InvalidExportSchema::class);
+
+        Exporter::collection($this->collection())
+            ->schema($schema)
+            ->format('csv')
+            ->download();
+    }
+
+    /**
+     * List the explicit-export staging temp files currently on disk.
+     *
+     * Scoped to store()'s dedicated prefix, which only ExportBuilder::stage()
+     * allocates, so a parallel test's temp files cannot contaminate the
+     * assertion.
+     *
+     * @return list<string>
+     */
+    private function storeStagingFiles(): array
+    {
+        $files = glob(sys_get_temp_dir() . '/export_store_*');
+
+        return $files === false ? [] : $files;
     }
 
     /**

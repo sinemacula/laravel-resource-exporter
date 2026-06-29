@@ -122,7 +122,14 @@ final class Csv extends Exporter implements ExporterContract
     protected function escapeValue(bool|float|int|string|null $value): string
     {
         $enclosure = $this->getEnclosure();
-        $string    = is_null($value) ? '' : (string) $value;
+
+        if (is_string($value)) {
+            $string = $this->neutraliseFormula($value);
+        } elseif ($value === null) {
+            $string = '';
+        } else {
+            $string = (string) $value;
+        }
 
         return $enclosure . str_replace($enclosure, $enclosure . $enclosure, $string) . $enclosure;
     }
@@ -161,6 +168,27 @@ final class Csv extends Exporter implements ExporterContract
         }
 
         return $filtered;
+    }
+
+    /**
+     * Neutralise a spreadsheet formula trigger at the start of a text value.
+     *
+     * A field a spreadsheet would evaluate as a formula - one beginning with =,
+     * +, -, @, tab or carriage return - is prefixed with a single quote so it
+     * is imported as literal text. Only string values are guarded, so a native
+     * number is never mangled. This mirrors the default the streaming CsvWriter
+     * applies through league/csv, keeping both CSV paths safe by default.
+     *
+     * @param  string  $value
+     * @return string
+     */
+    private function neutraliseFormula(string $value): string
+    {
+        if ($value === '' || !in_array($value[0], ['=', '+', '-', '@', "\t", "\r"], true)) {
+            return $value;
+        }
+
+        return '\'' . $value;
     }
 
     /**

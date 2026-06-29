@@ -245,6 +245,8 @@ final readonly class ExportNegotiator
             throw NoTabularRepresentation::forResource($format);
         }
 
+        $this->engine->preflight($schema, $request);
+
         $sink = new StreamedResponseSink;
 
         return $sink->toResponse(

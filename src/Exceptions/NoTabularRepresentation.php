@@ -4,6 +4,7 @@ declare(strict_types = 1);
 
 namespace SineMacula\Exporter\Exceptions;
 
+use SineMacula\Exporter\Contracts\ExporterException;
 use Symfony\Component\HttpKernel\Exception\NotAcceptableHttpException;
 
 /**
@@ -17,7 +18,7 @@ use Symfony\Component\HttpKernel\Exception\NotAcceptableHttpException;
  * @author      Ben Carey <bdmc@sinemacula.co.uk>
  * @copyright   2026 Sine Macula Limited.
  */
-final class NoTabularRepresentation extends NotAcceptableHttpException
+final class NoTabularRepresentation extends NotAcceptableHttpException implements ExporterException
 {
     /**
      * Create an exception for a resource that cannot be represented tabularly.

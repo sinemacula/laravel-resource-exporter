@@ -4,6 +4,8 @@ declare(strict_types = 1);
 
 namespace SineMacula\Exporter\Exceptions;
 
+use SineMacula\Exporter\Contracts\ExporterException;
+
 /**
  * Missing XLSX dependency exception.
  *
@@ -15,7 +17,7 @@ namespace SineMacula\Exporter\Exceptions;
  * @author      Ben Carey <bdmc@sinemacula.co.uk>
  * @copyright   2026 Sine Macula Limited.
  */
-final class MissingXlsxDependency extends \RuntimeException
+final class MissingXlsxDependency extends \RuntimeException implements ExporterException
 {
     /**
      * Create an exception describing the missing OpenSpout dependency.

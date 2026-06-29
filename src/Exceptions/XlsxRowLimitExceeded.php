@@ -4,6 +4,8 @@ declare(strict_types = 1);
 
 namespace SineMacula\Exporter\Exceptions;
 
+use SineMacula\Exporter\Contracts\ExporterException;
+
 /**
  * XLSX row limit exceeded exception.
  *
@@ -16,7 +18,7 @@ namespace SineMacula\Exporter\Exceptions;
  * @author      Ben Carey <bdmc@sinemacula.co.uk>
  * @copyright   2026 Sine Macula Limited.
  */
-final class XlsxRowLimitExceeded extends \RuntimeException
+final class XlsxRowLimitExceeded extends \RuntimeException implements ExporterException
 {
     /**
      * Create an exception for an export that overflows the XLSX sheet cap.

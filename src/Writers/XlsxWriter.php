@@ -201,7 +201,14 @@ final readonly class XlsxWriter implements Writer
 
         // @codeCoverageIgnoreEnd
         try {
-            stream_copy_to_stream($source, $sink->stream());
+            // A failed copy into a seekable sink needs a write fault the suite
+            // cannot inject through an already-finalised workbook.
+            // @codeCoverageIgnoreStart
+            if (stream_copy_to_stream($source, $sink->stream()) === false) {
+                throw new SinkException('Unable to copy the XLSX workbook into the sink.');
+            }
+
+            // @codeCoverageIgnoreEnd
             fflush($sink->stream());
         } finally {
             fclose($source);

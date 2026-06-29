@@ -99,6 +99,7 @@ final class ExportManager implements ExportFactory
      * @param  class-string<\Illuminate\Http\Resources\Json\JsonResource>|null  $resource
      * @return \SineMacula\Exporter\ExportBuilder
      */
+    #[\Override]
     public function export(Builder|JsonResource $subject, ?string $resource = null): ExportBuilder
     {
         return new ExportBuilder($subject, $resource, $this->app->make(MediaTypeRegistry::class));
@@ -110,6 +111,7 @@ final class ExportManager implements ExportFactory
      * @param  \Illuminate\Http\Resources\Json\ResourceCollection  $collection
      * @return \SineMacula\Exporter\ExportBuilder
      */
+    #[\Override]
     public function collection(ResourceCollection $collection): ExportBuilder
     {
         return $this->export($collection);
@@ -122,6 +124,7 @@ final class ExportManager implements ExportFactory
      * @param  class-string<\Illuminate\Http\Resources\Json\JsonResource>  $resource
      * @return \SineMacula\Exporter\ExportBuilder
      */
+    #[\Override]
     public function query(Builder $query, string $resource): ExportBuilder
     {
         return $this->export($query, $resource);
@@ -134,31 +137,10 @@ final class ExportManager implements ExportFactory
      * @param  class-string<\Illuminate\Http\Resources\Json\JsonResource>  $resource
      * @return \SineMacula\Exporter\Export\QueuedExport
      */
+    #[\Override]
     public function queue(string $model, string $resource): QueuedExport
     {
         return QueuedExport::forModel($model, $resource);
-    }
-
-    /**
-     * Create an instance of the CSV driver.
-     *
-     * @param  array<string, mixed>  $config
-     * @return \SineMacula\Exporter\Contracts\Exporter
-     */
-    public function createCsvDriver(array $config): Exporter
-    {
-        return new Csv($config);
-    }
-
-    /**
-     * Create an instance of the XML driver.
-     *
-     * @param  array<string, mixed>  $config
-     * @return \SineMacula\Exporter\Contracts\Exporter
-     */
-    public function createXmlDriver(array $config): Exporter
-    {
-        return new Xml($config);
     }
 
     /**
@@ -239,6 +221,28 @@ final class ExportManager implements ExportFactory
         $this->app = $app;
 
         return $this;
+    }
+
+    /**
+     * Create an instance of the CSV driver.
+     *
+     * @param  array<string, mixed>  $config
+     * @return \SineMacula\Exporter\Contracts\Exporter
+     */
+    private function createCsvDriver(array $config): Exporter
+    {
+        return new Csv($config);
+    }
+
+    /**
+     * Create an instance of the XML driver.
+     *
+     * @param  array<string, mixed>  $config
+     * @return \SineMacula\Exporter\Contracts\Exporter
+     */
+    private function createXmlDriver(array $config): Exporter
+    {
+        return new Xml($config);
     }
 
     /**

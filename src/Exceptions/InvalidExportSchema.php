@@ -4,6 +4,8 @@ declare(strict_types = 1);
 
 namespace SineMacula\Exporter\Exceptions;
 
+use SineMacula\Exporter\Contracts\ExporterException;
+
 /**
  * Invalid export schema exception.
  *
@@ -17,7 +19,7 @@ namespace SineMacula\Exporter\Exceptions;
  * @author      Ben Carey <bdmc@sinemacula.co.uk>
  * @copyright   2026 Sine Macula Limited.
  */
-final class InvalidExportSchema extends \LogicException
+final class InvalidExportSchema extends \LogicException implements ExporterException
 {
     /**
      * Create an exception for an invalid column.

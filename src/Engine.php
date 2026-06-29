@@ -64,21 +64,55 @@ final readonly class Engine
      * @param  \SineMacula\Exporter\Contracts\Writer  $writer
      * @param  \SineMacula\Exporter\Contracts\Sink  $sink
      * @param  \SineMacula\Exporter\Schema\WarningCollector|null  $warnings
+     * @param  list<string>  $extraRelations
      * @return void
      *
      * @throws \SineMacula\Exporter\Exceptions\InvalidExportSchema
      */
-    public function export(Source $source, TabularSchema $schema, Request $request, Writer $writer, Sink $sink, ?WarningCollector $warnings = null): void
-    {
+    public function export(
+        Source $source,
+        TabularSchema $schema,
+        Request $request,
+        Writer $writer,
+        Sink $sink,
+        ?WarningCollector $warnings = null,
+        array $extraRelations = [],
+    ): void {
         $warnings ??= new WarningCollector;
         $strictness = $schema->strictness();
 
         $columns = $this->compileColumns($this->visibleColumns($schema, $request), $strictness, $warnings);
         $axis    = $this->resolveExpandAxis($columns, $schema, $strictness, $warnings);
 
-        $source = $this->prepareSource($source, $schema, $columns, $axis);
+        $source = $this->prepareSource($source, $schema, $columns, $axis, $extraRelations);
 
         $writer->write($this->shape($source, $columns, $axis, $request, $strictness, $warnings), $schema, $sink);
+    }
+
+    /**
+     * Validate the schema against the request before any bytes are streamed.
+     *
+     * Compiles the visible columns and resolves the expansion axis under the
+     * schema's strictness, so a preflight-strict schema with an invalid column,
+     * an unregistered cast, or a broken expand declaration fails fast here -
+     * before a streamed response has committed its status - rather than
+     * throwing mid-body into an already-sent 200. Lenient strictness degrades
+     * instead of throwing, so this is a no-op for it.
+     *
+     * @param  \SineMacula\Exporter\Schema\TabularSchema  $schema
+     * @param  \Illuminate\Http\Request  $request
+     * @return void
+     *
+     * @throws \SineMacula\Exporter\Exceptions\InvalidExportSchema
+     */
+    public function preflight(TabularSchema $schema, Request $request): void
+    {
+        $strictness = $schema->strictness();
+        $warnings   = new WarningCollector;
+
+        $columns = $this->compileColumns($this->visibleColumns($schema, $request), $strictness, $warnings);
+
+        $this->resolveExpandAxis($columns, $schema, $strictness, $warnings);
     }
 
     /**
@@ -220,11 +254,12 @@ final readonly class Engine
      * @param  \SineMacula\Exporter\Schema\TabularSchema  $schema
      * @param  list<\SineMacula\Exporter\Schema\Column>  $columns
      * @param  \SineMacula\Exporter\Schema\ExpandAxis|null  $axis
+     * @param  list<string>  $extraRelations
      * @return \SineMacula\Exporter\Contracts\Source
      */
-    private function prepareSource(Source $source, TabularSchema $schema, array $columns, ?ExpandAxis $axis): Source
+    private function prepareSource(Source $source, TabularSchema $schema, array $columns, ?ExpandAxis $axis, array $extraRelations = []): Source
     {
-        $source = $source->withRelations($this->deriveRelations($columns, $schema, $axis));
+        $source = $source->withRelations($this->deriveRelations($columns, $schema, $axis, $extraRelations));
 
         $plan = $this->deriveAggregates($columns);
 
@@ -245,11 +280,12 @@ final readonly class Engine
      * @param  list<\SineMacula\Exporter\Schema\Column>  $columns
      * @param  \SineMacula\Exporter\Schema\TabularSchema  $schema
      * @param  \SineMacula\Exporter\Schema\ExpandAxis|null  $axis
+     * @param  list<string>  $extraRelations
      * @return list<string>
      */
-    private function deriveRelations(array $columns, TabularSchema $schema, ?ExpandAxis $axis): array
+    private function deriveRelations(array $columns, TabularSchema $schema, ?ExpandAxis $axis, array $extraRelations = []): array
     {
-        $relations = $schema->with();
+        $relations = array_merge($schema->with(), $extraRelations);
 
         foreach ($columns as $column) {
 
