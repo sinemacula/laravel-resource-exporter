@@ -29,8 +29,8 @@ There are two doors onto one streaming engine:
   request should switch from paginated JSON to the full query. JSON stays first-class: a browser's default `Accept`
   always resolves to JSON, `q=0` is honoured, and every response carries `Vary: Accept`.
 - **Explicit exports.** The `Exporter` facade builds an export from a resource, a collection, or a query and returns a
-  fluent builder whose verbs - `download()`, `store()`, `toString()`, `toStream()`, `toResponse()`, `queue()` - decide
-  where the bytes go.
+  fluent builder whose verbs - `download()`, `store()`, `toString()`, `toStream()`, `toResponse()` - decide where the
+  bytes go. The dedicated `Exporter::queue($model, $resource)` entry point builds serializable queued tabular exports.
 
 Formats split by **dimensionality**:
 
@@ -60,7 +60,7 @@ composer require sinemacula/laravel-resource-exporter
 The service provider is auto-discovered. XLSX support is optional - pull it in when you need it:
 
 ```bash
-composer require openspout/openspout
+composer require "openspout/openspout:^4.0"
 ```
 
 ## Configuration
@@ -75,7 +75,7 @@ This creates `config/exporter.php`, where you can control:
 
 | Key           | Description                                                                      | Default    |
 | ------------- | -------------------------------------------------------------------------------- | ---------- |
-| `default`     | Default export format when none is requested (env `EXPORTER_DEFAULT`).           | `csv`      |
+| `default`     | Default format for explicit export builders (env `EXPORTER_DEFAULT`).            | `csv`      |
 | `alias`       | The container / facade accessor alias for the manager (env `EXPORTER_ALIAS`).    | `exporter` |
 | `formats`     | Custom negotiable formats registered with the shared media-type registry.        | `[]`       |
 | `negotiation` | Query-endpoint settings: `default_format`, `max_rows`, `per_page`, `chunk_size`. | see file   |
@@ -100,7 +100,7 @@ class UserResource extends JsonResource implements ProvidesTabularExport
 {
     use RespondsWithExports;
 
-    public function toArray($request): array
+    public function toArray(Request $request): array
     {
         return [
             'id'    => $this->id,
@@ -173,12 +173,13 @@ Column::make('active', 'Active')->boolean('Yes', 'No');           // boolean lab
 Column::make('status', 'Status')->enum();                         // backed enum -> value
 Column::make('orders', 'Orders')->count();                        // has-many count (withCount)
 Column::make('orders', 'Revenue')->sum('total');                  // has-many sum (withSum)
-Column::make('tags', 'Tags')->join(', ');                         // implode a relation
+Column::make('orders', 'SKUs')->join(', ');                        // join scalar/Stringable children
 Column::make('full_name', 'Name')
     ->resolveUsing(fn ($user) => "{$user->first} {$user->last}"); // computed value
 ```
 
-Aggregates are folded into the query (`withCount` / `withSum`), so they add no per-row queries.
+Count and sum aggregates are folded into the query (`withCount` / `withSum`); join aggregates eager-load the
+relation, so none add per-row queries.
 
 ### Column visibility
 
@@ -241,7 +242,7 @@ opt out deliberately), or the streamed export refuses to run.
 
 ### Queued exports
 
-For large datasets, queue the export to a disk and hand the user a signed URL when it lands:
+For large tabular datasets, queue the export to a disk and hand the user a signed URL when it lands:
 
 ```php
 use SineMacula\Exporter\Facades\Exporter;
@@ -255,11 +256,11 @@ Exporter::queue(User::class, UserResource::class)
     ->queue();
 ```
 
-The job streams chunk by chunk into a local staging file and fires `ExportStarting`, `RowsExported`, `ExportCompleted`
-(carrying a signed temporary URL), and `ExportFailed`. The query is described by a serializable specification -
-constrain
-it with the query verbs on the builder rather than passing a live builder. HTTP streaming failures after bytes have
-started are reported separately through `StreamExportFailed`, with the format, actor and number of rows written.
+The queued pipeline writes tabular formats (CSV, TSV, XLSX). It streams chunk by chunk into a local staging file and
+fires `ExportStarting`, `RowsExported`, `ExportCompleted` (carrying a signed temporary URL), and `ExportFailed`. The
+query is described by a serializable specification - constrain it with the query verbs on the builder rather than
+passing a live builder. HTTP streaming failures after bytes have started are reported separately through
+`StreamExportFailed`, with the format, actor and number of rows written.
 
 ### Testing
 
@@ -281,15 +282,38 @@ $exporter->assertExportedRows(42);
 
 ### Custom formats
 
-Register an additional negotiable format from a service provider via the `formats` block in `config/exporter.php`; the
-negotiated and explicit paths share one registry, so a custom format is reachable from both:
+Register an additional negotiable format through the `formats` block in `config/exporter.php`; the negotiated and
+explicit paths share one registry, so a custom format is reachable from both.
+
+For a config-cache friendly tabular format, bind an `ExportFormat` in a service provider and list the binding key in
+config:
+
+```php
+// app/Providers/AppServiceProvider.php
+use App\Exports\Writers\ReportWriter;
+use SineMacula\Exporter\Http\ExportFormat;
+
+public function register(): void
+{
+    $this->app->singleton('exports.formats.report', static fn (): ExportFormat => new ExportFormat(
+        'report',
+        'report',
+        'application/x-report',
+        ['application/x-report'],
+        true,
+        static fn (): ReportWriter => new ReportWriter,
+    ));
+}
+```
 
 ```php
 // config/exporter.php
 'formats' => [
-    \App\Exports\ParquetFormat::class,
+    'exports.formats.report',
 ],
 ```
+
+Closures and `ExportFormat` instances also work when the config file is not cached.
 
 ## Requirements
 
