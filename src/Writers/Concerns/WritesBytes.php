@@ -11,9 +11,9 @@ use SineMacula\Exporter\Exceptions\SinkException;
  *
  * The shared checked-write step behind the streaming JSON, NDJSON and XML
  * writers. A bare fwrite() returns false on a failed write (a full disk, a
- * closed pipe) without raising, so a streamed export would otherwise drop
- * bytes and still report success. Routing each data-path write through here
- * turns that silent truncation into a SinkException the writer propagates.
+ * closed pipe) without raising, so a streamed export would otherwise drop bytes
+ * and still report success. Routing each data-path write through here turns
+ * that silent truncation into a SinkException the writer propagates.
  *
  * @author      Ben Carey <bdmc@sinemacula.co.uk>
  * @copyright   2026 Sine Macula Limited.
