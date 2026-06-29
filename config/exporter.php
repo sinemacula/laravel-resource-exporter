@@ -45,11 +45,11 @@ return [
     | formats.
     |
     | Each entry may be a SineMacula\Exporter\Http\ExportFormat instance, a
-    | callable returning one, or the class name of a binding that resolves to a
-    | SineMacula\Exporter\Http\ExportFormat through the container. Because a
-    | tabular format carries a writer factory (a closure), register such formats
-    | from a service provider rather than relying on `config:cache`. The
-    | registry is built once at boot and never mutated per request, so it is
+    | callable returning one, or the name of a container binding resolving to a
+    | SineMacula\Exporter\Http\ExportFormat. Because a tabular format carries a
+    | writer factory (a closure), config-cache friendly applications should bind
+    | those formats in a service provider and list the binding name here.
+    | The registry is built once at boot and never mutated per request, so it is
     | Octane-safe.
     |
     */
