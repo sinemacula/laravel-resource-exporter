@@ -583,9 +583,21 @@ final class ExportToDiskJobTest extends QueuedExportTestCase
     public function testLogsWhenPartialFileCleanupFailsAfterStorageFailure(): void
     {
         $disk = \Mockery::mock(Filesystem::class);
-        $disk->shouldReceive('exists')->once()->with('exports/boom.csv')->andReturn(false);
-        $disk->shouldReceive('writeStream')->once()->andThrow(new \RuntimeException('upload failed'));
-        $disk->shouldReceive('delete')->once()->with('exports/boom.csv')->andThrow(new \RuntimeException('delete failed'));
+
+        /** @var \Mockery\Expectation $existsExpectation */
+        $existsExpectation = $disk->shouldReceive('exists');
+        $existsExpectation->once()->with('exports/boom.csv')->andReturn(false);
+
+        /** @var \Mockery\Expectation $writeStreamExpectation */
+        $writeStreamExpectation = $disk->shouldReceive('writeStream');
+        $writeStreamExpectation->once()->andThrow(new \RuntimeException('upload failed'));
+
+        /** @var \Mockery\Expectation $deleteExpectation */
+        $deleteExpectation = $disk->shouldReceive('delete');
+        $deleteExpectation
+            ->once()
+            ->with('exports/boom.csv')
+            ->andThrow(new \RuntimeException('delete failed'));
 
         $factory = new readonly class ($disk) implements Factory {
             /**
