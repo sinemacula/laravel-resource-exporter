@@ -48,6 +48,18 @@ final class ExportAuditorTest extends ExporterTestCase
     }
 
     /**
+     * It throws when the caller-supplied authorization callback denies access.
+     *
+     * @return void
+     */
+    public function testAuthorizeThrowsWhenTheCallbackReturnsFalse(): void
+    {
+        $this->expectException(AuthorizationException::class);
+
+        (new ExportAuditor)->authorize(callback: static fn (): bool => false);
+    }
+
+    /**
      * It lets a granted ability through the gate (the queued path's
      * serializable re-check).
      *

@@ -84,6 +84,45 @@ final class QueryChunkSourceTest extends ExporterTestCase
     }
 
     /**
+     * It rejects conflicting keyset directions for the primary key.
+     *
+     * @return void
+     */
+    public function testRejectsConflictingKeysetDirections(): void
+    {
+        $this->seedUsers(5);
+
+        $query                     = User::query(); // @phpstan-ignore staticMethod.dynamicCall
+        $query->getQuery()->orders = [
+            ['column' => 'id', 'direction' => 'asc'],
+            ['column' => 'users.id', 'direction' => 'desc'],
+        ];
+
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage('conflicting keyset directions');
+
+        iterator_to_array((new QueryChunkSource($query, chunkSize: 2))->rows(), false);
+    }
+
+    /**
+     * It ignores malformed order entries while validating keyset-safety.
+     *
+     * @return void
+     */
+    public function testKeysetGuardSkipsMalformedOrderEntries(): void
+    {
+        $query                     = User::query(); // @phpstan-ignore staticMethod.dynamicCall
+        $query->getQuery()->orders = [
+            new \stdClass,
+            ['column' => 'id', 'direction' => 'asc'],
+        ];
+
+        (new QueryChunkSource($query, chunkSize: 2))->guardKeysetOrdering();
+
+        $this->addToAssertionCount(1);
+    }
+
+    /**
      * It force-selects the key column so a constrained select cannot abort the
      * keyset stream mid-flight.
      *

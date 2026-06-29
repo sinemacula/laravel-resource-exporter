@@ -4,6 +4,7 @@ declare(strict_types = 1);
 
 namespace Tests\Integration;
 
+use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\ResourceCollection;
 use Illuminate\Support\Facades\Config;
@@ -11,6 +12,7 @@ use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use SineMacula\Exporter\Events\StreamExportFailed;
 use SineMacula\Exporter\Exceptions\NoTabularRepresentation;
 use SineMacula\Exporter\ExportBuilder;
@@ -19,11 +21,13 @@ use SineMacula\Exporter\Http\ExportFormat;
 use SineMacula\Exporter\Http\MediaTypeRegistry;
 use SineMacula\Exporter\Schema\Column;
 use SineMacula\Exporter\Schema\Enums\Strictness;
+use SineMacula\Exporter\Writers\Truncation;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Tests\Support\V3\ExporterTestCase;
 use Tests\Support\V3\Models\User;
 use Tests\Support\V3\Resources\PlainUserResource;
 use Tests\Support\V3\Resources\UserResource;
+use Tests\Support\V3\Schema\ActorAwareSchema;
 use Tests\Support\V3\Schema\ExplodingExportSchema;
 use Tests\Support\V3\Schema\FlexibleSchema;
 use Tests\Support\V3\Schema\UserExportSchema;
@@ -97,6 +101,26 @@ final class ExportBuilderTest extends ExporterTestCase
         self::assertSame('text/tab-separated-values; charset=UTF-8', $response->headers->get('Content-Type'));
         self::assertSame('attachment; filename=users.tsv', $response->headers->get('Content-Disposition'));
         self::assertStringContainsString("ID\tName\tEmail\tActive\tJoined", $this->streamToString($response));
+    }
+
+    /**
+     * It threads the toResponse() request into the schema.
+     *
+     * @return void
+     */
+    public function testToResponseUsesTheProvidedRequest(): void
+    {
+        $this->seedUsers(1);
+
+        $request = Request::create('/');
+        $request->setUserResolver(static fn (): Authenticatable => self::actor(42));
+
+        $response = Exporter::collection($this->collection())
+            ->schema(ActorAwareSchema::class)
+            ->format('csv')
+            ->toResponse($request);
+
+        self::assertSame("ID,Actor\n1,42\n", $this->streamToString($response));
     }
 
     /**
@@ -496,6 +520,87 @@ final class ExportBuilderTest extends ExporterTestCase
     }
 
     /**
+     * Actor-identifier cases: the raw identity and the value recorded for it.
+     *
+     * @return iterable<string, array{float|int|string|null, int|string|null}>
+     */
+    public static function actorIdentifierCases(): iterable
+    {
+        yield 'an integer identifier is preserved' => [5, 5];
+        yield 'a string identifier is preserved' => ['user-9', 'user-9'];
+        yield 'a float identifier is dropped' => [3.5, null];
+        yield 'a null identifier is dropped' => [null, null];
+    }
+
+    /**
+     * It records the request actor identifier on explicit stream failures.
+     *
+     * @param  float|int|string|null  $identifier
+     * @param  int|string|null  $expected
+     * @return void
+     */
+    #[DataProvider('actorIdentifierCases')]
+    public function testDownloadStreamFailureRecordsTheRequestActor(float|int|string|null $identifier, int|string|null $expected): void
+    {
+        $this->seedUsers(1);
+
+        Event::fake([StreamExportFailed::class]);
+
+        $request = Request::create('/');
+        $request->setUserResolver(static fn (): Authenticatable => self::actor($identifier));
+
+        $response = Exporter::collection($this->collection())
+            ->schema(ExplodingExportSchema::class)
+            ->format('csv')
+            ->request($request)
+            ->download();
+
+        $this->streamToString($response);
+
+        Event::assertDispatched(
+            StreamExportFailed::class,
+            static fn (StreamExportFailed $event): bool => $event->actorId === $expected,
+        );
+    }
+
+    /**
+     * It reports how many data rows were written before a later stream failure.
+     *
+     * @return void
+     */
+    public function testDownloadStreamFailureReportsRowsAlreadyWritten(): void
+    {
+        $this->seedUsers(2);
+
+        Event::fake([StreamExportFailed::class]);
+
+        $request = Request::create('/');
+        $schema  = new FlexibleSchema($request, [
+            Column::make('id', 'ID'),
+            Column::make('boom', 'Boom')->resolveUsing(static function (mixed $item): string {
+                if (data_get($item, 'id') === 2) {
+                    throw new \RuntimeException('second row failed');
+                }
+
+                return 'ok';
+            }),
+        ]);
+
+        $response = Exporter::collection($this->collection())
+            ->schema($schema)
+            ->format('csv')
+            ->download();
+
+        self::assertSame("ID,Boom\n1,ok\n" . Truncation::CSV_FIELD . "\n", $this->streamToString($response));
+
+        Event::assertDispatched(
+            StreamExportFailed::class,
+            static fn (StreamExportFailed $event): bool => $event->rowsWritten === 1
+                && $event->exception->getMessage()                             === 'second row failed',
+        );
+    }
+
+    /**
      * It logs the warnings a lenient export collects once it completes cleanly,
      * so a silently degraded column is visible to an operator.
      *
@@ -530,5 +635,102 @@ final class ExportBuilderTest extends ExporterTestCase
     private function collection(): ResourceCollection
     {
         return UserResource::collection(User::query()->orderBy('id')->get()); // @phpstan-ignore staticMethod.dynamicCall
+    }
+
+    /**
+     * Build an authenticatable whose identifier is the given raw value.
+     *
+     * @param  float|int|string|null  $identifier
+     * @return \Illuminate\Contracts\Auth\Authenticatable
+     */
+    private static function actor(float|int|string|null $identifier): Authenticatable
+    {
+        return new class ($identifier) implements Authenticatable {
+            /**
+             * Create the stub actor.
+             *
+             * @param  float|int|string|null  $identifier
+             */
+            public function __construct(
+
+                /** The raw identifier the resolver returns. */
+                private readonly float|int|string|null $identifier,
+            ) {}
+
+            /**
+             * Get the name of the unique identifier for the user.
+             *
+             * @return string
+             */
+            #[\Override]
+            public function getAuthIdentifierName(): string
+            {
+                return 'id';
+            }
+
+            /**
+             * Get the unique identifier for the user.
+             *
+             * @return float|int|string|null
+             */
+            #[\Override]
+            public function getAuthIdentifier(): float|int|string|null
+            {
+                return $this->identifier;
+            }
+
+            /**
+             * Get the name of the password attribute for the user.
+             *
+             * @return string
+             */
+            #[\Override]
+            public function getAuthPasswordName(): string
+            {
+                return 'password';
+            }
+
+            /**
+             * Get the password for the user.
+             *
+             * @return string
+             */
+            #[\Override]
+            public function getAuthPassword(): string
+            {
+                return '';
+            }
+
+            /**
+             * Get the token value for the "remember me" session.
+             *
+             * @return string
+             */
+            #[\Override]
+            public function getRememberToken(): string
+            {
+                return '';
+            }
+
+            /**
+             * Set the token value for the "remember me" session.
+             *
+             * @param  mixed  $value
+             * @return void
+             */
+            #[\Override]
+            public function setRememberToken(mixed $value): void {}
+
+            /**
+             * Get the column name for the "remember me" token.
+             *
+             * @return string
+             */
+            #[\Override]
+            public function getRememberTokenName(): string
+            {
+                return 'remember_token';
+            }
+        };
     }
 }

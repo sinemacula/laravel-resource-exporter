@@ -55,8 +55,11 @@ final class CustomFormatNegotiationTest extends ExporterTestCase
 
         self::assertSame($registry, $app->make(MediaTypeRegistry::class), 'The registry must be a shared singleton.');
         self::assertTrue($registry->has('report'), 'The config-registered format must be present.');
+        self::assertTrue($registry->has('bound-report'), 'The container-bound config format must be present.');
         self::assertTrue($registry->has('csv'), 'The built-in formats must remain seeded.');
         self::assertSame('report', $registry->formatForMediaType('application/x-report'));
+        self::assertSame('bound-report', $registry->formatForMediaType('application/x-bound-report'));
+        self::assertSame('bound-report', $registry->defaultFormat());
     }
 
     /**
@@ -123,7 +126,21 @@ final class CustomFormatNegotiationTest extends ExporterTestCase
         /** @var \Illuminate\Contracts\Config\Repository $config */
         $config = $app->make('config');
 
+        $app->singleton(
+            'exporter.test.bound-report-format',
+            static fn (): ExportFormat => new ExportFormat(
+                'bound-report',
+                'bound-report',
+                'application/x-bound-report',
+                ['application/x-bound-report'],
+                true,
+                static fn (): ReportWriter => new ReportWriter,
+            ),
+        );
+
+        $config->set('exporter.negotiation.default_format', 'bound-report');
         $config->set('exporter.formats', [
+            42,
             static fn (): ExportFormat => new ExportFormat(
                 'report',
                 'report',
@@ -132,6 +149,9 @@ final class CustomFormatNegotiationTest extends ExporterTestCase
                 true,
                 static fn (): ReportWriter => new ReportWriter,
             ),
+            'exporter.test.bound-report-format',
+            'exporter.test.unbound-report-format',
+            static fn (): string => 'not-a-format',
         ]);
     }
 

@@ -20,6 +20,7 @@ use SineMacula\Exporter\Http\ExportNegotiator;
 use SineMacula\Exporter\Http\ExportResourceCollection;
 use SineMacula\Exporter\Http\MediaTypeRegistry;
 use SineMacula\Exporter\Schema\Column;
+use SineMacula\Exporter\Schema\Enums\Strictness;
 use SineMacula\Exporter\Schema\TabularSchema;
 use SineMacula\Exporter\Sinks\StreamedResponseSink;
 use SineMacula\Exporter\Sources\ResourceCollectionSource;
@@ -221,6 +222,39 @@ final class ExportNegotiationHttpTest extends ExporterTestCase
         $this->streamToString($response);
 
         self::assertSame(0, $received);
+    }
+
+    /**
+     * It logs lenient-mode warnings collected by the negotiated stream once the
+     * stream completes cleanly.
+     *
+     * @return void
+     */
+    public function testStreamExportLogsCollectedWarnings(): void
+    {
+        Log::spy();
+
+        $request = Request::create('/', 'GET', server: ['HTTP_ACCEPT' => 'text/csv']);
+        $schema  = new FlexibleSchema($request, [
+            Column::make('id', 'ID'),
+            Column::make('broken', 'Broken')->cast('does-not-exist'),
+        ], strictness: Strictness::LENIENT);
+
+        $response = (new ExportNegotiator)->streamExport(
+            new ArraySource([['id' => 1]]),
+            $schema,
+            'csv',
+            $request,
+        );
+
+        self::assertSame("ID\n1\n", $this->streamToString($response));
+
+        Log::shouldHaveReceived('warning') // @phpstan-ignore staticMethod.notFound
+            ->once()
+            ->withArgs(static fn (string $message, array $context): bool => $message === 'Resource export completed with warnings.'
+                && $context['format']                                                === 'csv'
+                && is_array($context['warnings'])
+                && $context['warnings'] !== []);
     }
 
     /**

@@ -20,6 +20,7 @@ use SineMacula\Exporter\Exceptions\NoTabularRepresentation;
 use SineMacula\Exporter\Export\ExportSpecification;
 use SineMacula\Exporter\Export\QueuedExport;
 use SineMacula\Exporter\Jobs\ExportToDiskJob;
+use Tests\Support\V3\Concerns\ReadsXlsx;
 use Tests\Support\V3\Models\Actor;
 use Tests\Support\V3\Models\User;
 use Tests\Support\V3\QueuedExportTestCase;
@@ -27,6 +28,7 @@ use Tests\Support\V3\Resources\PlainUserResource;
 use Tests\Support\V3\Resources\UserResource;
 use Tests\Support\V3\Schema\ActorAwareSchema;
 use Tests\Support\V3\Schema\ExplodingExportSchema;
+use Tests\Support\V3\Schema\LenientBrokenColumnSchema;
 use Tests\Support\V3\SignerlessDisk;
 
 /**
@@ -40,6 +42,8 @@ use Tests\Support\V3\SignerlessDisk;
 #[CoversClass(ExportToDiskJob::class)]
 final class ExportToDiskJobTest extends QueuedExportTestCase
 {
+    use ReadsXlsx;
+
     /**
      * It streams the full query to the disk as a well-formed CSV file that can
      * be read back.
@@ -68,6 +72,51 @@ final class ExportToDiskJobTest extends QueuedExportTestCase
         self::assertCount(26, $rows);
         self::assertSame(['1', 'User 1', 'user1@example.test', 'Yes', '2026-01-01'], $rows[1]);
         self::assertSame(['25', 'User 25', 'user25@example.test', 'Yes', '2026-01-01'], $rows[25]);
+    }
+
+    /**
+     * It streams the full query to disk as a finalise-on-close XLSX workbook.
+     *
+     * @return void
+     */
+    public function testRunsTheJobAndStoresAWellFormedXlsx(): void
+    {
+        $disk = $this->fakeDisk('exports');
+        $this->seedUsers(2);
+
+        Event::fake();
+
+        ExportToDiskJob::dispatchSync(
+            QueuedExport::forModel(User::class, UserResource::class)
+                ->format('xlsx')
+                ->toDisk('exports', 'exports/users.xlsx')
+                ->orderBy('id')
+                ->withoutAuthorization()
+                ->toSpecification(),
+        );
+
+        $disk->assertExists('exports/users.xlsx');
+
+        $rows = $this->readWorkbook($disk->path('exports/users.xlsx'));
+
+        self::assertCount(3, $rows);
+        self::assertSame(['ID', 'Name', 'Email', 'Active', 'Joined'], $rows[0]);
+
+        [$id, $name, $email, $active, $joined] = $rows[1];
+
+        self::assertSame(1, $id);
+        self::assertSame('User 1', $name);
+        self::assertSame('user1@example.test', $email);
+        self::assertSame('Yes', $active);
+        self::assertInstanceOf(\DateTimeInterface::class, $joined);
+        self::assertSame('2026-01-01', $joined->format('Y-m-d'));
+
+        Event::assertDispatched(
+            ExportCompleted::class,
+            static fn (ExportCompleted $event): bool => $event->format === 'xlsx'
+                && $event->rowCount                                    === 2
+                && $event->queued                                      === true,
+        );
     }
 
     /**
@@ -284,6 +333,39 @@ final class ExportToDiskJobTest extends QueuedExportTestCase
     }
 
     /**
+     * It logs lenient-mode warnings collected while producing the stored file.
+     *
+     * @return void
+     */
+    public function testLogsWarningsCollectedByALenientQueuedExport(): void
+    {
+        $disk = $this->fakeDisk('exports');
+        $disk->buildTemporaryUrlsUsing(
+            fn (string $path, mixed $expiration): string => 'https://signed.example/' . $path,
+        );
+
+        Log::spy();
+        $this->seedUsers(1);
+
+        ExportToDiskJob::dispatchSync(
+            QueuedExport::forModel(User::class, UserResource::class)
+                ->schema(LenientBrokenColumnSchema::class)
+                ->toDisk('exports', 'exports/users.csv')
+                ->withoutAuthorization()
+                ->toSpecification(),
+        );
+
+        self::assertSame([['ID'], ['1']], $this->readCsv($disk, 'exports/users.csv'));
+
+        Log::shouldHaveReceived('warning') // @phpstan-ignore staticMethod.notFound
+            ->once()
+            ->withArgs(static fn (string $message, array $context): bool => $message === 'Resource export completed with warnings.'
+                && $context['format']                                                === 'csv'
+                && is_array($context['warnings'])
+                && $context['warnings'] !== []);
+    }
+
+    /**
      * It re-checks full-set authorization on the worker and rejects a forbidden
      * actor before any file is stored - the shared authz check exercised
      * through the queued front door.
@@ -493,6 +575,71 @@ final class ExportToDiskJobTest extends QueuedExportTestCase
     }
 
     /**
+     * It logs when a failed storage attempt also cannot delete its partial
+     * destination.
+     *
+     * @return void
+     */
+    public function testLogsWhenPartialFileCleanupFailsAfterStorageFailure(): void
+    {
+        $disk = \Mockery::mock(Filesystem::class);
+        $disk->shouldReceive('exists')->once()->with('exports/boom.csv')->andReturn(false);
+        $disk->shouldReceive('writeStream')->once()->andThrow(new \RuntimeException('upload failed'));
+        $disk->shouldReceive('delete')->once()->with('exports/boom.csv')->andThrow(new \RuntimeException('delete failed'));
+
+        $factory = new readonly class ($disk) implements Factory {
+            /**
+             * Create a new single-disk filesystem factory.
+             *
+             * @param  \Illuminate\Contracts\Filesystem\Filesystem  $disk
+             */
+            public function __construct(
+
+                /** The disk every name resolves to. */
+                private Filesystem $disk,
+            ) {}
+
+            /**
+             * Resolve a filesystem disk by name.
+             *
+             * @param  mixed  $name
+             * @return \Illuminate\Contracts\Filesystem\Filesystem
+             */
+            #[\Override]
+            public function disk(mixed $name = null): Filesystem
+            {
+                return $this->disk;
+            }
+        };
+
+        Log::spy();
+        $this->seedUsers(1);
+
+        $job = new ExportToDiskJob(
+            QueuedExport::forModel(User::class, UserResource::class)
+                ->toDisk('exports', 'exports/boom.csv')
+                ->withoutAuthorization()
+                ->toSpecification(),
+        );
+
+        try {
+            app()->call([$job, 'handle'], ['filesystem' => $factory]);
+
+            self::fail('Expected the storage failure to be re-thrown.');
+        } catch (\RuntimeException $exception) {
+            self::assertSame('upload failed', $exception->getMessage());
+        }
+
+        Log::shouldHaveReceived('warning') // @phpstan-ignore staticMethod.notFound
+            ->once()
+            ->withArgs(static fn (string $message, array $context): bool => $message === 'Unable to remove a failed queued export file.'
+                && $context['disk']                                                  === 'exports'
+                && $context['path']                                                  === 'exports/boom.csv'
+                && $context['exception'] instanceof \RuntimeException
+                && $context['exception']->getMessage() === 'delete failed');
+    }
+
+    /**
      * It does not delete a destination that existed before a failed export
      * attempt.
      *
@@ -587,6 +734,7 @@ final class ExportToDiskJobTest extends QueuedExportTestCase
         );
 
         $disk->assertExists('exports/users.csv');
+        self::assertSame('', $disk->get('exports/users.csv'));
 
         Event::assertDispatched(
             ExportCompleted::class,

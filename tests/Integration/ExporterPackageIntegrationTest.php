@@ -8,12 +8,16 @@ use Illuminate\Contracts\Config\Repository;
 use Illuminate\Foundation\Application;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Http\Resources\Json\ResourceCollection;
+use Illuminate\Routing\Router;
 use Orchestra\Testbench\TestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use SineMacula\Exporter\Contracts\Exporter as ExporterContract;
 use SineMacula\Exporter\ExporterServiceProvider;
 use SineMacula\Exporter\ExportManager;
 use SineMacula\Exporter\Facades\Exporter as ExporterFacade;
+use SineMacula\Exporter\Http\ExportNegotiator;
+use SineMacula\Exporter\Http\MediaTypeRegistry;
+use SineMacula\Exporter\Http\Middleware\NegotiateExports;
 
 /**
  * Integration tests for package container wiring and runtime behavior.
@@ -42,6 +46,38 @@ final class ExporterPackageIntegrationTest extends TestCase
 
         self::assertInstanceOf(ExportManager::class, $manager);
         self::assertSame('csv', $manager->getDefaultDriver());
+    }
+
+    /**
+     * It registers the content negotiator as a shared singleton.
+     *
+     * @return void
+     */
+    public function testRegistersTheNegotiatorAsASingleton(): void
+    {
+        $app = $this->application();
+
+        self::assertTrue($app->bound(MediaTypeRegistry::class));
+        self::assertTrue($app->bound(ExportNegotiator::class));
+
+        $negotiator = $app->make(ExportNegotiator::class);
+
+        self::assertInstanceOf(ExportNegotiator::class, $negotiator);
+        self::assertSame($negotiator, $app->make(ExportNegotiator::class));
+    }
+
+    /**
+     * It registers the legacy negotiation middleware alias without applying it
+     * globally.
+     *
+     * @return void
+     */
+    public function testRegistersTheNegotiationMiddlewareAlias(): void
+    {
+        $router = $this->application()->make('router');
+
+        self::assertInstanceOf(Router::class, $router);
+        self::assertSame(NegotiateExports::class, $router->getMiddleware()['exporter.negotiate'] ?? null);
     }
 
     /**

@@ -97,6 +97,8 @@ final class OctaneStatelessnessTest extends ExporterTestCase
         /** @var \SineMacula\Exporter\Http\ExportNegotiator $negotiator */
         $negotiator = $app->make(ExportNegotiator::class);
 
+        self::assertSame($negotiator, $app->make(ExportNegotiator::class));
+
         $privileged      = $this->streamThroughNegotiator($negotiator, $this->requestFor(true));
         $unprivileged    = $this->streamThroughNegotiator($negotiator, $this->requestFor(false));
         $privilegedAgain = $this->streamThroughNegotiator($negotiator, $this->requestFor(true));
