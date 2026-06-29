@@ -151,6 +151,9 @@ final readonly class NegotiateExports
         }
 
         return new class ($request, $columns) extends TabularSchema {
+            /** @var list<\SineMacula\Exporter\Schema\Column> The ad-hoc columns mirroring the decoded payload */
+            private readonly array $columns;
+
             /**
              * Create the ad-hoc legacy schema.
              *
@@ -162,10 +165,11 @@ final readonly class NegotiateExports
                 // The request the export is built for.
                 Request $request,
 
-                /** @var list<\SineMacula\Exporter\Schema\Column> The ad-hoc columns mirroring the decoded payload */
-                private readonly array $columns,
+                array $columns,
             ) {
                 parent::__construct($request);
+
+                $this->columns = $columns;
             }
 
             /**
