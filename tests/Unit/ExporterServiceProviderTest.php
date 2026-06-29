@@ -9,7 +9,9 @@ use Illuminate\Support\Facades\Config;
 use Illuminate\Support\ServiceProvider;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
+use SineMacula\Exporter\Contracts\ExportFactory;
 use SineMacula\Exporter\ExporterServiceProvider;
+use SineMacula\Exporter\ExportManager;
 use Tests\Support\ProviderAppStub;
 
 /**
@@ -68,10 +70,10 @@ final class ExporterServiceProviderTest extends TestCase
         $provider = new ExporterServiceProvider($app);
         $provider->register();
 
-        self::assertArrayHasKey('custom-exporter', $app->singletonBindings());
+        self::assertArrayHasKey(ExportManager::class, $app->singletonBindings());
+        self::assertSame(ExportManager::class, $app->aliasBindings()['custom-exporter']);
+        self::assertSame(ExportManager::class, $app->aliasBindings()[ExportFactory::class]);
         self::assertSame('csv', $app->config()->get('exporter.default'));
-        self::assertSame('csv', $app->config()->get('exporter.exporters.csv.driver'));
-        self::assertSame('xml', $app->config()->get('exporter.exporters.xml.driver'));
     }
 
     /**
@@ -134,9 +136,11 @@ final class ExporterServiceProviderTest extends TestCase
         }
 
         $publishable = ExporterServiceProvider::pathsToPublish(ExporterServiceProvider::class, 'config');
+        $tagged      = ExporterServiceProvider::pathsToPublish(ExporterServiceProvider::class, 'exporter-config');
         $source      = (string) array_key_first($publishable);
 
         self::assertCount(1, $publishable);
+        self::assertSame($publishable, $tagged);
         self::assertStringEndsWith('/config/exporter.php', $source);
         self::assertSame(
             realpath(dirname(__DIR__, 2) . '/config/exporter.php'),

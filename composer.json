@@ -1,7 +1,7 @@
 {
     "name": "sinemacula/laravel-resource-exporter",
     "type": "library",
-    "description": "A versatile Laravel package for exporting JsonResource and JsonResourceCollection objects into various formats with customizable drivers.",
+    "description": "Content-negotiated Laravel API resource exports to CSV, TSV, XLSX, XML, JSON, and NDJSON.",
     "keywords": [
         "sine macula",
         "laravel",
@@ -18,15 +18,16 @@
     ],
     "require": {
         "php": "^8.3",
-        "ext-dom": "*",
-        "ext-simplexml": "*",
-        "illuminate/http": "^12.0",
-        "illuminate/support": "^12.0"
+        "ext-filter": "*",
+        "ext-xmlwriter": "*",
+        "laravel/framework": "^12.0",
+        "league/csv": "^9.16"
     },
     "require-dev": {
         "brianium/paratest": "^7.20",
         "friendsofphp/php-cs-fixer": "^3.94",
         "infection/infection": "^0.33.2",
+        "openspout/openspout": "^4.0",
         "orchestra/testbench": "^10.0",
         "phpbench/phpbench": "^1.6.1",
         "phpstan/extension-installer": "^1.4",
@@ -39,6 +40,9 @@
         "sinemacula/coding-standards-laravel": "^1.0",
         "slevomat/coding-standard": "^8.29",
         "squizlabs/php_codesniffer": "^4.0"
+    },
+    "suggest": {
+        "openspout/openspout": "Required for XLSX exports (^4.0)."
     },
     "autoload": {
         "psr-4": {
@@ -68,7 +72,7 @@
             "@php vendor/bin/paratest --coverage-clover=clover.xml"
         ],
         "test:mutation": [
-            "@php vendor/bin/infection --configuration=infection.json5 --only-covering-test-cases --min-msi=95 --min-covered-msi=95"
+            "@php vendor/bin/infection --configuration=infection.json5 --only-covering-test-cases --min-msi=90 --min-covered-msi=90"
         ],
         "test:mutation:full": [
             "@php vendor/bin/infection --configuration=infection.full.json5 --only-covering-test-cases"

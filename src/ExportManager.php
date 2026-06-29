@@ -5,26 +5,26 @@ declare(strict_types = 1);
 namespace SineMacula\Exporter;
 
 use Illuminate\Contracts\Foundation\Application;
-use SineMacula\Exporter\Contracts\Exporter;
-use SineMacula\Exporter\Exporters\Csv;
-use SineMacula\Exporter\Exporters\Xml;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Http\Resources\Json\ResourceCollection;
+use SineMacula\Exporter\Contracts\ExportFactory;
+use SineMacula\Exporter\Export\QueuedExport;
+use SineMacula\Exporter\Http\MediaTypeRegistry;
 
 /**
  * The export manager.
  *
+ * The single entry point behind the Exporter facade. It opens a fluent explicit
+ * export for a resource, collection or query, and a serializable queued export
+ * for a model; the content-negotiation engine and the writers do the rest. It
+ * holds no per-request state, so it is safe to share under Octane.
+ *
  * @author      Ben Carey <bdmc@sinemacula.co.uk>
  * @copyright   2026 Sine Macula Limited.
- *
- * @mixin \SineMacula\Exporter\Contracts\Exporter
  */
-final class ExportManager
+final readonly class ExportManager implements ExportFactory
 {
-    /** @var array<string, \SineMacula\Exporter\Contracts\Exporter> Resolved exporters. */
-    private array $exporters = [];
-
-    /** @var array<string, \Closure(\Illuminate\Contracts\Foundation\Application, array<string, mixed>): \SineMacula\Exporter\Contracts\Exporter> */
-    private array $customCreators = [];
-
     /**
      * Create a new export manager instance.
      *
@@ -32,233 +32,67 @@ final class ExportManager
      */
     public function __construct(
 
-        /** The application instance */
-        public Application $app, // phpcs:ignore SineMacula.Classes.RequireReadonlyPublicProperty.Mutable
+        /** The application instance. */
+        private Application $app,
     ) {}
 
     /**
-     * Dynamically call the default driver instance.
+     * Begin a fluent explicit export for the given subject.
      *
-     * @param  string  $method
-     * @param  array<int, mixed>  $parameters
-     * @return mixed
+     * Accepts a resource item, a resource collection, or an Eloquent query. A
+     * query subject takes the resource class describing it so the export can
+     * resolve a tabular schema or hierarchical shape.
      *
-     * @throws \InvalidArgumentException
+     * @param  \Illuminate\Database\Eloquent\Builder<\Illuminate\Database\Eloquent\Model>|\Illuminate\Http\Resources\Json\JsonResource  $subject
+     * @param  class-string<\Illuminate\Http\Resources\Json\JsonResource>|null  $resource
+     * @return \SineMacula\Exporter\ExportBuilder
      */
-    public function __call(string $method, array $parameters): mixed
+    #[\Override]
+    public function export(Builder|JsonResource $subject, ?string $resource = null): ExportBuilder
     {
-        $exporter = $this->format();
-
-        if (!is_callable([$exporter, $method])) {
-            throw new \InvalidArgumentException("Method [{$method}] is not supported.");
-        }
-
-        return call_user_func_array([$exporter, $method], $parameters);
+        return new ExportBuilder(
+            $subject,
+            $resource,
+            $this->app->make(MediaTypeRegistry::class),
+            $this->app->make(Engine::class),
+        );
     }
 
     /**
-     * Get an export instance.
+     * Begin a fluent explicit export for a resource collection.
      *
-     * @param  string|null  $name
-     * @return \SineMacula\Exporter\Contracts\Exporter
+     * @param  \Illuminate\Http\Resources\Json\ResourceCollection  $collection
+     * @return \SineMacula\Exporter\ExportBuilder
      */
-    public function format(?string $name = null): Exporter
+    #[\Override]
+    public function collection(ResourceCollection $collection): ExportBuilder
     {
-        $name ??= $this->getDefaultDriver();
-
-        return $this->get($name);
+        return $this->export($collection);
     }
 
     /**
-     * Build an on-demand exporter.
+     * Begin a fluent explicit export streaming a full query.
      *
-     * @param  array<string, mixed>|null  $config
-     * @return \SineMacula\Exporter\Contracts\Exporter
+     * @param  \Illuminate\Database\Eloquent\Builder<\Illuminate\Database\Eloquent\Model>  $query
+     * @param  class-string<\Illuminate\Http\Resources\Json\JsonResource>  $resource
+     * @return \SineMacula\Exporter\ExportBuilder
      */
-    public function build(?array $config = null): Exporter
+    #[\Override]
+    public function query(Builder $query, string $resource): ExportBuilder
     {
-        return $this->resolve('ondemand', $config ?? ['driver' => $this->getDefaultDriver()]);
+        return $this->export($query, $resource);
     }
 
     /**
-     * Create an instance of the CSV driver.
+     * Begin a fluent queued export for the given model and resource class.
      *
-     * @param  array<string, mixed>  $config
-     * @return \SineMacula\Exporter\Contracts\Exporter
+     * @param  class-string<\Illuminate\Database\Eloquent\Model>  $model
+     * @param  class-string<\Illuminate\Http\Resources\Json\JsonResource>  $resource
+     * @return \SineMacula\Exporter\Export\QueuedExport
      */
-    public function createCsvDriver(array $config): Exporter
+    #[\Override]
+    public function queue(string $model, string $resource): QueuedExport
     {
-        return new Csv($config);
-    }
-
-    /**
-     * Create an instance of the XML driver.
-     *
-     * @param  array<string, mixed>  $config
-     * @return \SineMacula\Exporter\Contracts\Exporter
-     */
-    public function createXmlDriver(array $config): Exporter
-    {
-        return new Xml($config);
-    }
-
-    /**
-     * Set the given exporter instance.
-     *
-     * @param  string  $name
-     * @param  \SineMacula\Exporter\Contracts\Exporter  $exporter
-     * @return self
-     */
-    public function set(string $name, Exporter $exporter): self
-    {
-        $this->exporters[$name] = $exporter;
-
-        return $this;
-    }
-
-    /**
-     * Get the default driver name.
-     *
-     * @return string
-     */
-    public function getDefaultDriver(): string
-    {
-        return $this->app['config']['exporter.default'];
-    }
-
-    /**
-     * Unset the given exporter instances.
-     *
-     * @param  array<int, string>|string  $exporter
-     * @return $this
-     */
-    public function forgetExporter(array|string $exporter): self
-    {
-        foreach ((array) $exporter as $name) {
-            unset($this->exporters[$name]);
-        }
-
-        return $this;
-    }
-
-    /**
-     * Disconnect the given exporter and remove from local cache.
-     *
-     * @param  string|null  $name
-     * @return void
-     */
-    public function purge(?string $name = null): void
-    {
-        $name ??= $this->getDefaultDriver();
-
-        unset($this->exporters[$name]);
-    }
-
-    /**
-     * Register a custom driver creator Closure.
-     *
-     * @param  string  $driver
-     * @param  \Closure(\Illuminate\Contracts\Foundation\Application, array<string, mixed>): \SineMacula\Exporter\Contracts\Exporter  $callback
-     * @return self
-     */
-    public function extend(string $driver, \Closure $callback): self
-    {
-        $this->customCreators[$driver] = $callback;
-
-        return $this;
-    }
-
-    /**
-     * Set the application instance used by the manager.
-     *
-     * @param  \Illuminate\Contracts\Foundation\Application  $app
-     * @return self
-     */
-    public function setApplication(Application $app): self
-    {
-        $this->app = $app;
-
-        return $this;
-    }
-
-    /**
-     * Attempt to get the exporter from the local cache.
-     *
-     * @param  string  $name
-     * @return \SineMacula\Exporter\Contracts\Exporter
-     */
-    private function get(string $name): Exporter
-    {
-        return $this->exporters[$name] ?? $this->resolve($name);
-    }
-
-    /**
-     * Resolve the given exporter.
-     *
-     * @param  string  $name
-     * @param  array<string, mixed>|null  $config
-     * @return \SineMacula\Exporter\Contracts\Exporter
-     *
-     * @throws \InvalidArgumentException
-     */
-    private function resolve(string $name, ?array $config = null): Exporter
-    {
-        $config ??= $this->getConfig($name);
-
-        $driver = $config['driver'] ?? null;
-
-        if (!is_string($driver) || $driver === '') {
-            throw new \InvalidArgumentException("Exporter [{$name}] does not have a configured driver.");
-        }
-
-        if (isset($this->customCreators[$driver])) {
-            return $this->callCustomCreator($config);
-        }
-
-        return match ($driver) {
-            'csv'   => $this->createCsvDriver($config),
-            'xml'   => $this->createXmlDriver($config),
-            default => throw new \InvalidArgumentException("Driver [{$driver}] is not supported."),
-        };
-    }
-
-    /**
-     * Call a custom driver creator.
-     *
-     * @param  array<string, mixed>  $config
-     * @return \SineMacula\Exporter\Contracts\Exporter
-     *
-     * @throws \InvalidArgumentException
-     */
-    private function callCustomCreator(array $config): Exporter
-    {
-        $driver = $config['driver'] ?? null;
-
-        if (!is_string($driver)) {
-            throw new \InvalidArgumentException('Custom driver key must be a string.');
-        }
-
-        if (!isset($this->customCreators[$driver])) {
-            throw new \InvalidArgumentException("Driver [{$driver}] is not supported.");
-        }
-
-        $creator = $this->customCreators[$driver];
-
-        return $creator($this->app, $config);
-    }
-
-    /**
-     * Get the exporter configuration.
-     *
-     * @param  string  $name
-     * @return array<string, mixed>
-     */
-    private function getConfig(string $name): array
-    {
-        $config = $this->app['config']["exporter.exporters.{$name}"];
-
-        return is_array($config)
-            ? $config
-            : [];
+        return QueuedExport::forModel($model, $resource);
     }
 }
