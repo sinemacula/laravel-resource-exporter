@@ -4,6 +4,7 @@ declare(strict_types = 1);
 
 namespace SineMacula\Exporter\Export;
 
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Event;
@@ -38,15 +39,19 @@ final readonly class ExportAuditor
     /**
      * Re-check authorization for the full dataset, throwing when denied.
      *
-     * @param  \Closure(): void|null  $callback
+     * @param  \Closure(): mixed|null  $callback
      * @param  \Illuminate\Contracts\Auth\Authenticatable|null  $actor
      * @param  string|null  $ability
      * @param  mixed  $arguments
      * @return void
+     *
+     * @throws \Illuminate\Auth\Access\AuthorizationException
      */
     public function authorize(?\Closure $callback = null, ?Authenticatable $actor = null, ?string $ability = null, mixed $arguments = []): void
     {
-        $callback?->__invoke();
+        if ($callback?->__invoke() === false) {
+            throw new AuthorizationException;
+        }
 
         if ($ability === null) {
             return;

@@ -6,6 +6,7 @@ Contributions are welcome via GitHub pull requests. This guide covers the expect
 
 - PHP 8.3+
 - Composer 2
+- Qlty CLI on your `PATH` for `composer check`, `composer format`, and `composer smells`
 
 ## Getting Started
 

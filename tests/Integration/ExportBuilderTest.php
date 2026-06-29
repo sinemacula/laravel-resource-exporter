@@ -100,6 +100,23 @@ final class ExportBuilderTest extends ExporterTestCase
     }
 
     /**
+     * It rejects non-key ordered query downloads before building a response.
+     *
+     * @return void
+     */
+    public function testDownloadRejectsNonKeyOrderedQueryBeforeStreaming(): void
+    {
+        $this->seedUsers(5);
+
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage('score');
+
+        Exporter::query(User::query()->orderBy('score', 'desc'), UserResource::class) // @phpstan-ignore staticMethod.dynamicCall
+            ->format('csv')
+            ->download();
+    }
+
+    /**
      * It writes the export to a storage disk and returns the destination path.
      *
      * @return void

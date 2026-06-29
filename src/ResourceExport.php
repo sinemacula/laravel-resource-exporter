@@ -10,6 +10,7 @@ use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Config;
+use SineMacula\Exporter\Contracts\HierarchicalWriter;
 use SineMacula\Exporter\Contracts\ProvidesTabularExport;
 use SineMacula\Exporter\Events\ExportCompleted;
 use SineMacula\Exporter\Exceptions\NoTabularRepresentation;
@@ -64,7 +65,7 @@ final class ResourceExport
     /** @var int The keyset chunk size used while streaming the full set */
     private int $chunkSize;
 
-    /** @var (\Closure(\Illuminate\Http\Request, \Illuminate\Database\Eloquent\Builder<\Illuminate\Database\Eloquent\Model>): void)|null The full-set authorization re-check */
+    /** @var (\Closure(\Illuminate\Http\Request, \Illuminate\Database\Eloquent\Builder<\Illuminate\Database\Eloquent\Model>): mixed)|null The full-set authorization re-check */
     private ?\Closure $authorization = null;
 
     /** @var (\Closure(array<string, mixed>): void)|null The audit hook fired around a streamed export */
@@ -159,7 +160,7 @@ final class ResourceExport
     /**
      * Register the full-set authorization re-check for the export path.
      *
-     * @param  \Closure(\Illuminate\Http\Request, \Illuminate\Database\Eloquent\Builder<\Illuminate\Database\Eloquent\Model>): void  $callback
+     * @param  \Closure(\Illuminate\Http\Request, \Illuminate\Database\Eloquent\Builder<\Illuminate\Database\Eloquent\Model>): mixed  $callback
      * @return $this
      */
     public function authorizeUsing(\Closure $callback): static
@@ -217,9 +218,15 @@ final class ResourceExport
 
         $format = $negotiator->resolve($request);
 
-        return $negotiator->isTabular($format)
-            ? $this->streamResponse($negotiator, $format, $request)
-            : $this->jsonResponse($request);
+        if ($negotiator->isTabular($format)) {
+            return $this->streamResponse($negotiator, $format, $request);
+        }
+
+        $writer = $negotiator->hierarchicalWriterFor($format, $request);
+
+        return $writer === null
+            ? $this->jsonResponse($request)
+            : $this->streamHierarchicalResponse($negotiator, $writer, $format, $request);
     }
 
     /**
@@ -273,14 +280,52 @@ final class ResourceExport
         $this->enforceRowCap();
 
         $schema = $this->schema($request);
+        $source = new QueryChunkSource($this->query, $this->chunkSize);
+        $source->guardKeysetOrdering();
 
         return $negotiator->streamExport(
-            new QueryChunkSource($this->query, $this->chunkSize),
+            $source,
             $schema,
             $format,
             $request,
             function (int $rows) use ($auditor, $request, $schema, $format): void {
-                $this->complete($auditor, $request, $schema, $format, $rows);
+                $this->complete($auditor, $request, $schema->filename(), $format, $rows);
+            },
+        );
+    }
+
+    /**
+     * Build the streamed full-dataset hierarchical response.
+     *
+     * @param  \SineMacula\Exporter\Http\ExportNegotiator  $negotiator
+     * @param  \SineMacula\Exporter\Contracts\HierarchicalWriter  $writer
+     * @param  string  $format
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Symfony\Component\HttpFoundation\Response
+     *
+     * @throws \LogicException
+     * @throws \SineMacula\Exporter\Exceptions\RowLimitExceeded
+     */
+    private function streamHierarchicalResponse(ExportNegotiator $negotiator, HierarchicalWriter $writer, string $format, Request $request): Response
+    {
+        $auditor  = new ExportAuditor;
+        $resource = $this->resourceClass;
+
+        $this->guardAuthorizationDecision();
+        $this->authorizeFullSet($auditor, $request);
+        $this->enforceRowCap();
+
+        $source = new QueryChunkSource($this->query, $this->chunkSize);
+        $source->guardKeysetOrdering();
+
+        return $negotiator->streamHierarchical(
+            $source,
+            static fn (mixed $item): array => (new $resource($item))->resolve($request),
+            $writer,
+            $format,
+            $request,
+            function (int $rows) use ($auditor, $request, $format): void {
+                $this->complete($auditor, $request, null, $format, $rows);
             },
         );
     }
@@ -345,9 +390,7 @@ final class ResourceExport
         $authorization = $this->authorization;
 
         $auditor->authorize(
-            callback: $authorization === null ? null : function () use ($authorization, $request): void {
-                $authorization($request, $this->query);
-            },
+            callback: $authorization === null ? null : fn (): mixed => $authorization($request, $this->query),
         );
     }
 
@@ -388,19 +431,19 @@ final class ResourceExport
      *
      * @param  \SineMacula\Exporter\Export\ExportAuditor  $auditor
      * @param  \Illuminate\Http\Request  $request
-     * @param  \SineMacula\Exporter\Schema\TabularSchema  $schema
+     * @param  string|null  $filename
      * @param  string  $format
      * @param  int  $rows
      * @return void
      */
-    private function complete(ExportAuditor $auditor, Request $request, TabularSchema $schema, string $format, int $rows): void
+    private function complete(ExportAuditor $auditor, Request $request, ?string $filename, string $format, int $rows): void
     {
         $actorId = $this->actorId($request);
 
         $auditor->completed(new ExportCompleted(
             $actorId,
             $rows,
-            $schema->filename(),
+            $filename,
             $format,
             CarbonImmutable::now(),
         ));
@@ -412,7 +455,7 @@ final class ResourceExport
         ($this->audit)([
             'actor_id'  => $actorId,
             'row_count' => $rows,
-            'filename'  => $schema->filename(),
+            'filename'  => $filename,
             'format'    => $format,
         ]);
     }

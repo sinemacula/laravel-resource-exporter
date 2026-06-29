@@ -28,6 +28,7 @@ use SineMacula\Exporter\Sinks\DiskSink;
 use SineMacula\Exporter\Sinks\StreamedResponseSink;
 use SineMacula\Exporter\Sinks\StreamSink;
 use SineMacula\Exporter\Sinks\StringSink;
+use SineMacula\Exporter\Sources\QueryChunkSource;
 use SineMacula\Exporter\Sources\SourceFactory;
 use SineMacula\Exporter\Testing\ExporterFake;
 use SineMacula\Exporter\Writers\CountingWriter;
@@ -282,6 +283,12 @@ final class ExportBuilder
      */
     private function streamedResponse(string $filename): StreamedResponse
     {
+        $source = SourceFactory::for($this->subject, $this->chunkSize);
+
+        if ($source instanceof QueryChunkSource) {
+            $source->guardKeysetOrdering();
+        }
+
         $names   = new ExportFilename($this->registry, $this->format);
         $headers = [
             'Content-Type'        => $names->mediaType() . '; charset=UTF-8',
