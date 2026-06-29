@@ -14,9 +14,9 @@ use SineMacula\Exporter\Sources\QueryChunkSource;
 use SineMacula\Exporter\Sources\ResourceCollectionSource;
 use SineMacula\Exporter\Sources\ResourceItemSource;
 use SineMacula\Exporter\Sources\SourceFactory;
-use Tests\Support\V3\ExporterTestCase;
-use Tests\Support\V3\Models\User;
-use Tests\Support\V3\Resources\UserResource;
+use Tests\Support\ExporterTestCase;
+use Tests\Support\Models\User;
+use Tests\Support\Resources\UserResource;
 
 /**
  * Integration tests for the remaining source adapters and the factory.
@@ -99,7 +99,7 @@ final class SourceAdaptersTest extends ExporterTestCase
         $this->seedUsers(3);
         $this->seedOrders(1, [5]);
 
-        /** @var \Illuminate\Pagination\LengthAwarePaginator<int, \Tests\Support\V3\Models\User> $page */
+        /** @var \Illuminate\Pagination\LengthAwarePaginator<int, \Tests\Support\Models\User> $page */
         $page   = User::query()->paginate(perPage: 2); // @phpstan-ignore staticMethod.dynamicCall
         $source = (new PaginatorPageSource($page))->withRelations(['orders']);
 
@@ -137,7 +137,7 @@ final class SourceAdaptersTest extends ExporterTestCase
         $this->seedUsers(1);
         $this->seedOrders(1, [7]);
 
-        /** @var \Tests\Support\V3\Models\User $user */
+        /** @var \Tests\Support\Models\User $user */
         $user   = User::query()->first(); // @phpstan-ignore staticMethod.dynamicCall
         $source = (new ResourceItemSource(new UserResource($user)))->withRelations(['orders']);
 
@@ -194,7 +194,7 @@ final class SourceAdaptersTest extends ExporterTestCase
     {
         $this->seedUsers(1);
 
-        /** @var \Tests\Support\V3\Models\User $user */
+        /** @var \Tests\Support\Models\User $user */
         $user = User::query()->first(); // @phpstan-ignore staticMethod.dynamicCall
 
         self::assertInstanceOf(

@@ -17,11 +17,11 @@ use SineMacula\Exporter\Sinks\StringSink;
 use SineMacula\Exporter\Sources\QueryChunkSource;
 use SineMacula\Exporter\Writers\CsvWriter;
 use SineMacula\Exporter\Writers\XlsxWriter;
-use Tests\Support\V3\Concerns\ReadsXlsx;
-use Tests\Support\V3\ExporterTestCase;
-use Tests\Support\V3\Models\Order;
-use Tests\Support\V3\Models\User;
-use Tests\Support\V3\Schema\FlexibleSchema;
+use Tests\Support\Concerns\ReadsXlsx;
+use Tests\Support\ExporterTestCase;
+use Tests\Support\Models\Order;
+use Tests\Support\Models\User;
+use Tests\Support\Schema\FlexibleSchema;
 
 /**
  * End-to-end aggregate tests: a count, sum and join over a has-many relation,

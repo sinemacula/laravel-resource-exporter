@@ -13,10 +13,10 @@ use SineMacula\Exporter\Schema\TabularSchema;
 use SineMacula\Exporter\Sinks\StringSink;
 use SineMacula\Exporter\Sources\QueryChunkSource;
 use SineMacula\Exporter\Writers\CsvWriter;
-use Tests\Support\V3\ExporterTestCase;
-use Tests\Support\V3\Models\HiddenAttributeUser;
-use Tests\Support\V3\Models\User;
-use Tests\Support\V3\Schema\FlexibleSchema;
+use Tests\Support\ExporterTestCase;
+use Tests\Support\Models\HiddenAttributeUser;
+use Tests\Support\Models\User;
+use Tests\Support\Schema\FlexibleSchema;
 
 /**
  * Tests for the column-level visibility gate, including the leak boundary.

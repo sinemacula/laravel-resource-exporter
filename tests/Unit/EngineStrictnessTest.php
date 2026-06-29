@@ -16,9 +16,9 @@ use SineMacula\Exporter\Schema\Enums\Strictness;
 use SineMacula\Exporter\Schema\WarningCollector;
 use SineMacula\Exporter\Sinks\StringSink;
 use SineMacula\Exporter\Writers\CsvWriter;
-use Tests\Support\V3\ArraySource;
-use Tests\Support\V3\Resources\PlainUserResource;
-use Tests\Support\V3\Schema\FlexibleSchema;
+use Tests\Support\ArraySource;
+use Tests\Support\Resources\PlainUserResource;
+use Tests\Support\Schema\FlexibleSchema;
 
 /**
  * Tests for the engine's strictness modes.

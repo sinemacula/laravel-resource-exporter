@@ -12,8 +12,8 @@ use SineMacula\Exporter\Schema\Column;
 use SineMacula\Exporter\Schema\Enums\CellType;
 use SineMacula\Exporter\Sinks\StringSink;
 use SineMacula\Exporter\Writers\CsvWriter;
-use Tests\Support\V3\Concerns\ShapesRows;
-use Tests\Support\V3\Schema\ArraySchema;
+use Tests\Support\Concerns\ShapesRows;
+use Tests\Support\Schema\ArraySchema;
 
 /**
  * Golden-output tests for the streaming CSV writer.

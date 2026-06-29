@@ -14,10 +14,10 @@ use SineMacula\Exporter\Facades\Exporter as ExporterFacade;
 use SineMacula\Exporter\Http\ExportFormat;
 use SineMacula\Exporter\Http\ExportNegotiator;
 use SineMacula\Exporter\Http\MediaTypeRegistry;
-use Tests\Support\V3\ExporterTestCase;
-use Tests\Support\V3\Models\User;
-use Tests\Support\V3\Resources\UserResource;
-use Tests\Support\V3\Writers\ReportWriter;
+use Tests\Support\ExporterTestCase;
+use Tests\Support\Models\User;
+use Tests\Support\Resources\UserResource;
+use Tests\Support\Writers\ReportWriter;
 
 /**
  * The config('exporter.formats') extension seam is reachable and shared.

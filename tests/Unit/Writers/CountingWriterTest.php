@@ -11,8 +11,8 @@ use SineMacula\Exporter\Schema\Column;
 use SineMacula\Exporter\Sinks\StringSink;
 use SineMacula\Exporter\Writers\CountingWriter;
 use SineMacula\Exporter\Writers\CsvWriter;
-use Tests\Support\V3\Concerns\ShapesRows;
-use Tests\Support\V3\Schema\ArraySchema;
+use Tests\Support\Concerns\ShapesRows;
+use Tests\Support\Schema\ArraySchema;
 
 /**
  * Tests the row-counting writer decorator.

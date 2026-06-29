@@ -23,14 +23,14 @@ use SineMacula\Exporter\Schema\Column;
 use SineMacula\Exporter\Schema\Enums\Strictness;
 use SineMacula\Exporter\Writers\Truncation;
 use Symfony\Component\HttpFoundation\StreamedResponse;
-use Tests\Support\V3\ExporterTestCase;
-use Tests\Support\V3\Models\User;
-use Tests\Support\V3\Resources\PlainUserResource;
-use Tests\Support\V3\Resources\UserResource;
-use Tests\Support\V3\Schema\ActorAwareSchema;
-use Tests\Support\V3\Schema\ExplodingExportSchema;
-use Tests\Support\V3\Schema\FlexibleSchema;
-use Tests\Support\V3\Schema\UserExportSchema;
+use Tests\Support\ExporterTestCase;
+use Tests\Support\Models\User;
+use Tests\Support\Resources\PlainUserResource;
+use Tests\Support\Resources\UserResource;
+use Tests\Support\Schema\ActorAwareSchema;
+use Tests\Support\Schema\ExplodingExportSchema;
+use Tests\Support\Schema\FlexibleSchema;
+use Tests\Support\Schema\UserExportSchema;
 
 /**
  * Integration tests for the fluent explicit-export builder verbs.

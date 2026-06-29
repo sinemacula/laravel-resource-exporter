@@ -18,10 +18,10 @@ use SineMacula\Exporter\Sources\ResourceItemSource;
 use SineMacula\Exporter\Writers\JsonWriter;
 use SineMacula\Exporter\Writers\NdjsonWriter;
 use SineMacula\Exporter\Writers\XmlWriter;
-use Tests\Support\V3\ExporterTestCase;
-use Tests\Support\V3\Models\User;
-use Tests\Support\V3\Resources\PlainUserResource;
-use Tests\Support\V3\Resources\UserResource;
+use Tests\Support\ExporterTestCase;
+use Tests\Support\Models\User;
+use Tests\Support\Resources\PlainUserResource;
+use Tests\Support\Resources\UserResource;
 
 /**
  * HTTP negotiation tests for the hierarchical XML, JSON and NDJSON formats.

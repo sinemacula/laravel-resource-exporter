@@ -14,7 +14,7 @@ use SineMacula\Exporter\Schema\Column;
 use SineMacula\Exporter\Schema\Enums\CellType;
 use SineMacula\Exporter\Sinks\StreamSink;
 use SineMacula\Exporter\Writers\CsvWriter;
-use Tests\Support\V3\Schema\ArraySchema;
+use Tests\Support\Schema\ArraySchema;
 
 /**
  * Headline constant-memory proof for the streaming CSV writer.

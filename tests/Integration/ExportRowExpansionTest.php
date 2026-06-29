@@ -10,10 +10,10 @@ use SineMacula\Exporter\Engine;
 use SineMacula\Exporter\ExportBuilder;
 use SineMacula\Exporter\Facades\Exporter;
 use SineMacula\Exporter\Schema\ExpandPolicy;
-use Tests\Support\V3\ExporterTestCase;
-use Tests\Support\V3\Models\User;
-use Tests\Support\V3\Resources\UserResource;
-use Tests\Support\V3\Schema\ExpandedOrdersExportSchema;
+use Tests\Support\ExporterTestCase;
+use Tests\Support\Models\User;
+use Tests\Support\Resources\UserResource;
+use Tests\Support\Schema\ExpandedOrdersExportSchema;
 
 /**
  * Integration tests for row expansion over real Eloquent relations.

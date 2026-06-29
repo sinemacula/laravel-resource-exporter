@@ -17,7 +17,7 @@ use SineMacula\Exporter\Writers\NdjsonWriter;
 use SineMacula\Exporter\Writers\Truncation;
 use SineMacula\Exporter\Writers\TsvWriter;
 use SineMacula\Exporter\Writers\XmlWriter;
-use Tests\Support\V3\Schema\ArraySchema;
+use Tests\Support\Schema\ArraySchema;
 
 /**
  * Tests the documented truncation marker each streaming writer flushes.

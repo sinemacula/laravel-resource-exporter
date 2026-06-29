@@ -17,12 +17,12 @@ use SineMacula\Exporter\Sinks\StringSink;
 use SineMacula\Exporter\Sources\QueryChunkSource;
 use SineMacula\Exporter\Writers\CsvWriter;
 use Symfony\Component\HttpFoundation\StreamedResponse;
-use Tests\Support\V3\Concerns\ShapesRows;
-use Tests\Support\V3\ExporterTestCase;
-use Tests\Support\V3\Models\User;
-use Tests\Support\V3\Resources\UserResource;
-use Tests\Support\V3\Schema\ArraySchema;
-use Tests\Support\V3\Schema\FlexibleSchema;
+use Tests\Support\Concerns\ShapesRows;
+use Tests\Support\ExporterTestCase;
+use Tests\Support\Models\User;
+use Tests\Support\Resources\UserResource;
+use Tests\Support\Schema\ArraySchema;
+use Tests\Support\Schema\FlexibleSchema;
 
 /**
  * Consolidated security guarantees for the export pipeline.

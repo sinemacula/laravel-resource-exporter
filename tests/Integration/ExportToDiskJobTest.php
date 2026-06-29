@@ -20,16 +20,16 @@ use SineMacula\Exporter\Exceptions\NoTabularRepresentation;
 use SineMacula\Exporter\Export\ExportSpecification;
 use SineMacula\Exporter\Export\QueuedExport;
 use SineMacula\Exporter\Jobs\ExportToDiskJob;
-use Tests\Support\V3\Concerns\ReadsXlsx;
-use Tests\Support\V3\Models\Actor;
-use Tests\Support\V3\Models\User;
-use Tests\Support\V3\QueuedExportTestCase;
-use Tests\Support\V3\Resources\PlainUserResource;
-use Tests\Support\V3\Resources\UserResource;
-use Tests\Support\V3\Schema\ActorAwareSchema;
-use Tests\Support\V3\Schema\ExplodingExportSchema;
-use Tests\Support\V3\Schema\LenientBrokenColumnSchema;
-use Tests\Support\V3\SignerlessDisk;
+use Tests\Support\Concerns\ReadsXlsx;
+use Tests\Support\Models\Actor;
+use Tests\Support\Models\User;
+use Tests\Support\QueuedExportTestCase;
+use Tests\Support\Resources\PlainUserResource;
+use Tests\Support\Resources\UserResource;
+use Tests\Support\Schema\ActorAwareSchema;
+use Tests\Support\Schema\ExplodingExportSchema;
+use Tests\Support\Schema\LenientBrokenColumnSchema;
+use Tests\Support\SignerlessDisk;
 
 /**
  * Integration tests for the queued export-to-disk job.

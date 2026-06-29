@@ -12,8 +12,8 @@ use Illuminate\Support\Facades\Log;
 use PHPUnit\Framework\Attributes\CoversClass;
 use SineMacula\Exporter\Events\ExportCompleted;
 use SineMacula\Exporter\Export\ExportAuditor;
-use Tests\Support\V3\ExporterTestCase;
-use Tests\Support\V3\Models\Actor;
+use Tests\Support\ExporterTestCase;
+use Tests\Support\Models\Actor;
 
 /**
  * Unit tests for the shared full-set authorization and audit collaborator.

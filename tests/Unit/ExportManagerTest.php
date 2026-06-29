@@ -14,8 +14,8 @@ use SineMacula\Exporter\Exporters\Csv;
 use SineMacula\Exporter\Exporters\Xml;
 use SineMacula\Exporter\ExportManager;
 use Tests\Support\ExportManagerFakeExporter;
-use Tests\Support\V3\Models\User;
-use Tests\Support\V3\Resources\UserResource;
+use Tests\Support\Models\User;
+use Tests\Support\Resources\UserResource;
 
 /**
  * Tests for manager driver resolution and delegation behavior.
@@ -263,7 +263,7 @@ final class ExportManagerTest extends TestCase
     }
 
     /**
-     * It opens fluent v3 export builders and the queued export entry point.
+     * It opens fluent export builders and the queued export entry point.
      *
      * @return void
      */

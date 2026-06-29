@@ -10,10 +10,10 @@ use PHPUnit\Framework\TestCase;
 /**
  * Tests for the EXPORTER_DEFAULT environment binding of the default format.
  *
- * The v3 rename moves the default-format environment variable from
- * DEFAULT_EXPORTER to EXPORTER_DEFAULT while keeping the config key
- * exporter.default. These tests evaluate the shipped config file directly so
- * the rename is pinned by behaviour, not by reading the source.
+ * The default-format environment variable changed from DEFAULT_EXPORTER to
+ * EXPORTER_DEFAULT while keeping the config key exporter.default. These tests
+ * evaluate the shipped config file directly so the rename is pinned by
+ * behaviour, not by reading the source.
  *
  * @author      Ben Carey <bdmc@sinemacula.co.uk>
  * @copyright   2026 Sine Macula Limited.

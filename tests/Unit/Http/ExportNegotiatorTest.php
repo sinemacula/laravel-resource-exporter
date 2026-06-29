@@ -20,9 +20,9 @@ use SineMacula\Exporter\Schema\Column;
 use SineMacula\Exporter\Schema\TabularSchema;
 use SineMacula\Exporter\Writers\CsvWriter;
 use Symfony\Component\HttpFoundation\Response;
-use Tests\Support\V3\ArraySource;
-use Tests\Support\V3\Resources\PlainUserResource;
-use Tests\Support\V3\Schema\FlexibleSchema;
+use Tests\Support\ArraySource;
+use Tests\Support\Resources\PlainUserResource;
+use Tests\Support\Schema\FlexibleSchema;
 
 /**
  * Tests for the custom negotiation resolver and media registry.

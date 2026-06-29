@@ -9,8 +9,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\LazyCollection;
 use PHPUnit\Framework\Attributes\CoversClass;
 use SineMacula\Exporter\Sources\QueryChunkSource;
-use Tests\Support\V3\ExporterTestCase;
-use Tests\Support\V3\Models\User;
+use Tests\Support\ExporterTestCase;
+use Tests\Support\Models\User;
 
 /**
  * Integration tests for the keyset query-chunk source adapter.

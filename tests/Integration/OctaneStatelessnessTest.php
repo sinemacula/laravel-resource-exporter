@@ -11,11 +11,11 @@ use SineMacula\Exporter\Engine;
 use SineMacula\Exporter\ExportBuilder;
 use SineMacula\Exporter\ExportManager;
 use SineMacula\Exporter\Http\ExportNegotiator;
-use Tests\Support\V3\ArraySource;
-use Tests\Support\V3\ExporterTestCase;
-use Tests\Support\V3\Models\User;
-use Tests\Support\V3\Resources\UserResource;
-use Tests\Support\V3\Schema\GatedSchema;
+use Tests\Support\ArraySource;
+use Tests\Support\ExporterTestCase;
+use Tests\Support\Models\User;
+use Tests\Support\Resources\UserResource;
+use Tests\Support\Schema\GatedSchema;
 
 /**
  * Octane statelessness guarantees for the long-lived export singletons.

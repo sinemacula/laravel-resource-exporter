@@ -12,10 +12,10 @@ use SineMacula\Exporter\Export\ExportSpecification;
 use SineMacula\Exporter\Export\QueuedExport;
 use SineMacula\Exporter\Facades\Exporter;
 use SineMacula\Exporter\Jobs\ExportToDiskJob;
-use Tests\Support\V3\Models\User;
-use Tests\Support\V3\QueuedExportTestCase;
-use Tests\Support\V3\Resources\UserResource;
-use Tests\Support\V3\Schema\UserExportSchema;
+use Tests\Support\Models\User;
+use Tests\Support\QueuedExportTestCase;
+use Tests\Support\Resources\UserResource;
+use Tests\Support\Schema\UserExportSchema;
 
 /**
  * Integration tests for the fluent queued-export builder and its specification.

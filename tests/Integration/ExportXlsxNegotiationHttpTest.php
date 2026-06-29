@@ -20,12 +20,12 @@ use SineMacula\Exporter\Sinks\StreamedResponseSink;
 use SineMacula\Exporter\Sources\ResourceCollectionSource;
 use SineMacula\Exporter\Sources\ResourceItemSource;
 use SineMacula\Exporter\Writers\XlsxWriter;
-use Tests\Support\V3\Concerns\ReadsXlsx;
-use Tests\Support\V3\ExporterTestCase;
-use Tests\Support\V3\Models\User;
-use Tests\Support\V3\Resources\PlainUserResource;
-use Tests\Support\V3\Resources\UserResource;
-use Tests\Support\V3\Schema\UserExportSchema;
+use Tests\Support\Concerns\ReadsXlsx;
+use Tests\Support\ExporterTestCase;
+use Tests\Support\Models\User;
+use Tests\Support\Resources\PlainUserResource;
+use Tests\Support\Resources\UserResource;
+use Tests\Support\Schema\UserExportSchema;
 
 /**
  * HTTP negotiation tests for the XLSX format, plus the disk-sink finalise path.

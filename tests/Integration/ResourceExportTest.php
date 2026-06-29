@@ -16,10 +16,10 @@ use SineMacula\Exporter\Exceptions\NoTabularRepresentation;
 use SineMacula\Exporter\Exceptions\RowLimitExceeded;
 use SineMacula\Exporter\ResourceExport;
 use Symfony\Component\HttpFoundation\StreamedResponse;
-use Tests\Support\V3\ExporterTestCase;
-use Tests\Support\V3\Models\User;
-use Tests\Support\V3\Resources\PlainUserResource;
-use Tests\Support\V3\Resources\UserResource;
+use Tests\Support\ExporterTestCase;
+use Tests\Support\Models\User;
+use Tests\Support\Resources\PlainUserResource;
+use Tests\Support\Resources\UserResource;
 
 /**
  * Integration tests for the query-aware paginate-or-stream endpoint helper.

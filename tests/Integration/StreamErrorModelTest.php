@@ -16,9 +16,9 @@ use SineMacula\Exporter\Sources\ConnectionAwareSource;
 use SineMacula\Exporter\Writers\CountingWriter;
 use SineMacula\Exporter\Writers\JsonWriter;
 use SineMacula\Exporter\Writers\Truncation;
-use Tests\Support\V3\ArraySource;
-use Tests\Support\V3\ExporterTestCase;
-use Tests\Support\V3\Schema\FlexibleSchema;
+use Tests\Support\ArraySource;
+use Tests\Support\ExporterTestCase;
+use Tests\Support\Schema\FlexibleSchema;
 
 /**
  * End-to-end tests for the streamed export error model.

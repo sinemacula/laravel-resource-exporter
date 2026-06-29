@@ -8,7 +8,7 @@ use Illuminate\Routing\Router;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use SineMacula\Exporter\Http\Middleware\NegotiateExports;
-use Tests\Support\V3\ExporterTestCase;
+use Tests\Support\ExporterTestCase;
 
 /**
  * Integration tests for the legacy NegotiateExports middleware.

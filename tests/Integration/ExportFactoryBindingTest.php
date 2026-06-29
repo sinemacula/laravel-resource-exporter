@@ -11,8 +11,8 @@ use SineMacula\Exporter\Contracts\ExportFactory;
 use SineMacula\Exporter\ExporterServiceProvider;
 use SineMacula\Exporter\ExportManager;
 use SineMacula\Exporter\Facades\Exporter as ExporterFacade;
+use Tests\Support\ExporterTestCase;
 use Tests\Support\ExportManagerFakeExporter;
-use Tests\Support\V3\ExporterTestCase;
 
 /**
  * Integration tests for the container-binding fix (the must-fix from §11).

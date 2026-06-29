@@ -10,7 +10,7 @@ use Illuminate\Support\Collection;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 use SineMacula\Exporter\Sources\ResourceCollectionSource;
-use Tests\Support\V3\Resources\LeakyResource;
+use Tests\Support\Resources\LeakyResource;
 
 /**
  * Tests for the resource collection source adapter.

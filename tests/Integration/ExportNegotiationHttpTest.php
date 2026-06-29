@@ -26,12 +26,12 @@ use SineMacula\Exporter\Sinks\StreamedResponseSink;
 use SineMacula\Exporter\Sources\ResourceCollectionSource;
 use SineMacula\Exporter\Sources\ResourceItemSource;
 use SineMacula\Exporter\Writers\CsvWriter;
-use Tests\Support\V3\ArraySource;
-use Tests\Support\V3\ExporterTestCase;
-use Tests\Support\V3\Models\User;
-use Tests\Support\V3\Resources\PlainUserResource;
-use Tests\Support\V3\Resources\UserResource;
-use Tests\Support\V3\Schema\FlexibleSchema;
+use Tests\Support\ArraySource;
+use Tests\Support\ExporterTestCase;
+use Tests\Support\Models\User;
+use Tests\Support\Resources\PlainUserResource;
+use Tests\Support\Resources\UserResource;
+use Tests\Support\Schema\FlexibleSchema;
 
 /**
  * HTTP negotiation tests covering item, collection, JSON fallback, and 406.

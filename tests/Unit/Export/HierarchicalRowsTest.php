@@ -9,7 +9,7 @@ use Illuminate\Http\Resources\Json\JsonResource;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 use SineMacula\Exporter\Export\HierarchicalRows;
-use Tests\Support\V3\ArraySource;
+use Tests\Support\ArraySource;
 
 /**
  * Tests the hierarchical row resolver.

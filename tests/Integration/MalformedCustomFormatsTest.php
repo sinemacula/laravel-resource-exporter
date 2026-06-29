@@ -8,7 +8,7 @@ use Illuminate\Foundation\Application;
 use PHPUnit\Framework\Attributes\CoversClass;
 use SineMacula\Exporter\ExporterServiceProvider;
 use SineMacula\Exporter\Http\MediaTypeRegistry;
-use Tests\Support\V3\ExporterTestCase;
+use Tests\Support\ExporterTestCase;
 
 /**
  * Integration coverage for malformed custom-format configuration.
