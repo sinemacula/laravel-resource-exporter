@@ -37,7 +37,12 @@ The old driver API was removed. These calls no longer exist:
 - `exportItem()`
 - `exportCollection()`
 - `withoutFields()`
+- `withoutHeaders()`
 - `ExportManager::extend()`
+- `ExportManager::set()`
+- `ExportManager::forgetExporter()`
+- `ExportManager::purge()`
+- `ExportManager::setApplication()`
 
 Use the v3 explicit export builders instead:
 
@@ -155,6 +160,21 @@ Route::get('/users/export', function () {
 Full-query streamed exports now require an explicit authorization decision:
 register `authorizeUsing()` or deliberately call `withoutAuthorization()`.
 
+For routes you cannot yet move to `RespondsWithExports`, v3 ships an opt-in
+legacy middleware alias:
+
+```php
+Route::get('/legacy-users', LegacyUsersController::class)
+    ->middleware('exporter.negotiate');
+```
+
+The middleware inspects the already-rendered JSON response and blind-flattens a
+simple object, list, or paginator `data` envelope into CSV, TSV, or XLSX when an
+export format is negotiated. It is deliberately limited: it cannot use a
+`TabularSchema`, cannot stream the original query, and returns the original JSON
+response when the body cannot be flattened. Prefer the trait for new or actively
+migrated resources.
+
 ### 5. Migrate queued exports
 
 Queued exports use a dedicated serializable builder:
@@ -177,6 +197,27 @@ Queued exports cannot accept a live query builder or closure. Express filters
 through the queued builder's serializable query verbs, such as `where()`,
 `whereIn()`, `whereNull()`, `whereNotNull()`, `orderBy()`, `limit()`, or a named
 scope.
+
+Queued exports now expose lifecycle events:
+
+- `ExportStarting`
+- `RowsExported`
+- `ExportCompleted`
+- `ExportFailed`
+
+Listen to `ExportCompleted` for post-export work such as sending an email with
+the signed URL:
+
+```php
+use SineMacula\Exporter\Events\ExportCompleted;
+
+Event::listen(ExportCompleted::class, function (ExportCompleted $event): void {
+    // $event->url contains the temporary URL for queued exports when available.
+});
+```
+
+Synchronous streamed-response failures after bytes have already started are
+reported separately through `StreamExportFailed`.
 
 ### 6. Republish and update configuration
 
@@ -264,7 +305,29 @@ Tabular custom formats need a writer implementing
 `SineMacula\Exporter\Contracts\Writer`; hierarchical custom formats need a
 writer implementing `SineMacula\Exporter\Contracts\HierarchicalWriter`.
 
-### 9. `ExporterServiceProvider` is now `final`
+### 9. Update export tests
+
+v3 adds `Exporter::fake()` for tests that should assert export intent without
+writing files, streaming bytes, or dispatching jobs:
+
+```php
+use SineMacula\Exporter\Facades\Exporter;
+
+$exporter = Exporter::fake();
+
+// Exercise code that exports...
+
+$exporter->assertDownloaded('users.csv');
+$exporter->assertStored('s3', 'exports/users.xlsx');
+$exporter->assertQueued();
+$exporter->assertStringExported('csv');
+$exporter->assertStreamedTo('csv');
+$exporter->assertExportedRows(42);
+```
+
+Queued export fakes reuse an existing `Bus::fake()` when one is already active.
+
+### 10. `ExporterServiceProvider` is now `final`
 
 `SineMacula\Exporter\ExporterServiceProvider` is now declared `final`, and the
 `protected` extension points it previously exposed (`resolveConfigPath()` and
@@ -279,14 +342,23 @@ If you previously extended the provider:
   points: `exporter.formats`, `MediaTypeRegistry`, and the published
   `config/exporter.php`.
 
-### 10. Removed public classes and contracts
+### 11. Removed public classes and contracts
 
-Remove imports and type hints for these v2 classes:
+Remove imports and type hints for these v2 classes and contracts:
 
 - `SineMacula\Exporter\Contracts\Exporter`
 - `SineMacula\Exporter\Exporters\Exporter`
 - `SineMacula\Exporter\Exporters\Csv`
 - `SineMacula\Exporter\Exporters\Xml`
+
+The v2 driver-manager extension methods were also removed:
+
+- `Exporter::build()`
+- `ExportManager::extend()`
+- `ExportManager::set()`
+- `ExportManager::forgetExporter()`
+- `ExportManager::purge()`
+- `ExportManager::setApplication()`
 
 Use the v3 public surface instead:
 
@@ -297,8 +369,9 @@ Use the v3 public surface instead:
 - `SineMacula\Exporter\Schema\TabularSchema`
 - `SineMacula\Exporter\Schema\Column`
 - `SineMacula\Exporter\Http\ExportFormat`
+- `SineMacula\Exporter\Testing\ExporterFake`
 
-### 11. Notes on export behaviour
+### 12. Notes on export behaviour
 
 - CSV and TSV stream at constant memory.
 - XML, JSON, and NDJSON stream hierarchical resource shapes.
