@@ -10,10 +10,12 @@ format through content negotiation or a fluent explicit-export API. See
 ### ⚠ BREAKING CHANGES
 
 * **v2 driver API removed.** `Exporter::format('csv')->exportCollection()`,
-  `exportArray()`, `exportItem()`, `withoutFields()`, the `Exporters\` drivers,
-  the `Contracts\Exporter` contract, and the `exporter.exporters` config block
-  are gone. Use the `RespondsWithExports` trait or the `Exporter` facade's
-  `export()` / `collection()` / `query()` / `queue()` verbs.
+  `Exporter::build()`, `exportArray()`, `exportItem()`, `withoutFields()`,
+  `withoutHeaders()`, custom driver registration through `ExportManager`,
+  the `Exporters\` drivers, the `Contracts\Exporter` contract, and the
+  `exporter.exporters` config block are gone. Use the `RespondsWithExports`
+  trait or the `Exporter` facade's `export()` / `collection()` / `query()` /
+  `queue()` verbs.
 * **Tabular formats require a schema.** CSV, TSV, and XLSX now need the resource
   to declare a `TabularSchema`; a resource without one returns `406 Not
   Acceptable` for a tabular format. Hierarchical formats (JSON, XML, NDJSON)
@@ -25,7 +27,8 @@ format through content negotiation or a fluent explicit-export API. See
   extension points were removed.
 * **Runtime requirements raised** to PHP 8.3+ and Laravel 12. XLSX support is now
   optional and requires `openspout/openspout:^4.0`.
-* **Public v2 classes and contracts removed** (see `UPGRADE.md` section 10).
+* **Public v2 classes and contracts removed** (see the removed public classes
+  and contracts section in `UPGRADE.md`).
 
 ### Features
 
@@ -44,6 +47,10 @@ format through content negotiation or a fluent explicit-export API. See
 * **Serializable queued exports.** `Exporter::queue($model, $resource)` writes a
   full-set export to a disk and delivers it behind a signed temporary URL, with a
   re-checked full-set authorization gate and an `ExportCompleted` audit event.
+* **Lifecycle events.** Queued exports fire `ExportStarting`, `RowsExported`,
+  `ExportCompleted`, and `ExportFailed`; streamed-response failures after bytes
+  have started are surfaced through `StreamExportFailed` with row and actor
+  context.
 * **Six formats split by dimensionality.** Hierarchical formats (JSON, XML,
   NDJSON) serialize `toArray()`; tabular formats (CSV, TSV, XLSX) use a
   `TabularSchema` of `Column`s with casts, has-many aggregates, and per-request
@@ -55,5 +62,11 @@ format through content negotiation or a fluent explicit-export API. See
 * **Extensible by configuration.** Register custom formats and casters in
   `config/exporter.php`; the negotiated and explicit paths resolve the same shared
   registry. The engine is stateless and Octane-safe.
+* **Testing fake.** `Exporter::fake()` records downloads, disk writes, string
+  exports, stream writes, queued exports, and row counts without writing bytes or
+  dispatching jobs.
+* **Legacy negotiation middleware.** The opt-in `exporter.negotiate` middleware
+  can convert simple JSON responses to tabular exports while applications migrate
+  to the `RespondsWithExports` trait.
 * **Tunable negotiation.** Configure `max_rows`, `per_page`, `chunk_size`, and
   `default_format`, plus an optional audit log channel.
