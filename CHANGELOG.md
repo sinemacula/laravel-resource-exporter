@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.1.0](https://github.com/sinemacula/laravel-resource-exporter/compare/v3.0.0...v3.1.0) (2026-07-22)
+
+
+### Features
+
+* support Laravel 13 ([#62](https://github.com/sinemacula/laravel-resource-exporter/issues/62)) ([e484618](https://github.com/sinemacula/laravel-resource-exporter/commit/e484618178de5efb1ff45f01ffb0a34117d655fa))
+
 ## [3.0.0](https://github.com/sinemacula/laravel-resource-exporter/compare/v2.0.1...v3.0.0) (2026-06-30)
 
 v3 is a ground-up rewrite around HTTP content negotiation. The package no longer
