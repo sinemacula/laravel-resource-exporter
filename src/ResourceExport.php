@@ -209,6 +209,7 @@ final class ResourceExport
      * @throws \LogicException
      * @throws \SineMacula\Exporter\Exceptions\NoTabularRepresentation
      * @throws \SineMacula\Exporter\Exceptions\RowLimitExceeded
+     * @throws \Illuminate\Auth\Access\AuthorizationException
      */
     public function paginatedJsonOrStreamedExport(?Request $request = null): Response
     {
@@ -270,6 +271,7 @@ final class ResourceExport
      * @throws \LogicException
      * @throws \SineMacula\Exporter\Exceptions\NoTabularRepresentation
      * @throws \SineMacula\Exporter\Exceptions\RowLimitExceeded
+     * @throws \Illuminate\Auth\Access\AuthorizationException
      */
     private function streamResponse(ExportNegotiator $negotiator, string $format, Request $request): Response
     {
@@ -305,6 +307,7 @@ final class ResourceExport
      *
      * @throws \LogicException
      * @throws \SineMacula\Exporter\Exceptions\RowLimitExceeded
+     * @throws \Illuminate\Auth\Access\AuthorizationException
      */
     private function streamHierarchicalResponse(ExportNegotiator $negotiator, HierarchicalWriter $writer, string $format, Request $request): Response
     {
@@ -384,6 +387,8 @@ final class ResourceExport
      * @param  \SineMacula\Exporter\Export\ExportAuditor  $auditor
      * @param  \Illuminate\Http\Request  $request
      * @return void
+     *
+     * @throws \Illuminate\Auth\Access\AuthorizationException
      */
     private function authorizeFullSet(ExportAuditor $auditor, Request $request): void
     {

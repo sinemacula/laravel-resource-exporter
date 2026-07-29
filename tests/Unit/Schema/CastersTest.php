@@ -38,6 +38,8 @@ final class CastersTest extends TestCase
      * It casts a DateTimeInterface into a date cell carrying the format hint.
      *
      * @return void
+     *
+     * @throws \DateInvalidTimeZoneException
      */
     public function testDateCasterAcceptsADateTimeInstance(): void
     {
@@ -53,6 +55,8 @@ final class CastersTest extends TestCase
      * It parses a UNIX timestamp from both an integer and a digit string.
      *
      * @return void
+     *
+     * @throws \DateInvalidTimeZoneException
      */
     public function testDateCasterParsesTimestamps(): void
     {
@@ -69,6 +73,8 @@ final class CastersTest extends TestCase
      * It applies a timezone option and falls back when the format is not text.
      *
      * @return void
+     *
+     * @throws \DateInvalidTimeZoneException
      */
     public function testDateCasterAppliesTimezoneAndFormatFallback(): void
     {
@@ -89,6 +95,8 @@ final class CastersTest extends TestCase
      * hint, proving the option wins over the default.
      *
      * @return void
+     *
+     * @throws \DateInvalidTimeZoneException
      */
     public function testDateCasterUsesAStringFormatOption(): void
     {
@@ -101,6 +109,8 @@ final class CastersTest extends TestCase
      * It yields a null cell for an unparseable or empty date string.
      *
      * @return void
+     *
+     * @throws \DateInvalidTimeZoneException
      */
     public function testDateCasterReturnsNullForUnparseableValues(): void
     {

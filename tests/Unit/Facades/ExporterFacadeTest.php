@@ -85,8 +85,6 @@ final class ExporterFacadeTest extends TestCase
      * Invoke the protected facade accessor on the real facade.
      *
      * @return string
-     *
-     * @throws \ReflectionException
      */
     private function invokeFacadeAccessor(): string
     {

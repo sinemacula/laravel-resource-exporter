@@ -44,6 +44,8 @@ final readonly class DateCaster implements Caster
      * @param  mixed  $value
      * @param  array<string, mixed>  $options
      * @return \SineMacula\Exporter\Schema\CellValue
+     *
+     * @throws \DateInvalidTimeZoneException
      */
     #[\Override]
     public function cast(mixed $value, array $options = []): CellValue

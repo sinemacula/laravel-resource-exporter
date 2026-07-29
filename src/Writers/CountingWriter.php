@@ -58,6 +58,8 @@ final readonly class CountingWriter implements Writer
      * @param  \SineMacula\Exporter\Schema\TabularSchema  $schema
      * @param  \SineMacula\Exporter\Contracts\Sink  $sink
      * @return void
+     *
+     * @throws \Throwable
      */
     #[\Override]
     public function write(iterable $rows, TabularSchema $schema, Sink $sink): void

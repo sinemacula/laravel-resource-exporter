@@ -46,6 +46,9 @@ final class XlsxWriterTest extends TestCase
      * seekable sink.
      *
      * @return void
+     *
+     * @throws \OpenSpout\Common\Exception\IOException
+     * @throws \OpenSpout\Writer\Exception\WriterNotOpenedException
      */
     public function testGoldenReadBackEmitsHeadingAndTypedCells(): void
     {
@@ -91,6 +94,9 @@ final class XlsxWriterTest extends TestCase
      * the finalise-then-putFromFile path.
      *
      * @return void
+     *
+     * @throws \OpenSpout\Common\Exception\IOException
+     * @throws \OpenSpout\Writer\Exception\WriterNotOpenedException
      */
     public function testNonSeekableSinkProducesReadableWorkbook(): void
     {
@@ -116,6 +122,9 @@ final class XlsxWriterTest extends TestCase
      * non-scalars.
      *
      * @return void
+     *
+     * @throws \OpenSpout\Common\Exception\IOException
+     * @throws \OpenSpout\Writer\Exception\WriterNotOpenedException
      */
     public function testRendersTypedCellEdgeCases(): void
     {
@@ -174,6 +183,9 @@ final class XlsxWriterTest extends TestCase
      * It renders a date cell whose raw value is not a date through its string.
      *
      * @return void
+     *
+     * @throws \OpenSpout\Common\Exception\IOException
+     * @throws \OpenSpout\Writer\Exception\WriterNotOpenedException
      */
     public function testRendersANonDateRawForADateCell(): void
     {
@@ -192,6 +204,9 @@ final class XlsxWriterTest extends TestCase
      * It omits the heading row when the schema disables headings.
      *
      * @return void
+     *
+     * @throws \OpenSpout\Common\Exception\IOException
+     * @throws \OpenSpout\Writer\Exception\WriterNotOpenedException
      */
     public function testHeadingsCanBeDisabled(): void
     {
@@ -213,6 +228,9 @@ final class XlsxWriterTest extends TestCase
      * It writes an empty, readable workbook for an empty row set.
      *
      * @return void
+     *
+     * @throws \OpenSpout\Common\Exception\IOException
+     * @throws \OpenSpout\Writer\Exception\WriterNotOpenedException
      */
     public function testEmptySetProducesEmptyWorkbook(): void
     {
@@ -230,6 +248,9 @@ final class XlsxWriterTest extends TestCase
      * It humanises a dotted column key into a spaced heading.
      *
      * @return void
+     *
+     * @throws \OpenSpout\Common\Exception\IOException
+     * @throws \OpenSpout\Writer\Exception\WriterNotOpenedException
      */
     public function testDottedKeyHeadingIsHumanised(): void
     {
@@ -250,6 +271,9 @@ final class XlsxWriterTest extends TestCase
      * not a stringified fallback.
      *
      * @return void
+     *
+     * @throws \OpenSpout\Common\Exception\IOException
+     * @throws \OpenSpout\Writer\Exception\WriterNotOpenedException
      */
     public function testRendersDateTimeCellAsNativeDate(): void
     {
@@ -274,6 +298,9 @@ final class XlsxWriterTest extends TestCase
      * segments and falling back to the false label for a false value.
      *
      * @return void
+     *
+     * @throws \OpenSpout\Common\Exception\IOException
+     * @throws \OpenSpout\Writer\Exception\WriterNotOpenedException
      */
     public function testBooleanLabelsFromPipeDelimitedFormat(): void
     {
@@ -395,6 +422,9 @@ final class XlsxWriterTest extends TestCase
      * @param  \Illuminate\Http\Request  $request
      * @param  list<array<string, mixed>>  $items
      * @return list<list<mixed>>
+     *
+     * @throws \OpenSpout\Common\Exception\IOException
+     * @throws \OpenSpout\Writer\Exception\WriterNotOpenedException
      */
     private function export(array $columns, Request $request, array $items): array
     {

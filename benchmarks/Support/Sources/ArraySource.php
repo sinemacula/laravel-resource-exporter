@@ -14,7 +14,7 @@ use SineMacula\Exporter\Contracts\Source;
  * @author      Ben Carey <bdmc@sinemacula.co.uk>
  * @copyright   2026 Sine Macula Limited.
  */
-final class ArraySource implements Source
+final readonly class ArraySource implements Source
 {
     /**
      * Create the source.
@@ -24,7 +24,7 @@ final class ArraySource implements Source
     public function __construct(
 
         /** @var list<SourceRow> The items yielded by the source */
-        private readonly array $items,
+        private array $items,
     ) {}
 
     /**

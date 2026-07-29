@@ -19,7 +19,7 @@ use SineMacula\Exporter\Exceptions\SinkException;
  * @author      Ben Carey <bdmc@sinemacula.co.uk>
  * @copyright   2026 Sine Macula Limited.
  */
-final class DiskSink implements Sink
+final readonly class DiskSink implements Sink
 {
     /**
      * Constructor.
@@ -32,13 +32,13 @@ final class DiskSink implements Sink
     public function __construct(
 
         /** The storage disk the file is uploaded to. */
-        private readonly Filesystem $disk,
+        private Filesystem $disk,
 
         /** The destination path on the disk. */
-        private readonly string $path,
+        private string $path,
 
         /** The write options forwarded to the disk. */
-        private readonly array $options = [],
+        private array $options = [],
     ) {}
 
     /**

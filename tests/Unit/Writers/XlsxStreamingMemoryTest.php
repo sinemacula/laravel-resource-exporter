@@ -40,6 +40,9 @@ final class XlsxStreamingMemoryTest extends TestCase
      * It streams a large tabular XLSX export at bounded peak memory.
      *
      * @return void
+     *
+     * @throws \OpenSpout\Common\Exception\IOException
+     * @throws \OpenSpout\Writer\Exception\WriterNotOpenedException
      */
     public function testLargeXlsxExportStreamsAtBoundedMemory(): void
     {

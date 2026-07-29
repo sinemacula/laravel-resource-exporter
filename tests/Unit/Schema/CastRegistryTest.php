@@ -97,6 +97,8 @@ final class CastRegistryTest extends TestCase
      * It returns a null cell for an unparseable date.
      *
      * @return void
+     *
+     * @throws \DateInvalidTimeZoneException
      */
     public function testDateCasterReturnsNullForUnparseableValue(): void
     {

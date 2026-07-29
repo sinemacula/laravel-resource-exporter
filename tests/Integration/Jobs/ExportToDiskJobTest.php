@@ -665,6 +665,69 @@ final class ExportToDiskJobTest extends QueuedExportTestCase
     }
 
     /**
+     * It leaves the destination alone after a failed storage attempt when the
+     * disk could not answer whether that destination already existed.
+     *
+     * @return void
+     */
+    public function testDoesNotDeleteTheDestinationWhenTheExistenceProbeFails(): void
+    {
+        $disk = \Mockery::mock(Filesystem::class);
+
+        /** @var \Mockery\Expectation $existsExpectation */
+        $existsExpectation = $disk->shouldReceive('exists');
+        $existsExpectation->once()->with('exports/boom.csv')->andThrow(new \RuntimeException('probe failed'));
+
+        /** @var \Mockery\Expectation $writeStreamExpectation */
+        $writeStreamExpectation = $disk->shouldReceive('writeStream');
+        $writeStreamExpectation->once()->andThrow(new \RuntimeException('upload failed'));
+
+        $disk->shouldNotReceive('delete');
+
+        $factory = new readonly class ($disk) implements Factory {
+            /**
+             * Create a new single-disk filesystem factory.
+             *
+             * @param  \Illuminate\Contracts\Filesystem\Filesystem  $disk
+             */
+            public function __construct(
+
+                /** The disk every name resolves to. */
+                private Filesystem $disk,
+            ) {}
+
+            /**
+             * Resolve a filesystem disk by name.
+             *
+             * @param  mixed  $name
+             * @return \Illuminate\Contracts\Filesystem\Filesystem
+             */
+            #[\Override]
+            public function disk(mixed $name = null): Filesystem
+            {
+                return $this->disk;
+            }
+        };
+
+        $this->seedUsers(1);
+
+        $job = new ExportToDiskJob(
+            QueuedExport::forModel(User::class, UserResource::class)
+                ->toDisk('exports', 'exports/boom.csv')
+                ->withoutAuthorization()
+                ->toSpecification(),
+        );
+
+        try {
+            app()->call([$job, 'handle'], ['filesystem' => $factory]);
+
+            self::fail('Expected the storage failure to be re-thrown.');
+        } catch (\RuntimeException $exception) {
+            self::assertSame('upload failed', $exception->getMessage());
+        }
+    }
+
+    /**
      * It does not delete a destination that existed before a failed export
      * attempt.
      *

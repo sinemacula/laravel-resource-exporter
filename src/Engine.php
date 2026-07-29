@@ -469,7 +469,7 @@ final readonly class Engine
 
         try {
             return $column->toCellValue($item, $request, $this->registry);
-        } catch (\Throwable $exception) {
+        } catch (\Throwable $exception) { // @phpstan-ignore catch.neverThrown
             $warnings->add("Column [{$column->getKey()}] blanked: {$exception->getMessage()}.");
 
             return new CellValue(null, CellType::NULL);
@@ -494,7 +494,7 @@ final readonly class Engine
 
         try {
             return $column->toChildCellValue($child, $request, $this->registry);
-        } catch (\Throwable $exception) {
+        } catch (\Throwable $exception) { // @phpstan-ignore catch.neverThrown
             $warnings->add("Column [{$column->getKey()}] blanked: {$exception->getMessage()}.");
 
             return new CellValue(null, CellType::NULL);

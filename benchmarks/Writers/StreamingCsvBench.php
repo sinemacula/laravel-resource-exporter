@@ -26,7 +26,7 @@ use SineMacula\Exporter\Writers\CsvWriter;
  * @copyright   2026 Sine Macula Limited.
  */
 #[Bench\OutputTimeUnit('milliseconds')]
-final class StreamingCsvBench
+final readonly class StreamingCsvBench
 {
     /** @var int The small scale dataset size. */
     private const int ROWS_10K = 10000;
@@ -38,7 +38,7 @@ final class StreamingCsvBench
     private const int ROWS_1M = 1000000;
 
     /** @var \Benchmarks\Support\Schema\ScaleSchema The fixed three-column schema shared by every benchmark subject */
-    private readonly ScaleSchema $schema;
+    private ScaleSchema $schema;
 
     /**
      * Create the benchmark with its fixed, stateless schema.

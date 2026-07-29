@@ -110,6 +110,8 @@ final class JsonWriterTest extends TestCase
      * It raises a sink exception when a write to the stream fails.
      *
      * @return void
+     *
+     * @throws \Throwable
      */
     public function testThrowsWhenAWriteToTheStreamFails(): void
     {

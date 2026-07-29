@@ -58,6 +58,8 @@ final class TabularWriterBench
      * Benchmark CSV writer throughput with mixed typed cells.
      *
      * @return void
+     *
+     * @throws \DateMalformedStringException
      */
     #[Bench\BeforeMethods('setUp')]
     #[Bench\Iterations(5)]
@@ -72,6 +74,8 @@ final class TabularWriterBench
      * Benchmark TSV writer throughput with mixed typed cells.
      *
      * @return void
+     *
+     * @throws \DateMalformedStringException
      */
     #[Bench\BeforeMethods('setUp')]
     #[Bench\Iterations(5)]
@@ -86,6 +90,10 @@ final class TabularWriterBench
      * Benchmark XLSX writer throughput with mixed typed cells.
      *
      * @return void
+     *
+     * @throws \DateMalformedStringException
+     * @throws \OpenSpout\Common\Exception\IOException
+     * @throws \OpenSpout\Writer\Exception\WriterNotOpenedException
      */
     #[Bench\BeforeMethods('setUp')]
     #[Bench\Iterations(3)]
@@ -105,6 +113,8 @@ final class TabularWriterBench
      *
      * @param  int  $count
      * @return \Generator<int, array<string, \SineMacula\Exporter\Schema\CellValue>>
+     *
+     * @throws \DateMalformedStringException
      */
     private function rows(int $count): \Generator
     {
