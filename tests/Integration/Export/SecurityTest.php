@@ -98,6 +98,8 @@ final class SecurityTest extends ExporterTestCase
      * The streamed full-set query export is denied before any byte is sent.
      *
      * @return void
+     *
+     * @throws \Illuminate\Auth\Access\AuthorizationException
      */
     public function testFullSetAuthorizationIsReCheckedBeforeStreaming(): void
     {
@@ -116,6 +118,8 @@ final class SecurityTest extends ExporterTestCase
      * An authorized full-set query export streams the entire dataset.
      *
      * @return void
+     *
+     * @throws \Illuminate\Auth\Access\AuthorizationException
      */
     public function testAuthorizedFullSetStreamsTheEntireDataset(): void
     {

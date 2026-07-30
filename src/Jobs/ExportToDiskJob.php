@@ -180,7 +180,7 @@ final class ExportToDiskJob implements ShouldQueue
     {
         try {
             $auditor->completed($event);
-        } catch (\Throwable $exception) {
+        } catch (\Throwable $exception) { // @phpstan-ignore catch.neverThrown
             Log::warning('Queued export completed, but completion handling failed.', [
                 'disk'      => $this->spec->disk,
                 'path'      => $this->spec->path,
@@ -211,15 +211,18 @@ final class ExportToDiskJob implements ShouldQueue
     /**
      * Determine whether the destination path existed before this attempt.
      *
+     * An unreadable destination is reported as pre-existing, so a probe that
+     * cannot answer never authorises the cleanup delete.
+     *
      * @param  \Illuminate\Contracts\Filesystem\Filesystem  $disk
-     * @return bool|null
+     * @return bool
      */
-    private function hasExistingTarget(Filesystem $disk): ?bool
+    private function hasExistingTarget(Filesystem $disk): bool
     {
         try {
             return $disk->exists($this->spec->path);
-        } catch (\Throwable) {
-            return null;
+        } catch (\Throwable) { // @phpstan-ignore catch.neverThrown
+            return true;
         }
     }
 
@@ -228,19 +231,19 @@ final class ExportToDiskJob implements ShouldQueue
      * destination.
      *
      * @param  \Illuminate\Contracts\Filesystem\Filesystem  $disk
-     * @param  bool|null  $targetExisted
+     * @param  bool  $targetExisted
      * @param  bool  $storageAttempted
      * @return void
      */
-    private function cleanupFailedStorageAttempt(Filesystem $disk, ?bool $targetExisted, bool $storageAttempted): void
+    private function cleanupFailedStorageAttempt(Filesystem $disk, bool $targetExisted, bool $storageAttempted): void
     {
-        if (!$storageAttempted || $targetExisted !== false) {
+        if (!$storageAttempted || $targetExisted) {
             return;
         }
 
         try {
             $disk->delete($this->spec->path);
-        } catch (\Throwable $exception) {
+        } catch (\Throwable $exception) { // @phpstan-ignore catch.neverThrown
             Log::warning('Unable to remove a failed queued export file.', [
                 'disk'      => $this->spec->disk,
                 'path'      => $this->spec->path,

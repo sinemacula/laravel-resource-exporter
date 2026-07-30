@@ -34,6 +34,8 @@ interface HierarchicalWriter
      * @param  iterable<int, array<array-key, mixed>>  $items
      * @param  \SineMacula\Exporter\Contracts\Sink  $sink
      * @return void
+     *
+     * @throws \Throwable
      */
     public function write(iterable $items, Sink $sink): void;
 }

@@ -35,6 +35,8 @@ final class ExportAuditorTest extends ExporterTestCase
      * fluent re-check).
      *
      * @return void
+     *
+     * @throws \Illuminate\Auth\Access\AuthorizationException
      */
     public function testAuthorizeRunsTheCallback(): void
     {
@@ -51,6 +53,8 @@ final class ExportAuditorTest extends ExporterTestCase
      * It throws when the caller-supplied authorization callback denies access.
      *
      * @return void
+     *
+     * @throws \Illuminate\Auth\Access\AuthorizationException
      */
     public function testAuthorizeThrowsWhenTheCallbackReturnsFalse(): void
     {
@@ -64,6 +68,8 @@ final class ExportAuditorTest extends ExporterTestCase
      * serializable re-check).
      *
      * @return void
+     *
+     * @throws \Illuminate\Auth\Access\AuthorizationException
      */
     public function testAuthorizeAllowsAGrantedAbility(): void
     {
@@ -85,6 +91,8 @@ final class ExportAuditorTest extends ExporterTestCase
      * It throws when the gate denies the ability for the actor.
      *
      * @return void
+     *
+     * @throws \Illuminate\Auth\Access\AuthorizationException
      */
     public function testAuthorizeThrowsOnADeniedAbility(): void
     {
@@ -103,6 +111,8 @@ final class ExportAuditorTest extends ExporterTestCase
      * It is a no-op when neither a callback nor an ability is given.
      *
      * @return void
+     *
+     * @throws \Illuminate\Auth\Access\AuthorizationException
      */
     public function testAuthorizeIsANoOpWithoutCallbackOrAbility(): void
     {

@@ -137,6 +137,8 @@ final readonly class CsvWriter implements Writer
      * @param  \League\Csv\Writer  $writer
      * @param  \SineMacula\Exporter\Contracts\Sink  $sink
      * @return void
+     *
+     * @throws \League\Csv\Exception
      */
     private function markTruncated(LeagueWriter $writer, Sink $sink): void
     {
@@ -150,6 +152,9 @@ final readonly class CsvWriter implements Writer
      *
      * @param  \SineMacula\Exporter\Contracts\Sink  $sink
      * @return \League\Csv\Writer
+     *
+     * @throws \League\Csv\InvalidArgument
+     * @throws \League\Csv\UnavailableStream
      */
     private function makeWriter(Sink $sink): LeagueWriter
     {

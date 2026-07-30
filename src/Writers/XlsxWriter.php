@@ -83,6 +83,8 @@ final readonly class XlsxWriter implements Writer
      * @throws \SineMacula\Exporter\Exceptions\MissingXlsxDependency
      * @throws \SineMacula\Exporter\Exceptions\XlsxRowLimitExceeded
      * @throws \SineMacula\Exporter\Exceptions\SinkException
+     * @throws \OpenSpout\Common\Exception\IOException
+     * @throws \OpenSpout\Writer\Exception\WriterNotOpenedException
      */
     #[\Override]
     public function write(iterable $rows, TabularSchema $schema, Sink $sink): void
@@ -130,6 +132,8 @@ final readonly class XlsxWriter implements Writer
      * @return void
      *
      * @throws \SineMacula\Exporter\Exceptions\XlsxRowLimitExceeded
+     * @throws \OpenSpout\Common\Exception\IOException
+     * @throws \OpenSpout\Writer\Exception\WriterNotOpenedException
      */
     private function build(iterable $rows, TabularSchema $schema, string $path): void
     {

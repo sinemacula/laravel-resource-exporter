@@ -33,6 +33,8 @@ interface Writer
      * @param  \SineMacula\Exporter\Schema\TabularSchema  $schema
      * @param  \SineMacula\Exporter\Contracts\Sink  $sink
      * @return void
+     *
+     * @throws \Throwable
      */
     public function write(iterable $rows, TabularSchema $schema, Sink $sink): void;
 }

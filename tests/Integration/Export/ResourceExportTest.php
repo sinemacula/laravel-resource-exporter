@@ -36,6 +36,8 @@ final class ResourceExportTest extends ExporterTestCase
      * It returns a single paginated page of JSON for a JSON request.
      *
      * @return void
+     *
+     * @throws \Illuminate\Auth\Access\AuthorizationException
      */
     public function testJsonRequestReturnsASinglePaginatedPage(): void
     {
@@ -59,6 +61,8 @@ final class ResourceExportTest extends ExporterTestCase
      * request.
      *
      * @return void
+     *
+     * @throws \Illuminate\Auth\Access\AuthorizationException
      */
     public function testExportRequestStreamsMoreThanOnePage(): void
     {
@@ -82,6 +86,8 @@ final class ResourceExportTest extends ExporterTestCase
      * It rejects non-key ordering before building a streamed response.
      *
      * @return void
+     *
+     * @throws \Illuminate\Auth\Access\AuthorizationException
      */
     public function testExportRequestRejectsNonKeyOrderingBeforeStreaming(): void
     {
@@ -99,6 +105,8 @@ final class ResourceExportTest extends ExporterTestCase
      * It enforces the row cap before any bytes are streamed.
      *
      * @return void
+     *
+     * @throws \Illuminate\Auth\Access\AuthorizationException
      */
     public function testRowCapIsEnforcedBeforeStreaming(): void
     {
@@ -122,6 +130,8 @@ final class ResourceExportTest extends ExporterTestCase
      * It lifts the cap with unlimited().
      *
      * @return void
+     *
+     * @throws \Illuminate\Auth\Access\AuthorizationException
      */
     public function testUnlimitedLiftsTheCap(): void
     {
@@ -146,6 +156,8 @@ final class ResourceExportTest extends ExporterTestCase
      * functional guarantees proven above.
      *
      * @return void
+     *
+     * @throws \Illuminate\Auth\Access\AuthorizationException
      */
     public function testLargeExportStreamsAtBoundedPeakMemory(): void
     {
@@ -174,6 +186,8 @@ final class ResourceExportTest extends ExporterTestCase
      * It fires the audit hook with the pinned payload once the stream finishes.
      *
      * @return void
+     *
+     * @throws \Illuminate\Auth\Access\AuthorizationException
      */
     public function testAuditHookFiresWithThePinnedPayload(): void
     {
@@ -204,6 +218,8 @@ final class ResourceExportTest extends ExporterTestCase
      * It returns 406 when the export resource declares no tabular schema.
      *
      * @return void
+     *
+     * @throws \Illuminate\Auth\Access\AuthorizationException
      */
     public function testExportWithoutATabularSchemaYields406(): void
     {
@@ -221,6 +237,8 @@ final class ResourceExportTest extends ExporterTestCase
      * It streams explicit hierarchical export requests over the full dataset.
      *
      * @return void
+     *
+     * @throws \Illuminate\Auth\Access\AuthorizationException
      */
     public function testHierarchicalExportRequestStreamsTheFullDataset(): void
     {
@@ -250,6 +268,8 @@ final class ResourceExportTest extends ExporterTestCase
      * It paginates by the built-in default page size of fifteen.
      *
      * @return void
+     *
+     * @throws \Illuminate\Auth\Access\AuthorizationException
      */
     public function testPerPageDefaultsToFifteen(): void
     {
@@ -269,6 +289,8 @@ final class ResourceExportTest extends ExporterTestCase
      * It reads the configured page size, casting a numeric string to an int.
      *
      * @return void
+     *
+     * @throws \Illuminate\Auth\Access\AuthorizationException
      */
     public function testPerPageReadsTheConfiguredNumericString(): void
     {
@@ -290,6 +312,8 @@ final class ResourceExportTest extends ExporterTestCase
      * It streams when the row count exactly equals the configured cap.
      *
      * @return void
+     *
+     * @throws \Illuminate\Auth\Access\AuthorizationException
      */
     public function testRowCapAllowsExactlyTheMaximum(): void
     {
@@ -309,6 +333,8 @@ final class ResourceExportTest extends ExporterTestCase
      * decision - neither authorizeUsing() nor withoutAuthorization().
      *
      * @return void
+     *
+     * @throws \Illuminate\Auth\Access\AuthorizationException
      */
     public function testStreamingWithoutAnAuthorizationDecisionThrows(): void
     {
@@ -325,6 +351,8 @@ final class ResourceExportTest extends ExporterTestCase
      * withoutAuthorization().
      *
      * @return void
+     *
+     * @throws \Illuminate\Auth\Access\AuthorizationException
      */
     public function testWithoutAuthorizationPermitsStreaming(): void
     {
@@ -343,6 +371,8 @@ final class ResourceExportTest extends ExporterTestCase
      * check actually runs against the full-set query.
      *
      * @return void
+     *
+     * @throws \Illuminate\Auth\Access\AuthorizationException
      */
     public function testAuthorizeUsingPermitsStreaming(): void
     {
@@ -369,6 +399,8 @@ final class ResourceExportTest extends ExporterTestCase
      * export before any byte is streamed.
      *
      * @return void
+     *
+     * @throws \Illuminate\Auth\Access\AuthorizationException
      */
     public function testAuthorizeUsingRejectsAForbiddenActor(): void
     {
@@ -387,6 +419,8 @@ final class ResourceExportTest extends ExporterTestCase
      * It rejects a forbidden actor when authorizeUsing() returns false.
      *
      * @return void
+     *
+     * @throws \Illuminate\Auth\Access\AuthorizationException
      */
     public function testAuthorizeUsingRejectsFalse(): void
     {
@@ -403,6 +437,8 @@ final class ResourceExportTest extends ExporterTestCase
      * It dispatches the pinned ExportCompleted event with an integer actor id.
      *
      * @return void
+     *
+     * @throws \Illuminate\Auth\Access\AuthorizationException
      */
     public function testStreamedExportDispatchesExportCompletedWithIntegerActor(): void
     {
@@ -429,6 +465,8 @@ final class ResourceExportTest extends ExporterTestCase
      * It resolves a string actor identifier into the audit payload.
      *
      * @return void
+     *
+     * @throws \Illuminate\Auth\Access\AuthorizationException
      */
     public function testStreamedExportResolvesAStringActorIdentifier(): void
     {
@@ -451,6 +489,8 @@ final class ResourceExportTest extends ExporterTestCase
      * It records a null actor id when the request carries no user.
      *
      * @return void
+     *
+     * @throws \Illuminate\Auth\Access\AuthorizationException
      */
     public function testStreamedExportRecordsNullActorWithoutAUser(): void
     {
