@@ -1,4 +1,6 @@
-# Laravel Resource Exporter
+<h1 align="center">Laravel Resource Exporter</h1>
+
+<div align="center">
 
 [![Latest Stable Version](https://img.shields.io/packagist/v/sinemacula/laravel-resource-exporter.svg)](https://packagist.org/packages/sinemacula/laravel-resource-exporter)
 [![Build Status](https://github.com/sinemacula/laravel-resource-exporter/actions/workflows/tests.yml/badge.svg?branch=master)](https://github.com/sinemacula/laravel-resource-exporter/actions/workflows/tests.yml)
@@ -6,6 +8,8 @@
 [![Maintainability](https://qlty.sh/gh/sinemacula/projects/laravel-resource-exporter/maintainability.svg)](https://qlty.sh/gh/sinemacula/projects/laravel-resource-exporter)
 [![Code Coverage](https://qlty.sh/gh/sinemacula/projects/laravel-resource-exporter/coverage.svg)](https://qlty.sh/gh/sinemacula/projects/laravel-resource-exporter)
 [![Total Downloads](https://img.shields.io/packagist/dt/sinemacula/laravel-resource-exporter.svg)](https://packagist.org/packages/sinemacula/laravel-resource-exporter)
+
+</div>
 
 Return any API resource in the format the client asks for. Add one trait to a `JsonResource`, declare the columns that
 make sense as a table, and the same endpoint that serves JSON will stream **CSV, TSV, XLSX, XML, JSON, or NDJSON** when
