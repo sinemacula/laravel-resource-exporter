@@ -3,11 +3,14 @@
 <div align="center">
 
 [![Latest Stable Version](https://img.shields.io/packagist/v/sinemacula/laravel-resource-exporter.svg)](https://packagist.org/packages/sinemacula/laravel-resource-exporter)
+[![PHP Version](https://img.shields.io/packagist/dependency-v/sinemacula/laravel-resource-exporter/php.svg)](https://packagist.org/packages/sinemacula/laravel-resource-exporter)
+[![Laravel Version](https://img.shields.io/packagist/dependency-v/sinemacula/laravel-resource-exporter/laravel/framework.svg?label=laravel)](https://packagist.org/packages/sinemacula/laravel-resource-exporter)
 [![Build Status](https://github.com/sinemacula/laravel-resource-exporter/actions/workflows/tests.yml/badge.svg?branch=master)](https://github.com/sinemacula/laravel-resource-exporter/actions/workflows/tests.yml)
 [![Quality Gates](https://github.com/sinemacula/laravel-resource-exporter/actions/workflows/quality-gates.yml/badge.svg?branch=master)](https://github.com/sinemacula/laravel-resource-exporter/actions/workflows/quality-gates.yml)
 [![Maintainability](https://qlty.sh/gh/sinemacula/projects/laravel-resource-exporter/maintainability.svg)](https://qlty.sh/gh/sinemacula/projects/laravel-resource-exporter)
 [![Code Coverage](https://qlty.sh/gh/sinemacula/projects/laravel-resource-exporter/coverage.svg)](https://qlty.sh/gh/sinemacula/projects/laravel-resource-exporter)
 [![Total Downloads](https://img.shields.io/packagist/dt/sinemacula/laravel-resource-exporter.svg)](https://packagist.org/packages/sinemacula/laravel-resource-exporter)
+[![License](https://img.shields.io/github/license/sinemacula/laravel-resource-exporter.svg)](LICENSE)
 
 </div>
 
