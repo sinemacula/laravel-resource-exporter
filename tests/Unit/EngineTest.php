@@ -167,7 +167,9 @@ final class EngineTest extends TestCase
         $this->expectException(\UnexpectedValueException::class);
         $this->expectExceptionMessage('An export source must yield arrays or objects, string given.');
 
-        (new Engine)->export(new ArraySource(['scalar']), new FlexibleSchema(Request::create('/'), [Column::make('id', 'ID')]), Request::create('/'), new CsvWriter, new StringSink);
+        $request = Request::create('/');
+
+        (new Engine)->export(new ArraySource(['scalar']), new FlexibleSchema($request, [Column::make('id', 'ID')]), $request, new CsvWriter, new StringSink);
     }
 
     /**
