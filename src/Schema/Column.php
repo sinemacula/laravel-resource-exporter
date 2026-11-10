@@ -35,8 +35,7 @@ use SineMacula\Exporter\Schema\Enums\CellType;
  */
 final class Column
 {
-    use HasAggregates;
-    use HasCasts;
+    use HasAggregates, HasCasts;
 
     /** @var (\Closure(array<array-key, mixed>|object, \Illuminate\Http\Request): mixed)|null The value-source resolver */
     private ?\Closure $resolver = null;
@@ -104,9 +103,9 @@ final class Column
      * Resolve the column value with the given callback (the value source).
      *
      * @param  \Closure(array<array-key, mixed>|object, \Illuminate\Http\Request): mixed  $callback
-     * @return static
+     * @return $this
      */
-    public function resolveUsing(\Closure $callback): static
+    public function resolveUsing(\Closure $callback): self
     {
         $this->resolver = $callback;
 
@@ -117,9 +116,9 @@ final class Column
      * Transform the column value for display, after casting.
      *
      * @param  \Closure(mixed, \Illuminate\Http\Request): mixed  $callback
-     * @return static
+     * @return $this
      */
-    public function formatUsing(\Closure $callback): static
+    public function formatUsing(\Closure $callback): self
     {
         $this->formatter = $callback;
 
@@ -137,9 +136,9 @@ final class Column
      * Use ->visible() to gate a column out of an export.
      *
      * @param  string  $path
-     * @return static
+     * @return $this
      */
-    public function fromModel(string $path): static
+    public function fromModel(string $path): self
     {
         $this->modelPath = $path;
 
@@ -150,9 +149,9 @@ final class Column
      * Set the value rendered when the resolved value is null.
      *
      * @param  string  $value
-     * @return static
+     * @return $this
      */
-    public function default(string $value): static
+    public function default(string $value): self
     {
         $this->default = $value;
 
@@ -172,9 +171,9 @@ final class Column
      * build time.
      *
      * @param  \Closure(\Illuminate\Http\Request): mixed  $callback
-     * @return static
+     * @return $this
      */
-    public function visible(\Closure $callback): static
+    public function visible(\Closure $callback): self
     {
         $this->visibility = $callback;
 
@@ -302,10 +301,11 @@ final class Column
     /**
      * Resolve the raw value source for the column from an expansion child.
      *
-     * A resolver receives the child directly; otherwise the model path (or, by
-     * default, the column key) is read off the child. An aggregate marker is
-     * irrelevant here - an expanded column reads each child, not a folded
-     * relation - so it is not consulted.
+     * A resolver receives an array or object child directly; otherwise the
+     * model path (or, by default, the column key) is read off the child, which
+     * leaves a scalar child null. An aggregate marker is irrelevant here - an
+     * expanded column reads each child, not a folded relation - so it is not
+     * consulted.
      *
      * @param  mixed  $child
      * @param  \Illuminate\Http\Request  $request
@@ -313,7 +313,7 @@ final class Column
      */
     private function resolveChildValue(mixed $child, Request $request): mixed
     {
-        if ($this->resolver !== null) {
+        if ($this->resolver !== null && (is_array($child) || is_object($child))) {
             return ($this->resolver)($child, $request);
         }
 

@@ -26,7 +26,7 @@ final class ExportResourceCollection extends AnonymousResourceCollection
      * Create an HTTP response that represents the collection, negotiating an
      * export format when one is requested.
      *
-     * @param  mixed  $request
+     * @param  \Illuminate\Http\Request  $request
      * @return \Symfony\Component\HttpFoundation\Response
      *
      * @phpstan-ignore method.childReturnType
@@ -34,7 +34,7 @@ final class ExportResourceCollection extends AnonymousResourceCollection
     #[\Override]
     public function toResponse(mixed $request)
     {
-        return app()->make(ExportNegotiator::class)->collection($this, $this->collects, $request)
+        return app()->make(ExportNegotiator::class)->collection($this, class_exists($this->collects) ? $this->collects : null, $request)
             ?? ExportNegotiator::varyAccept(parent::toResponse($request));
     }
 }

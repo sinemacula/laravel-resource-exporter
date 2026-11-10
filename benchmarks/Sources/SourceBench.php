@@ -35,8 +35,11 @@ final class SourceBench
     /** @var int The materialized source row count. */
     private const int MATERIALIZED_ROWS = 10000;
 
-    /** @var array<int, array<string, bool|float|int|string|null>> The materialized rows. */
+    /** @var list<array<string, bool|float|int|string|null>> The materialized rows. */
     private array $rows = [];
+
+    /** @var list<object> The materialized rows as objects, the items a paginator page holds. */
+    private array $objects = [];
 
     /**
      * Build reusable source rows.
@@ -45,7 +48,8 @@ final class SourceBench
      */
     public function setUp(): void
     {
-        $this->rows = RowFactory::make(self::MATERIALIZED_ROWS);
+        $this->rows    = RowFactory::make(self::MATERIALIZED_ROWS);
+        $this->objects = array_map(static fn (array $row): object => (object) $row, $this->rows);
     }
 
     /**
@@ -92,7 +96,7 @@ final class SourceBench
     #[Bench\Warmup(1)]
     public function benchPaginatorPageSource(): void
     {
-        $source = new PaginatorPageSource(new Paginator($this->rows, self::MATERIALIZED_ROWS));
+        $source = new PaginatorPageSource(new Paginator($this->objects, self::MATERIALIZED_ROWS));
 
         $this->consume($source);
     }

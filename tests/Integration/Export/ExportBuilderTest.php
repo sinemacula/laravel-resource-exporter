@@ -167,7 +167,10 @@ final class ExportBuilderTest extends ExporterTestCase
         $this->expectException(\LogicException::class);
         $this->expectExceptionMessage('score');
 
-        Exporter::query(User::query()->orderBy('score', 'desc'), UserResource::class) // @phpstan-ignore staticMethod.dynamicCall
+        $query = User::query();
+        $query->orderBy('score', 'desc');
+
+        Exporter::query($query, UserResource::class)
             ->format('csv')
             ->download();
     }
@@ -342,7 +345,10 @@ final class ExportBuilderTest extends ExporterTestCase
     {
         $this->seedUsers(2);
 
-        $csv = Exporter::query(User::query()->orderBy('id'), UserResource::class) // @phpstan-ignore staticMethod.dynamicCall
+        $query = User::query();
+        $query->orderBy('id');
+
+        $csv = Exporter::query($query, UserResource::class)
             ->format('csv')
             ->toString();
 
@@ -715,7 +721,10 @@ final class ExportBuilderTest extends ExporterTestCase
         DB::flushQueryLog();
         DB::enableQueryLog();
 
-        Exporter::query(User::query()->orderBy('id'), UserResource::class) // @phpstan-ignore staticMethod.dynamicCall
+        $query = User::query();
+        $query->orderBy('id');
+
+        Exporter::query($query, UserResource::class)
             ->format($format)
             ->with('orders')
             ->toString();

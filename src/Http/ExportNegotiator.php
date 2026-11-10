@@ -206,7 +206,7 @@ final readonly class ExportNegotiator
 
         $writer = $this->hierarchicalWriterFor($format, $request);
 
-        if ($writer === null || $collects === null) {
+        if ($writer === null || $collects === null || !is_a($collects, JsonResource::class, true)) {
             return null;
         }
 

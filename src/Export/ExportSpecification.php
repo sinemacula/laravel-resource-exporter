@@ -192,7 +192,7 @@ final readonly class ExportSpecification
      */
     private function orderBy(Builder $query, array $constraint): void
     {
-        $query->getQuery()->orderBy($this->stringValue($constraint['column'] ?? ''), $this->stringValue($constraint['direction'] ?? 'asc'));
+        $query->getQuery()->orderBy($this->stringValue($constraint['column'] ?? ''), $this->direction($constraint['direction'] ?? 'asc'));
     }
 
     /**
@@ -235,6 +235,24 @@ final readonly class ExportSpecification
     private function stringValue(mixed $value): string
     {
         return is_string($value) ? $value : '';
+    }
+
+    /**
+     * Coerce an order-by direction to the lowercase form the query builder
+     * accepts, in any letter case.
+     *
+     * @param  mixed  $value
+     * @return 'asc'|'desc'
+     *
+     * @throws \InvalidArgumentException
+     */
+    private function direction(mixed $value): string
+    {
+        return match (strtolower($this->stringValue($value))) {
+            'asc'   => 'asc',
+            'desc'  => 'desc',
+            default => throw new \InvalidArgumentException('Order direction must be "asc" or "desc".'),
+        };
     }
 
     /**

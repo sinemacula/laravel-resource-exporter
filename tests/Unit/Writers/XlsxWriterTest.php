@@ -37,8 +37,7 @@ use Tests\Support\Schema\ArraySchema;
 #[CoversClass(XlsxWriter::class)]
 final class XlsxWriterTest extends TestCase
 {
-    use ReadsXlsx;
-    use ShapesRows;
+    use ReadsXlsx, ShapesRows;
 
     /**
      * It emits a heading row and typed cells - integers as numbers, decimals as

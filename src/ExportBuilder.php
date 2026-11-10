@@ -94,7 +94,7 @@ final class ExportBuilder // phpcs:ignore SineMacula.Metrics.MaxMethodCount.TooM
      * engine, whereas a direct construction falls back to empty defaults that
      * see no custom formats or casters.
      *
-     * @param  \Illuminate\Database\Eloquent\Builder<\Illuminate\Database\Eloquent\Model>|\Illuminate\Http\Resources\Json\JsonResource  $subject
+     * @param  \Illuminate\Database\Eloquent\Builder<covariant \Illuminate\Database\Eloquent\Model>|\Illuminate\Http\Resources\Json\JsonResource  $subject
      * @param  class-string<\Illuminate\Http\Resources\Json\JsonResource>|null  $resourceClass
      * @param  \SineMacula\Exporter\Http\MediaTypeRegistry  $registry
      * @param  \SineMacula\Exporter\Engine  $engine
@@ -104,7 +104,7 @@ final class ExportBuilder // phpcs:ignore SineMacula.Metrics.MaxMethodCount.TooM
      */
     public function __construct(
 
-        /** @var \Illuminate\Database\Eloquent\Builder<\Illuminate\Database\Eloquent\Model>|\Illuminate\Http\Resources\Json\JsonResource The export subject */
+        /** @var \Illuminate\Database\Eloquent\Builder<covariant \Illuminate\Database\Eloquent\Model>|\Illuminate\Http\Resources\Json\JsonResource The export subject */
         private readonly Builder|JsonResource $subject,
 
         /** @var class-string<\Illuminate\Http\Resources\Json\JsonResource>|null The resource class describing a query subject */
@@ -129,7 +129,7 @@ final class ExportBuilder // phpcs:ignore SineMacula.Metrics.MaxMethodCount.TooM
      * @param  string  $format
      * @return $this
      */
-    public function format(string $format): static
+    public function format(string $format): self
     {
         $this->format = $format;
 
@@ -142,7 +142,7 @@ final class ExportBuilder // phpcs:ignore SineMacula.Metrics.MaxMethodCount.TooM
      * @param  class-string<\SineMacula\Exporter\Schema\TabularSchema>|\SineMacula\Exporter\Schema\TabularSchema  $schema
      * @return $this
      */
-    public function schema(string|TabularSchema $schema): static
+    public function schema(string|TabularSchema $schema): self
     {
         $this->schema = $schema;
 
@@ -155,7 +155,7 @@ final class ExportBuilder // phpcs:ignore SineMacula.Metrics.MaxMethodCount.TooM
      * @param  string  $filename
      * @return $this
      */
-    public function as(string $filename): static
+    public function as(string $filename): self
     {
         $this->filename = $filename;
 
@@ -168,7 +168,7 @@ final class ExportBuilder // phpcs:ignore SineMacula.Metrics.MaxMethodCount.TooM
      * @param  \Illuminate\Http\Request  $request
      * @return $this
      */
-    public function request(Request $request): static
+    public function request(Request $request): self
     {
         $this->request = $request;
 
@@ -181,7 +181,7 @@ final class ExportBuilder // phpcs:ignore SineMacula.Metrics.MaxMethodCount.TooM
      * @param  int  $size
      * @return $this
      */
-    public function chunk(int $size): static
+    public function chunk(int $size): self
     {
         $this->chunkSize = $size;
 
@@ -200,7 +200,7 @@ final class ExportBuilder // phpcs:ignore SineMacula.Metrics.MaxMethodCount.TooM
      * @param  list<string>|string  $relations
      * @return $this
      */
-    public function with(array|string $relations): static
+    public function with(array|string $relations): self
     {
         $this->with = array_values(array_unique([...$this->with, ...(array) $relations]));
 

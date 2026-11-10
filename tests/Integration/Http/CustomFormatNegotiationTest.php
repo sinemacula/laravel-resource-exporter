@@ -100,7 +100,10 @@ final class CustomFormatNegotiationTest extends ExporterTestCase
 
         $negotiated = $this->get('/users', ['Accept' => 'application/x-report'])->streamedContent();
 
-        $explicit = ExporterFacade::export(User::query()->orderBy('id'), UserResource::class) // @phpstan-ignore staticMethod.dynamicCall
+        $query = User::query();
+        $query->orderBy('id');
+
+        $explicit = ExporterFacade::export($query, UserResource::class)
             ->format('report')
             ->request(Request::create('/'))
             ->toString();

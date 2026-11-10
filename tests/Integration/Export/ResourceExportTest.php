@@ -52,8 +52,31 @@ final class ResourceExportTest extends ExporterTestCase
         $payload = json_decode((string) $response->getContent(), true);
 
         self::assertIsArray($payload);
+        self::assertIsArray($payload['data']);
         self::assertCount(10, $payload['data']);
         self::assertSame(25, $payload['meta']['total']);
+    }
+
+    /**
+     * It negotiates against the container's request when none is passed.
+     *
+     * @return void
+     *
+     * @throws \Illuminate\Auth\Access\AuthorizationException
+     */
+    public function testFallsBackToTheContainerRequest(): void
+    {
+        $this->seedUsers(3);
+
+        self::assertNotNull($this->app);
+
+        $this->app->instance('request', $this->exportRequest());
+
+        $response = ResourceExport::forQuery(User::query(), UserResource::class)
+            ->withoutAuthorization()
+            ->paginatedJsonOrStreamedExport();
+
+        self::assertInstanceOf(StreamedResponse::class, $response);
     }
 
     /**
@@ -96,7 +119,10 @@ final class ResourceExportTest extends ExporterTestCase
         $this->expectException(\LogicException::class);
         $this->expectExceptionMessage('score');
 
-        ResourceExport::forQuery(User::query()->orderBy('score', 'desc'), UserResource::class) // @phpstan-ignore staticMethod.dynamicCall
+        $query = User::query();
+        $query->orderBy('score', 'desc');
+
+        ResourceExport::forQuery($query, UserResource::class)
             ->withoutAuthorization()
             ->paginatedJsonOrStreamedExport($this->exportRequest());
     }
@@ -246,7 +272,10 @@ final class ResourceExportTest extends ExporterTestCase
 
         $this->seedUsers(25);
 
-        $response = ResourceExport::forQuery(User::query()->orderBy('id'), PlainUserResource::class) // @phpstan-ignore staticMethod.dynamicCall
+        $query = User::query();
+        $query->orderBy('id');
+
+        $response = ResourceExport::forQuery($query, PlainUserResource::class)
             ->perPage(10)
             ->chunk(10)
             ->withoutAuthorization()
@@ -281,6 +310,7 @@ final class ResourceExportTest extends ExporterTestCase
         $payload = json_decode((string) $response->getContent(), true);
 
         self::assertIsArray($payload);
+        self::assertIsArray($payload['data']);
         self::assertCount(15, $payload['data']);
         self::assertSame(15, $payload['meta']['per_page']);
     }
@@ -304,6 +334,7 @@ final class ResourceExportTest extends ExporterTestCase
         $payload = json_decode((string) $response->getContent(), true);
 
         self::assertIsArray($payload);
+        self::assertIsArray($payload['data']);
         self::assertCount(9, $payload['data']);
         self::assertSame(9, $payload['meta']['per_page']);
     }

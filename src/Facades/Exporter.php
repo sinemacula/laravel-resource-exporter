@@ -17,7 +17,7 @@ use SineMacula\Exporter\Testing\ExporterFake;
  *
  * @method static \SineMacula\Exporter\ExportBuilder export(\Illuminate\Database\Eloquent\Builder|\Illuminate\Http\Resources\Json\JsonResource $subject, ?string $resource = null)
  * @method static \SineMacula\Exporter\ExportBuilder collection(\Illuminate\Http\Resources\Json\ResourceCollection $collection)
- * @method static \SineMacula\Exporter\ExportBuilder query(\Illuminate\Database\Eloquent\Builder<\Illuminate\Database\Eloquent\Model> $query, string $resource)
+ * @method static \SineMacula\Exporter\ExportBuilder query(\Illuminate\Database\Eloquent\Builder<covariant \Illuminate\Database\Eloquent\Model> $query, string $resource)
  * @method static \SineMacula\Exporter\Export\QueuedExport queue(string $model, string $resource)
  *
  * @see         \SineMacula\Exporter\ExportManager

@@ -43,7 +43,7 @@ final readonly class ExportManager implements ExportFactory
      * query subject takes the resource class describing it so the export can
      * resolve a tabular schema or hierarchical shape.
      *
-     * @param  \Illuminate\Database\Eloquent\Builder<\Illuminate\Database\Eloquent\Model>|\Illuminate\Http\Resources\Json\JsonResource  $subject
+     * @param  \Illuminate\Database\Eloquent\Builder<covariant \Illuminate\Database\Eloquent\Model>|\Illuminate\Http\Resources\Json\JsonResource  $subject
      * @param  class-string<\Illuminate\Http\Resources\Json\JsonResource>|null  $resource
      * @return \SineMacula\Exporter\ExportBuilder
      */
@@ -73,7 +73,7 @@ final readonly class ExportManager implements ExportFactory
     /**
      * Begin a fluent explicit export streaming a full query.
      *
-     * @param  \Illuminate\Database\Eloquent\Builder<\Illuminate\Database\Eloquent\Model>  $query
+     * @param  \Illuminate\Database\Eloquent\Builder<covariant \Illuminate\Database\Eloquent\Model>  $query
      * @param  class-string<\Illuminate\Http\Resources\Json\JsonResource>  $resource
      * @return \SineMacula\Exporter\ExportBuilder
      */

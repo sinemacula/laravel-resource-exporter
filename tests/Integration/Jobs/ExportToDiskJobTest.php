@@ -595,22 +595,10 @@ final class ExportToDiskJobTest extends QueuedExportTestCase
      */
     public function testLogsWhenPartialFileCleanupFailsAfterStorageFailure(): void
     {
-        $disk = \Mockery::mock(Filesystem::class);
-
-        /** @var \Mockery\Expectation $existsExpectation */
-        $existsExpectation = $disk->shouldReceive('exists');
-        $existsExpectation->once()->with('exports/boom.csv')->andReturn(false);
-
-        /** @var \Mockery\Expectation $writeStreamExpectation */
-        $writeStreamExpectation = $disk->shouldReceive('writeStream');
-        $writeStreamExpectation->once()->andThrow(new \RuntimeException('upload failed'));
-
-        /** @var \Mockery\Expectation $deleteExpectation */
-        $deleteExpectation = $disk->shouldReceive('delete');
-        $deleteExpectation
-            ->once()
-            ->with('exports/boom.csv')
-            ->andThrow(new \RuntimeException('delete failed'));
+        $disk = $this->createMock(Filesystem::class);
+        $disk->expects(self::once())->method('exists')->with('exports/boom.csv')->willReturn(false);
+        $disk->expects(self::once())->method('writeStream')->willThrowException(new \RuntimeException('upload failed'));
+        $disk->expects(self::once())->method('delete')->with('exports/boom.csv')->willThrowException(new \RuntimeException('delete failed'));
 
         $factory = new readonly class ($disk) implements Factory {
             /**
@@ -672,17 +660,10 @@ final class ExportToDiskJobTest extends QueuedExportTestCase
      */
     public function testDoesNotDeleteTheDestinationWhenTheExistenceProbeFails(): void
     {
-        $disk = \Mockery::mock(Filesystem::class);
-
-        /** @var \Mockery\Expectation $existsExpectation */
-        $existsExpectation = $disk->shouldReceive('exists');
-        $existsExpectation->once()->with('exports/boom.csv')->andThrow(new \RuntimeException('probe failed'));
-
-        /** @var \Mockery\Expectation $writeStreamExpectation */
-        $writeStreamExpectation = $disk->shouldReceive('writeStream');
-        $writeStreamExpectation->once()->andThrow(new \RuntimeException('upload failed'));
-
-        $disk->shouldNotReceive('delete');
+        $disk = $this->createMock(Filesystem::class);
+        $disk->expects(self::once())->method('exists')->with('exports/boom.csv')->willThrowException(new \RuntimeException('probe failed'));
+        $disk->expects(self::once())->method('writeStream')->willThrowException(new \RuntimeException('upload failed'));
+        $disk->expects(self::never())->method('delete');
 
         $factory = new readonly class ($disk) implements Factory {
             /**

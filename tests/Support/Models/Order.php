@@ -29,9 +29,6 @@ final class Order extends Model implements \Stringable
     /** @var bool Whether the model maintains timestamps */
     public $timestamps = false;
 
-    /** @var string|null The backing table */
-    protected $table = 'orders';
-
     /** @var array<string> The guarded attributes */
     protected $guarded = [];
 

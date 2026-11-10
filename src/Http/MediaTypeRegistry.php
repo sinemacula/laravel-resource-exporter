@@ -74,7 +74,7 @@ final class MediaTypeRegistry
      * @param  \SineMacula\Exporter\Http\ExportFormat  $format
      * @return $this
      */
-    public function register(ExportFormat $format): static
+    public function register(ExportFormat $format): self
     {
         $this->formats[$format->name()] = $format;
 
@@ -93,7 +93,7 @@ final class MediaTypeRegistry
      * @param  string  $name
      * @return $this
      */
-    public function setDefault(string $name): static
+    public function setDefault(string $name): self
     {
         $this->default = $name;
 

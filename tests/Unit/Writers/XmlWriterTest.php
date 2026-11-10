@@ -168,6 +168,30 @@ final class XmlWriterTest extends TestCase
     }
 
     /**
+     * It writes each item to the sink before reading the next, rather than
+     * holding the document until the end.
+     *
+     * @return void
+     */
+    public function testWritesEachItemBeforeReadingTheNext(): void
+    {
+        $sink    = new StringSink;
+        $written = 0;
+
+        $items = (static function () use ($sink, &$written): \Generator {
+            yield ['id' => 1];
+
+            $written = ftell($sink->stream());
+
+            yield ['id' => 2];
+        })();
+
+        (new XmlWriter)->write($items, $sink);
+
+        self::assertSame(strlen(self::PROLOG . '<data><item><id>1</id></item>'), $written);
+    }
+
+    /**
      * It rejects an invalid configured root element name up front.
      *
      * @return void
