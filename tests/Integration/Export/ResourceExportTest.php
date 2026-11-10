@@ -52,6 +52,7 @@ final class ResourceExportTest extends ExporterTestCase
         $payload = json_decode((string) $response->getContent(), true);
 
         self::assertIsArray($payload);
+        self::assertIsArray($payload['data']);
         self::assertCount(10, $payload['data']);
         self::assertSame(25, $payload['meta']['total']);
     }
@@ -309,6 +310,7 @@ final class ResourceExportTest extends ExporterTestCase
         $payload = json_decode((string) $response->getContent(), true);
 
         self::assertIsArray($payload);
+        self::assertIsArray($payload['data']);
         self::assertCount(15, $payload['data']);
         self::assertSame(15, $payload['meta']['per_page']);
     }
@@ -332,6 +334,7 @@ final class ResourceExportTest extends ExporterTestCase
         $payload = json_decode((string) $response->getContent(), true);
 
         self::assertIsArray($payload);
+        self::assertIsArray($payload['data']);
         self::assertCount(9, $payload['data']);
         self::assertSame(9, $payload['meta']['per_page']);
     }

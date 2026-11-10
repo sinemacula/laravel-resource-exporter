@@ -292,7 +292,10 @@ final class QueryChunkSourceTest extends ExporterTestCase
 
         iterator_to_array((new QueryChunkSource($query, chunkSize: 2))->rows(), false);
 
-        self::assertCount(2, $query->getQuery()->columns, 'The raw expression must be skipped so the trailing key is still found.');
+        $columns = $query->getQuery()->columns;
+
+        self::assertIsArray($columns);
+        self::assertCount(2, $columns, 'The raw expression must be skipped so the trailing key is still found.');
     }
 
     /**
