@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.1.1](https://github.com/sinemacula/laravel-resource-exporter/compare/v3.1.0...v3.1.1) (2026-11-10)
+
+
+### Bug Fixes
+
+* clear the qlty findings and drop configuration the shared source provides ([#104](https://github.com/sinemacula/laravel-resource-exporter/issues/104)) ([b4328de](https://github.com/sinemacula/laravel-resource-exporter/commit/b4328de6e124173485c9e6235bc96efe21b075c7))
+
 ## [3.1.0](https://github.com/sinemacula/laravel-resource-exporter/compare/v3.0.0...v3.1.0) (2026-07-22)
 
 
