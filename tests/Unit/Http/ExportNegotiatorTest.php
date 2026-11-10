@@ -283,16 +283,17 @@ final class ExportNegotiatorTest extends TestCase
     }
 
     /**
-     * A hierarchical collection whose items are not described by a JSON
-     * resource defers to the framework's native response.
+     * A hierarchical collection defers to the framework's native response when
+     * no writer is negotiated or its items have no JSON resource.
      *
      * @return void
      */
-    public function testHierarchicalCollectionWithoutAnItemResourceDefers(): void
+    public function testHierarchicalCollectionDefersWithoutAnItemResourceOrWriter(): void
     {
         $collection = new ResourceCollection(collect([['id' => 1]]));
 
         self::assertNull((new ExportNegotiator)->collection($collection, \stdClass::class, Request::create('/?format=ndjson')));
+        self::assertNull((new ExportNegotiator)->collection($collection, JsonResource::class, Request::create('/')));
         self::assertInstanceOf(Response::class, (new ExportNegotiator)->collection($collection, JsonResource::class, Request::create('/?format=ndjson')));
     }
 
