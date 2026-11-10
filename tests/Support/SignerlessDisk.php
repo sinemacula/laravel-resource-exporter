@@ -36,14 +36,20 @@ final readonly class SignerlessDisk implements Filesystem
     /**
      * Write a new file using a stream.
      *
-     * @param  string  $path
-     * @param  resource  $resource
+     * @param  mixed  $path
+     * @param  mixed  $resource
      * @param  array<array-key, mixed>  $options
      * @return bool
+     *
+     * @throws \InvalidArgumentException
      */
     #[\Override]
     public function writeStream(mixed $path, mixed $resource, array $options = []): bool
     {
+        if (!is_string($path) || !is_resource($resource)) {
+            throw new \InvalidArgumentException('A stream write needs a string path and a stream resource.');
+        }
+
         return $this->disk->writeStream($path, $resource, $options);
     }
 
