@@ -283,6 +283,20 @@ final class ExportNegotiatorTest extends TestCase
     }
 
     /**
+     * A hierarchical collection whose items are not described by a JSON
+     * resource defers to the framework's native response.
+     *
+     * @return void
+     */
+    public function testHierarchicalCollectionWithoutAnItemResourceDefers(): void
+    {
+        $collection = new ResourceCollection(collect([['id' => 1]]));
+
+        self::assertNull((new ExportNegotiator)->collection($collection, \stdClass::class, Request::create('/?format=ndjson')));
+        self::assertInstanceOf(Response::class, (new ExportNegotiator)->collection($collection, JsonResource::class, Request::create('/?format=ndjson')));
+    }
+
+    /**
      * It maps the built-in media types and extensions case-insensitively,
      * ignoring surrounding whitespace and media parameters.
      *

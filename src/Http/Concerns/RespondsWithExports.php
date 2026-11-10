@@ -32,7 +32,7 @@ trait RespondsWithExports
      * Create an HTTP response that represents the resource, negotiating an
      * export format when one is requested.
      *
-     * @param  mixed  $request
+     * @param  \Illuminate\Http\Request  $request
      * @return \Symfony\Component\HttpFoundation\Response
      */
     #[\Override]
