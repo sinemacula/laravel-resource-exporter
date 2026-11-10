@@ -224,6 +224,27 @@ final class QueuedExportTest extends QueuedExportTestCase
     }
 
     /**
+     * It replays an order-by direction in any letter case and rejects one that
+     * is neither ascending nor descending.
+     *
+     * @return void
+     */
+    public function testQueryReplaysTheOrderDirectionInAnyCase(): void
+    {
+        $this->seedUsers(3);
+
+        $export = QueuedExport::forModel(User::class, UserResource::class)->toDisk('exports', 'exports/users.csv');
+
+        self::assertSame([3, 2, 1], (clone $export)->orderBy('score', 'DESC')->toSpecification()->query()->pluck('score')->all());
+        self::assertSame([1, 2, 3], (clone $export)->orderBy('score', 'Asc')->toSpecification()->query()->pluck('score')->all());
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Order direction must be "asc" or "desc".');
+
+        $export->orderBy('score', 'sideways')->toSpecification()->query();
+    }
+
+    /**
      * It rebuilds the query by replaying a named Eloquent scope with arguments.
      *
      * @return void
