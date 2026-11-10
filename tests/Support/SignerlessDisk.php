@@ -36,8 +36,8 @@ final readonly class SignerlessDisk implements Filesystem
     /**
      * Write a new file using a stream.
      *
-     * @param  mixed  $path
-     * @param  mixed  $resource
+     * @param  string  $path
+     * @param  resource  $resource
      * @param  array<array-key, mixed>  $options
      * @return bool
      */

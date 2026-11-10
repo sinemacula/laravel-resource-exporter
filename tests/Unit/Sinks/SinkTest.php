@@ -103,15 +103,21 @@ final class SinkTest extends ExporterTestCase
     }
 
     /**
-     * It rejects a non-resource argument.
+     * It rejects a closed stream, which is no longer a usable resource.
      *
      * @return void
      */
-    public function testStreamSinkRejectsANonResource(): void
+    public function testStreamSinkRejectsAClosedStream(): void
     {
         $this->expectException(\InvalidArgumentException::class);
 
-        new StreamSink('not-a-resource');
+        $stream = fopen('php://memory', 'r+b');
+
+        self::assertIsResource($stream);
+
+        fclose($stream);
+
+        new StreamSink($stream);
     }
 
     /**
@@ -286,11 +292,8 @@ final class SinkTest extends ExporterTestCase
     {
         $file = $this->makeFile('disk-payload');
 
-        $disk = \Mockery::mock(Filesystem::class);
-
-        /** @var \Mockery\Expectation $writeStream */
-        $writeStream = $disk->shouldReceive('writeStream');
-        $writeStream->once()->andReturnFalse();
+        $disk = $this->createMock(Filesystem::class);
+        $disk->expects(self::once())->method('writeStream')->willReturn(false);
 
         $this->expectException(SinkException::class);
 
