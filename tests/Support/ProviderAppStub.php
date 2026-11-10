@@ -5,107 +5,46 @@ declare(strict_types = 1);
 namespace Tests\Support;
 
 use Illuminate\Config\Repository;
+use Illuminate\Foundation\Application;
 
 /**
- * Minimal app stub for service provider registration tests.
+ * Application for the service provider tests, with the given config values and
+ * console mode.
  *
  * @author      Ben Carey <bdmc@sinemacula.co.uk>
  * @copyright   2026 Sine Macula Limited.
  *
  * @internal
- *
- * @implements \ArrayAccess<string, mixed>
  */
-final class ProviderAppStub implements \ArrayAccess
+final class ProviderAppStub extends Application
 {
-    /** @var array<string, \Closure(mixed): mixed> */
-    private array $singletons = [];
-
-    /** @var array<string, string> */
-    private array $aliases = [];
-
-    /** @var \Illuminate\Config\Repository */
-    private Repository $repository;
-
     /**
      * Create the app stub.
      *
      * @param  array<string, mixed>  $config
      * @param  bool  $runningInConsole
      */
-    public function __construct(
-
-        // Configuration values for the stub repository.
-        array $config = [],
-
-        /** Whether the app is running in console. */
-        private bool $runningInConsole = true,
-    ) {
-        $this->repository = new Repository($config);
-    }
-
-    /**
-     * Resolve dependencies through a minimal make API.
-     *
-     * @param  string  $abstract
-     * @return mixed
-     */
-    public function make(string $abstract): mixed
+    public function __construct(array $config = [], bool $runningInConsole = true)
     {
-        return match ($abstract) {
-            'config' => $this->config(),
-            default  => null,
-        };
+        parent::__construct();
+
+        $this->instance('config', new Repository($config));
+
+        $this->isRunningInConsole = $runningInConsole;
     }
 
     /**
-     * Register a singleton binding callback.
+     * Return the abstracts registered as shared bindings.
      *
-     * @param  string  $abstract
-     * @param  \Closure(mixed): mixed  $callback
-     * @return void
-     */
-    public function singleton(string $abstract, \Closure $callback): void
-    {
-        $this->singletons[$abstract] = $callback;
-    }
-
-    /**
-     * Register an alias mapping for an abstract.
-     *
-     * @param  string  $abstract
-     * @param  string  $alias
-     * @return void
-     */
-    public function alias(string $abstract, string $alias): void
-    {
-        $this->aliases[$alias] = $abstract;
-    }
-
-    /**
-     * Determine whether the app is in console mode.
-     *
-     * @return bool
-     *
-     * @imperative
-     */
-    public function runningInConsole(): bool
-    {
-        return $this->runningInConsole;
-    }
-
-    /**
-     * Return singleton bindings captured by the stub.
-     *
-     * @return array<string, \Closure(mixed): mixed>
+     * @return list<string>
      */
     public function singletonBindings(): array
     {
-        return $this->singletons;
+        return array_keys(array_filter($this->bindings, static fn (array $binding): bool => $binding['shared'] === true));
     }
 
     /**
-     * Return alias bindings captured by the stub.
+     * Return the registered aliases, keyed by alias.
      *
      * @return array<string, string>
      */
@@ -115,71 +54,20 @@ final class ProviderAppStub implements \ArrayAccess
     }
 
     /**
-     * Return config repository instance.
+     * Return the config repository bound at construction.
      *
      * @return \Illuminate\Config\Repository
+     *
+     * @throws \LogicException
      */
     public function config(): Repository
     {
-        return $this->repository;
-    }
+        $repository = $this->make('config');
 
-    /**
-     * Determine if an offset exists.
-     *
-     * @param  mixed  $offset
-     * @return bool
-     *
-     * @imperative
-     */
-    #[\Override]
-    public function offsetExists(mixed $offset): bool
-    {
-        return $offset === 'config';
-    }
-
-    /**
-     * Get an offset value.
-     *
-     * @param  mixed  $offset
-     * @return mixed
-     */
-    #[\Override]
-    public function offsetGet(mixed $offset): mixed
-    {
-        return $offset === 'config' ? $this->config() : null;
-    }
-
-    /**
-     * Set an offset value.
-     *
-     * @param  mixed  $offset
-     * @param  mixed  $value
-     * @return void
-     */
-    #[\Override]
-    public function offsetSet(mixed $offset, mixed $value): void
-    {
-        if ($offset !== 'config' || !$value instanceof Repository) {
-            return;
+        if (!$repository instanceof Repository) {
+            throw new \LogicException('The provider app stub must hold a config repository.');
         }
 
-        $this->repository = $value;
-    }
-
-    /**
-     * Unset an offset.
-     *
-     * @param  mixed  $offset
-     * @return void
-     */
-    #[\Override]
-    public function offsetUnset(mixed $offset): void
-    {
-        if ($offset !== 'config') {
-            return;
-        }
-
-        $this->repository = new Repository([]);
+        return $repository;
     }
 }

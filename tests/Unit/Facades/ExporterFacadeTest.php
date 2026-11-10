@@ -4,6 +4,7 @@ declare(strict_types = 1);
 
 namespace Tests\Unit\Facades;
 
+use Illuminate\Container\Container;
 use Illuminate\Support\Facades\Config;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
@@ -36,7 +37,7 @@ final class ExporterFacadeTest extends TestCase
     }
 
     /**
-     * Clear facade state after each test.
+     * Clear facade state and the global container after each test.
      *
      * @return void
      */
@@ -45,6 +46,7 @@ final class ExporterFacadeTest extends TestCase
     {
         Config::setFacadeApplication(null);
         Config::clearResolvedInstance('config');
+        Container::setInstance(null);
 
         parent::tearDown();
     }

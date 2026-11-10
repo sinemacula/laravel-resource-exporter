@@ -5,74 +5,28 @@ declare(strict_types = 1);
 namespace Tests\Support\Facades;
 
 use Illuminate\Config\Repository;
+use Illuminate\Foundation\Application;
 
 /**
- * Minimal facade app stub providing config repository access.
+ * Application whose config repository holds only the given values, for the
+ * facade tests.
  *
  * @author      Ben Carey <bdmc@sinemacula.co.uk>
  * @copyright   2026 Sine Macula Limited.
  *
  * @internal
- *
- * @implements \ArrayAccess<string, mixed>
  */
-final class FacadeAppStub implements \ArrayAccess
+final class FacadeAppStub extends Application
 {
     /**
      * Create the facade app stub.
      *
      * @param  array<string, mixed>  $config
      */
-    public function __construct(
-
-        /** Configuration values for facade reads. */
-        private array $config,
-    ) {}
-
-    /**
-     * Determine whether the given offset exists.
-     *
-     * @param  string  $offset
-     * @return bool
-     *
-     * @imperative
-     */
-    #[\Override]
-    public function offsetExists(mixed $offset): bool
+    public function __construct(array $config)
     {
-        return $offset === 'config';
+        parent::__construct();
+
+        $this->instance('config', new Repository($config));
     }
-
-    /**
-     * Return the requested offset value.
-     *
-     * @param  string  $offset
-     * @return mixed
-     */
-    #[\Override]
-    public function offsetGet(mixed $offset): mixed
-    {
-        return $offset === 'config'
-            ? new Repository($this->config)
-            : null;
-    }
-
-    /**
-     * Set the offset value.
-     *
-     * @param  mixed  $offset
-     * @param  mixed  $value
-     * @return void
-     */
-    #[\Override]
-    public function offsetSet(mixed $offset, mixed $value): void {}
-
-    /**
-     * Unset the given offset.
-     *
-     * @param  string  $offset
-     * @return void
-     */
-    #[\Override]
-    public function offsetUnset(mixed $offset): void {}
 }
