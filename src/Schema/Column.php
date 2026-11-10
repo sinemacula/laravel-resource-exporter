@@ -104,9 +104,9 @@ final class Column
      * Resolve the column value with the given callback (the value source).
      *
      * @param  \Closure(array<array-key, mixed>|object, \Illuminate\Http\Request): mixed  $callback
-     * @return static
+     * @return $this
      */
-    public function resolveUsing(\Closure $callback): static
+    public function resolveUsing(\Closure $callback): self
     {
         $this->resolver = $callback;
 
@@ -117,9 +117,9 @@ final class Column
      * Transform the column value for display, after casting.
      *
      * @param  \Closure(mixed, \Illuminate\Http\Request): mixed  $callback
-     * @return static
+     * @return $this
      */
-    public function formatUsing(\Closure $callback): static
+    public function formatUsing(\Closure $callback): self
     {
         $this->formatter = $callback;
 
@@ -137,9 +137,9 @@ final class Column
      * Use ->visible() to gate a column out of an export.
      *
      * @param  string  $path
-     * @return static
+     * @return $this
      */
-    public function fromModel(string $path): static
+    public function fromModel(string $path): self
     {
         $this->modelPath = $path;
 
@@ -150,9 +150,9 @@ final class Column
      * Set the value rendered when the resolved value is null.
      *
      * @param  string  $value
-     * @return static
+     * @return $this
      */
-    public function default(string $value): static
+    public function default(string $value): self
     {
         $this->default = $value;
 
@@ -172,9 +172,9 @@ final class Column
      * build time.
      *
      * @param  \Closure(\Illuminate\Http\Request): mixed  $callback
-     * @return static
+     * @return $this
      */
-    public function visible(\Closure $callback): static
+    public function visible(\Closure $callback): self
     {
         $this->visibility = $callback;
 

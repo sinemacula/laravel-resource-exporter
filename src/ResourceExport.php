@@ -110,7 +110,7 @@ final class ResourceExport
      *
      * @return $this
      */
-    public function unlimited(): static
+    public function unlimited(): self
     {
         $this->unlimited = true;
 
@@ -123,7 +123,7 @@ final class ResourceExport
      * @param  int  $max
      * @return $this
      */
-    public function maxRows(int $max): static
+    public function maxRows(int $max): self
     {
         $this->maxRows   = $max;
         $this->unlimited = false;
@@ -137,7 +137,7 @@ final class ResourceExport
      * @param  int  $perPage
      * @return $this
      */
-    public function perPage(int $perPage): static
+    public function perPage(int $perPage): self
     {
         $this->perPage = $perPage;
 
@@ -150,7 +150,7 @@ final class ResourceExport
      * @param  int  $size
      * @return $this
      */
-    public function chunk(int $size): static
+    public function chunk(int $size): self
     {
         $this->chunkSize = $size;
 
@@ -163,7 +163,7 @@ final class ResourceExport
      * @param  \Closure(\Illuminate\Http\Request, \Illuminate\Database\Eloquent\Builder<\Illuminate\Database\Eloquent\Model>): mixed  $callback
      * @return $this
      */
-    public function authorizeUsing(\Closure $callback): static
+    public function authorizeUsing(\Closure $callback): self
     {
         $this->authorization = $callback;
 
@@ -179,7 +179,7 @@ final class ResourceExport
      *
      * @return $this
      */
-    public function withoutAuthorization(): static
+    public function withoutAuthorization(): self
     {
         $this->withoutAuthorization = true;
 
@@ -192,7 +192,7 @@ final class ResourceExport
      * @param  \Closure(array<string, mixed>): void  $callback
      * @return $this
      */
-    public function auditUsing(\Closure $callback): static
+    public function auditUsing(\Closure $callback): self
     {
         $this->audit = $callback;
 

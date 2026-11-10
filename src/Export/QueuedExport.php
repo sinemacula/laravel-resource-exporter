@@ -109,7 +109,7 @@ final class QueuedExport
      * @param  class-string<\SineMacula\Exporter\Schema\TabularSchema>  $schema
      * @return $this
      */
-    public function schema(string $schema): static
+    public function schema(string $schema): self
     {
         $this->schema = $schema;
 
@@ -122,7 +122,7 @@ final class QueuedExport
      * @param  string  $format
      * @return $this
      */
-    public function format(string $format): static
+    public function format(string $format): self
     {
         $this->format = $format;
 
@@ -136,7 +136,7 @@ final class QueuedExport
      * @param  string  $path
      * @return $this
      */
-    public function toDisk(string $disk, string $path): static
+    public function toDisk(string $disk, string $path): self
     {
         $this->disk = $disk;
         $this->path = $path;
@@ -150,7 +150,7 @@ final class QueuedExport
      * @param  string  $filename
      * @return $this
      */
-    public function as(string $filename): static
+    public function as(string $filename): self
     {
         $this->filename = $filename;
 
@@ -163,7 +163,7 @@ final class QueuedExport
      * @param  \Illuminate\Contracts\Auth\Authenticatable  $user
      * @return $this
      */
-    public function by(Authenticatable $user): static
+    public function by(Authenticatable $user): self
     {
         $id = $user->getAuthIdentifier();
 
@@ -179,7 +179,7 @@ final class QueuedExport
      * @param  string  $ability
      * @return $this
      */
-    public function authorize(string $ability): static
+    public function authorize(string $ability): self
     {
         $this->ability = $ability;
 
@@ -195,7 +195,7 @@ final class QueuedExport
      *
      * @return $this
      */
-    public function withoutAuthorization(): static
+    public function withoutAuthorization(): self
     {
         $this->withoutAuthorization = true;
 
@@ -208,7 +208,7 @@ final class QueuedExport
      * @param  int  $size
      * @return $this
      */
-    public function chunk(int $size): static
+    public function chunk(int $size): self
     {
         $this->chunkSize = $size;
 
@@ -221,7 +221,7 @@ final class QueuedExport
      * @param  int  $rows
      * @return $this
      */
-    public function progressEvery(int $rows): static
+    public function progressEvery(int $rows): self
     {
         $this->progressEvery = $rows;
 
@@ -234,7 +234,7 @@ final class QueuedExport
      * @param  int  $minutes
      * @return $this
      */
-    public function expireAfter(int $minutes): static
+    public function expireAfter(int $minutes): self
     {
         $this->urlExpiresAfter = $minutes;
 

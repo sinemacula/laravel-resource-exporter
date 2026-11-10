@@ -246,7 +246,7 @@ final class ExportNegotiatorTest extends TestCase
         ExportNegotiator::varyAccept($response);
         ExportNegotiator::varyAccept($response);
 
-        static::assertSame(['Accept'], $response->getVary());
+        self::assertSame(['Accept'], $response->getVary());
     }
 
     /**
@@ -262,7 +262,7 @@ final class ExportNegotiatorTest extends TestCase
 
         ExportNegotiator::varyAccept($response);
 
-        static::assertSame(['Accept-Encoding', 'Accept'], $response->getVary());
+        self::assertSame(['Accept-Encoding', 'Accept'], $response->getVary());
     }
 
     /**
@@ -292,10 +292,10 @@ final class ExportNegotiatorTest extends TestCase
     {
         $registry = new MediaTypeRegistry;
 
-        static::assertSame('json', $registry->formatForMediaType('application/json'));
-        static::assertSame('csv', $registry->formatForMediaType('TEXT/CSV'));
-        static::assertSame('csv', $registry->formatForMediaType('  text/csv  ; charset=UTF-8'));
-        static::assertSame('csv', $registry->formatForExtension('CSV'));
+        self::assertSame('json', $registry->formatForMediaType('application/json'));
+        self::assertSame('csv', $registry->formatForMediaType('TEXT/CSV'));
+        self::assertSame('csv', $registry->formatForMediaType('  text/csv  ; charset=UTF-8'));
+        self::assertSame('csv', $registry->formatForExtension('CSV'));
     }
 
     /**
@@ -309,8 +309,8 @@ final class ExportNegotiatorTest extends TestCase
         $registry = (new MediaTypeRegistry)
             ->register(new ExportFormat('weird', 'WEIRD', 'application/x-weird', ['APPLICATION/X-WEIRD'], false));
 
-        static::assertSame('weird', $registry->formatForMediaType('application/x-weird'));
-        static::assertSame('weird', $registry->formatForExtension('weird'));
+        self::assertSame('weird', $registry->formatForMediaType('application/x-weird'));
+        self::assertSame('weird', $registry->formatForExtension('weird'));
     }
 
     /**
@@ -322,7 +322,7 @@ final class ExportNegotiatorTest extends TestCase
     {
         $formats = (new MediaTypeRegistry)->all();
 
-        static::assertSame(range(0, count($formats) - 1), array_keys($formats));
+        self::assertSame(range(0, count($formats) - 1), array_keys($formats));
     }
 
     /**
@@ -335,9 +335,9 @@ final class ExportNegotiatorTest extends TestCase
     {
         $registry = new MediaTypeRegistry;
 
-        static::assertFalse($registry->isTabular('nope'));
-        static::assertNull($registry->writerFor('nope'));
-        static::assertNull($registry->hierarchicalWriterFor('nope'));
+        self::assertFalse($registry->isTabular('nope'));
+        self::assertNull($registry->writerFor('nope'));
+        self::assertNull($registry->hierarchicalWriterFor('nope'));
     }
 
     /**
@@ -352,7 +352,7 @@ final class ExportNegotiatorTest extends TestCase
         $schema   = new FlexibleSchema($request, [Column::make('id', 'ID')], filename: 'reports/2026');
         $response = (new ExportNegotiator)->streamExport(new ArraySource([['id' => 1]]), $schema, 'csv', $request);
 
-        static::assertSame('attachment; filename=reports_2026.csv', $response->headers->get('Content-Disposition'));
+        self::assertSame('attachment; filename=reports_2026.csv', $response->headers->get('Content-Disposition'));
     }
 
     /**
@@ -367,7 +367,7 @@ final class ExportNegotiatorTest extends TestCase
         $schema   = new FlexibleSchema($request, [Column::make('id', 'ID')], filename: 'a%b');
         $response = (new ExportNegotiator)->streamExport(new ArraySource([['id' => 1]]), $schema, 'csv', $request);
 
-        static::assertSame('attachment; filename=a_b.csv; filename*=utf-8\'\'a%25b.csv', $response->headers->get('Content-Disposition'));
+        self::assertSame('attachment; filename=a_b.csv; filename*=utf-8\'\'a%25b.csv', $response->headers->get('Content-Disposition'));
     }
 
     /**
@@ -385,6 +385,6 @@ final class ExportNegotiatorTest extends TestCase
         $schema   = new FlexibleSchema($request, [Column::make('id', 'ID')]);
         $response = (new ExportNegotiator($registry))->streamExport(new ArraySource([['id' => 1]]), $schema, 'report', $request);
 
-        static::assertSame('attachment; filename=export.csv', $response->headers->get('Content-Disposition'));
+        self::assertSame('attachment; filename=export.csv', $response->headers->get('Content-Disposition'));
     }
 }
