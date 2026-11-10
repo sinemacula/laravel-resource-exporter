@@ -77,6 +77,25 @@ final class ExporterServiceProviderTest extends TestCase
     }
 
     /**
+     * It binds the default manager alias when the configured one is not a
+     * string, as the facade resolves it.
+     *
+     * @return void
+     */
+    public function testRegisterFallsBackToTheDefaultAliasForANonStringOne(): void
+    {
+        $app = new ProviderAppStub([
+            'exporter.alias' => ['not', 'a', 'string'],
+        ]);
+
+        Config::setFacadeApplication($app);
+
+        (new ExporterServiceProvider($app))->register();
+
+        self::assertSame(ExportManager::class, $app->aliasBindings()['exporter']);
+    }
+
+    /**
      * It exits publish flow when not running in console.
      *
      * @return void

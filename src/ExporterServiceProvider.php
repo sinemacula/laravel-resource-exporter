@@ -108,7 +108,9 @@ final class ExporterServiceProvider extends ServiceProvider
     {
         $this->app->singleton(ExportManager::class, fn ($app) => new ExportManager($app));
 
-        $this->app->alias(ExportManager::class, Config::get('exporter.alias'));
+        $alias = Config::get('exporter.alias', 'exporter');
+
+        $this->app->alias(ExportManager::class, is_string($alias) ? $alias : 'exporter');
         $this->app->alias(ExportManager::class, ExportFactory::class);
     }
 
