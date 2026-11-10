@@ -40,7 +40,7 @@ final class PaginatorPageSourceTest extends ExporterTestCase
 
         self::assertFalse($user->relationLoaded('orders'));
 
-        $page   = new Paginator([1, $user], perPage: 2, currentPage: 1);
+        $page   = new Paginator([(object) ['id' => 0], $user], perPage: 2, currentPage: 1);
         $source = (new PaginatorPageSource($page))->withRelations(['orders']);
 
         iterator_to_array($source->rows(), false);

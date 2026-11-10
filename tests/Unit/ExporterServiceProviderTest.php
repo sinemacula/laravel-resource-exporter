@@ -41,7 +41,7 @@ final class ExporterServiceProviderTest extends TestCase
     }
 
     /**
-     * Clear facade application after each test.
+     * Clear the facade application and the global container after each test.
      *
      * @return void
      */
@@ -50,6 +50,7 @@ final class ExporterServiceProviderTest extends TestCase
     {
         Config::setFacadeApplication(null);
         Config::clearResolvedInstance('config');
+        Container::setInstance(null);
 
         parent::tearDown();
     }
@@ -70,10 +71,29 @@ final class ExporterServiceProviderTest extends TestCase
         $provider = new ExporterServiceProvider($app);
         $provider->register();
 
-        self::assertArrayHasKey(ExportManager::class, $app->singletonBindings());
+        self::assertContains(ExportManager::class, $app->singletonBindings());
         self::assertSame(ExportManager::class, $app->aliasBindings()['custom-exporter']);
         self::assertSame(ExportManager::class, $app->aliasBindings()[ExportFactory::class]);
         self::assertSame('csv', $app->config()->get('exporter.default'));
+    }
+
+    /**
+     * It binds the default manager alias when the configured one is not a
+     * string, as the facade resolves it.
+     *
+     * @return void
+     */
+    public function testRegisterFallsBackToTheDefaultAliasForANonStringOne(): void
+    {
+        $app = new ProviderAppStub([
+            'exporter.alias' => ['not', 'a', 'string'],
+        ]);
+
+        Config::setFacadeApplication($app);
+
+        (new ExporterServiceProvider($app))->register();
+
+        self::assertSame(ExportManager::class, $app->aliasBindings()['exporter']);
     }
 
     /**

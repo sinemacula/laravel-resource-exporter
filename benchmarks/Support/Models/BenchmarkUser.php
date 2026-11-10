@@ -27,9 +27,6 @@ final class BenchmarkUser extends Model
     /** @var bool Whether the model maintains timestamps */
     public $timestamps = false;
 
-    /** @var string|null The backing table */
-    protected $table = 'benchmark_users';
-
     /** @var array<string> The guarded attributes */
     protected $guarded = [];
 

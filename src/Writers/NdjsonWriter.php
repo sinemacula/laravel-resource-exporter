@@ -24,8 +24,7 @@ use SineMacula\Exporter\Writers\Concerns\WritesBytes;
  */
 final readonly class NdjsonWriter implements HierarchicalWriter
 {
-    use EncodesJson;
-    use WritesBytes;
+    use EncodesJson, WritesBytes;
 
     /**
      * Create a new NDJSON writer.

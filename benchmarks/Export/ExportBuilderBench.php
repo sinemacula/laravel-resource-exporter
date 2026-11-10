@@ -7,7 +7,7 @@ namespace Benchmarks\Export;
 use Benchmarks\Support\Resources\BenchmarkResource;
 use Benchmarks\Support\Rows\RowFactory;
 use Illuminate\Config\Repository;
-use Illuminate\Container\Container;
+use Illuminate\Foundation\Application;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Facade;
 use PhpBench\Attributes as Bench;
@@ -50,13 +50,12 @@ final class ExportBuilderBench
      */
     public function setUp(): void
     {
-        $container = new Container;
-        $container->instance('config', new Repository([
+        $app = new Application;
+        $app->instance('config', new Repository([
             'exporter.default' => 'csv',
         ]));
 
-        Container::setInstance($container);
-        Facade::setFacadeApplication($container);
+        Facade::setFacadeApplication($app);
 
         $this->rows = RowFactory::make(self::ROWS);
     }

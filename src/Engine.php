@@ -349,10 +349,16 @@ final readonly class Engine
      * @param  \SineMacula\Exporter\Schema\Enums\Strictness  $strictness
      * @param  \SineMacula\Exporter\Schema\WarningCollector  $warnings
      * @return \Generator<int, array<string, \SineMacula\Exporter\Schema\CellValue>>
+     *
+     * @throws \UnexpectedValueException
      */
     private function shape(Source $source, array $columns, ?ExpandAxis $axis, Request $request, Strictness $strictness, WarningCollector $warnings): \Generator
     {
         foreach ($source->rows() as $item) {
+
+            if (!is_array($item) && !is_object($item)) {
+                throw new \UnexpectedValueException(sprintf('An export source must yield arrays or objects, %s given.', get_debug_type($item)));
+            }
 
             if ($axis === null) {
                 yield $this->row($item, $columns, $request, $strictness, $warnings);

@@ -23,7 +23,7 @@ trait ShapesRows
     /**
      * Shape the given items into typed-cell rows for the given columns.
      *
-     * @param  list<mixed>  $items
+     * @param  list<array<array-key, mixed>|object>  $items
      * @param  list<\SineMacula\Exporter\Schema\Column>  $columns
      * @param  \Illuminate\Http\Request|null  $request
      * @return list<array<string, \SineMacula\Exporter\Schema\CellValue>>

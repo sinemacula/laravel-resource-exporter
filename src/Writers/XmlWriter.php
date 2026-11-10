@@ -85,7 +85,7 @@ final readonly class XmlWriter implements HierarchicalWriter
         try {
             foreach ($items as $item) {
                 $this->writeNode($xml, $this->item, $item);
-                $this->writeBytes($stream, $xml->flush());
+                $this->writeBytes($stream, $xml->outputMemory());
             }
         } catch (\Throwable $exception) {
             $this->markTruncated($xml, $stream);
@@ -96,7 +96,7 @@ final readonly class XmlWriter implements HierarchicalWriter
         $xml->endElement();
         $xml->endDocument();
 
-        $this->writeBytes($stream, $xml->flush());
+        $this->writeBytes($stream, $xml->outputMemory());
         fflush($stream);
     }
 
@@ -121,7 +121,7 @@ final readonly class XmlWriter implements HierarchicalWriter
         $xml->endElement();
         $xml->endDocument();
 
-        fwrite($stream, $xml->flush());
+        fwrite($stream, $xml->outputMemory());
         fflush($stream);
     }
 

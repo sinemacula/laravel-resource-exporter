@@ -34,13 +34,13 @@ final class QueryChunkSource implements DerivesAggregates, Source
     /**
      * Constructor.
      *
-     * @param  \Illuminate\Database\Eloquent\Builder<\Illuminate\Database\Eloquent\Model>  $query
+     * @param  \Illuminate\Database\Eloquent\Builder<covariant \Illuminate\Database\Eloquent\Model>  $query
      * @param  int  $chunkSize
      * @return void
      */
     public function __construct(
 
-        /** @var \Illuminate\Database\Eloquent\Builder<\Illuminate\Database\Eloquent\Model> The query streamed in keyset chunks */
+        /** @var \Illuminate\Database\Eloquent\Builder<covariant \Illuminate\Database\Eloquent\Model> The query streamed in keyset chunks */
         private readonly Builder $query,
 
         /** The number of records fetched per keyset chunk. */

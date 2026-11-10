@@ -352,6 +352,22 @@ final class ColumnTest extends TestCase
 
         $resolved = Column::make('label')->resolveUsing(static fn (mixed $child, Request $request): string => 'child-' . $child['sku']);
         self::assertCell(CellType::STRING, 'child-X', $this->childCell($resolved, ['sku' => 'X']));
+
+        $fromObject = Column::make('label')->resolveUsing(static fn (array|object $child, Request $request): string => 'object-' . get_debug_type($child));
+        self::assertCell(CellType::STRING, 'object-stdClass', $this->childCell($fromObject, (object) ['sku' => 'Y']));
+    }
+
+    /**
+     * It never hands a scalar expansion child to a resolver, which only
+     * receives an array or object.
+     *
+     * @return void
+     */
+    public function testChildCellKeepsAScalarChildFromTheResolver(): void
+    {
+        $resolved = Column::make('sku')->resolveUsing(static fn (array|object $child, Request $request): string => 'resolved');
+
+        self::assertSame(CellType::NULL, $resolved->toChildCellValue('SKU-9', $this->request, $this->registry)->type);
     }
 
     /**
@@ -496,10 +512,10 @@ final class ColumnTest extends TestCase
      * Run the per-cell pipeline for the column against an expansion child.
      *
      * @param  \SineMacula\Exporter\Schema\Column  $column
-     * @param  array<string, mixed>  $child
+     * @param  array<string, mixed>|object  $child
      * @return \SineMacula\Exporter\Schema\CellValue
      */
-    private function childCell(Column $column, array $child): CellValue
+    private function childCell(Column $column, array|object $child): CellValue
     {
         return $column->toChildCellValue($child, $this->request, $this->registry);
     }

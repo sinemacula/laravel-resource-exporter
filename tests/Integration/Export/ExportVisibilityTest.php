@@ -155,7 +155,7 @@ final class ExportVisibilityTest extends ExporterTestCase
      * as CSV.
      *
      * @param  \SineMacula\Exporter\Schema\TabularSchema  $schema
-     * @param  \Illuminate\Database\Eloquent\Builder<\Illuminate\Database\Eloquent\Model>|null  $query
+     * @param  \Illuminate\Database\Eloquent\Builder<covariant \Illuminate\Database\Eloquent\Model>|null  $query
      * @return string
      */
     private function exportToCsv(TabularSchema $schema, ?Builder $query = null): string
