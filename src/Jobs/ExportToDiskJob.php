@@ -61,9 +61,7 @@ use SineMacula\Exporter\Writers\CountingWriter;
  */
 final class ExportToDiskJob implements ShouldQueue
 {
-    use Dispatchable;
-    use InteractsWithQueue;
-    use Queueable;
+    use Dispatchable, InteractsWithQueue, Queueable;
 
     /** @var int The number of times the job may be attempted */
     public readonly int $tries;

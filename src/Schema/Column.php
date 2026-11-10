@@ -35,8 +35,7 @@ use SineMacula\Exporter\Schema\Enums\CellType;
  */
 final class Column
 {
-    use HasAggregates;
-    use HasCasts;
+    use HasAggregates, HasCasts;
 
     /** @var (\Closure(array<array-key, mixed>|object, \Illuminate\Http\Request): mixed)|null The value-source resolver */
     private ?\Closure $resolver = null;
