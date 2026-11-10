@@ -1,4 +1,10 @@
 parameters:
+    # qlty runs PHPStan on PHP 8.5, which would otherwise demand syntax, such as
+    # #[\Override] on a property, that the package's PHP 8.3 floor cannot parse.
+    phpVersion:
+        min: 80300
+        max: 80599
+
     scanDirectories:
         - %currentWorkingDirectory%/benchmarks
         - %currentWorkingDirectory%/src
