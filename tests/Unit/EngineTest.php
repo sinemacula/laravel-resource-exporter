@@ -158,6 +158,19 @@ final class EngineTest extends TestCase
     }
 
     /**
+     * It rejects a source item that is neither an array nor an object.
+     *
+     * @return void
+     */
+    public function testRejectsAScalarSourceItem(): void
+    {
+        $this->expectException(\UnexpectedValueException::class);
+        $this->expectExceptionMessage('An export source must yield arrays or objects, string given.');
+
+        (new Engine)->export(new ArraySource(['scalar']), new FlexibleSchema(Request::create('/'), [Column::make('id', 'ID')]), Request::create('/'), new CsvWriter, new StringSink);
+    }
+
+    /**
      * Export a single item through the gated schema as CSV.
      *
      * @param  array<string, mixed>  $item

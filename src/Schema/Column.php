@@ -301,10 +301,11 @@ final class Column
     /**
      * Resolve the raw value source for the column from an expansion child.
      *
-     * A resolver receives the child directly; otherwise the model path (or, by
-     * default, the column key) is read off the child. An aggregate marker is
-     * irrelevant here - an expanded column reads each child, not a folded
-     * relation - so it is not consulted.
+     * A resolver receives an array or object child directly; otherwise the
+     * model path (or, by default, the column key) is read off the child, which
+     * leaves a scalar child null. An aggregate marker is irrelevant here - an
+     * expanded column reads each child, not a folded relation - so it is not
+     * consulted.
      *
      * @param  mixed  $child
      * @param  \Illuminate\Http\Request  $request
@@ -312,7 +313,7 @@ final class Column
      */
     private function resolveChildValue(mixed $child, Request $request): mixed
     {
-        if ($this->resolver !== null) {
+        if ($this->resolver !== null && (is_array($child) || is_object($child))) {
             return ($this->resolver)($child, $request);
         }
 
