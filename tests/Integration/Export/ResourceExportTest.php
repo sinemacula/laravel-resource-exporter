@@ -118,7 +118,10 @@ final class ResourceExportTest extends ExporterTestCase
         $this->expectException(\LogicException::class);
         $this->expectExceptionMessage('score');
 
-        ResourceExport::forQuery(User::query()->orderBy('score', 'desc'), UserResource::class) // @phpstan-ignore staticMethod.dynamicCall
+        $query = User::query();
+        $query->orderBy('score', 'desc');
+
+        ResourceExport::forQuery($query, UserResource::class)
             ->withoutAuthorization()
             ->paginatedJsonOrStreamedExport($this->exportRequest());
     }
@@ -268,7 +271,10 @@ final class ResourceExportTest extends ExporterTestCase
 
         $this->seedUsers(25);
 
-        $response = ResourceExport::forQuery(User::query()->orderBy('id'), PlainUserResource::class) // @phpstan-ignore staticMethod.dynamicCall
+        $query = User::query();
+        $query->orderBy('id');
+
+        $response = ResourceExport::forQuery($query, PlainUserResource::class)
             ->perPage(10)
             ->chunk(10)
             ->withoutAuthorization()

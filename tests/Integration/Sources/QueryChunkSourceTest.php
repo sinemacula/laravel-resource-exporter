@@ -53,7 +53,10 @@ final class QueryChunkSourceTest extends ExporterTestCase
     {
         $this->seedUsers(5);
 
-        $source = new QueryChunkSource(User::query()->orderBy('id', 'desc'), chunkSize: 2); // @phpstan-ignore staticMethod.dynamicCall
+        $query = User::query();
+        $query->orderBy('id', 'desc');
+
+        $source = new QueryChunkSource($query, chunkSize: 2);
 
         $ids = [];
 
@@ -78,7 +81,10 @@ final class QueryChunkSourceTest extends ExporterTestCase
         $this->expectException(\LogicException::class);
         $this->expectExceptionMessage('score');
 
-        $source = new QueryChunkSource(User::query()->orderBy('score', 'desc'), chunkSize: 2); // @phpstan-ignore staticMethod.dynamicCall
+        $query = User::query();
+        $query->orderBy('score', 'desc');
+
+        $source = new QueryChunkSource($query, chunkSize: 2);
 
         iterator_to_array($source->rows(), false);
     }
@@ -136,7 +142,10 @@ final class QueryChunkSourceTest extends ExporterTestCase
     {
         $this->seedUsers(5);
 
-        $source = new QueryChunkSource(User::query()->select(['name']), chunkSize: 2); // @phpstan-ignore staticMethod.dynamicCall
+        $query = User::query();
+        $query->select(['name']);
+
+        $source = new QueryChunkSource($query, chunkSize: 2);
 
         $ids   = [];
         $names = [];
@@ -160,7 +169,10 @@ final class QueryChunkSourceTest extends ExporterTestCase
     {
         $this->seedUsers(3);
 
-        $source = new QueryChunkSource(User::query()->select(['id', 'name']), chunkSize: 2); // @phpstan-ignore staticMethod.dynamicCall
+        $query = User::query();
+        $query->select(['id', 'name']);
+
+        $source = new QueryChunkSource($query, chunkSize: 2);
 
         $ids = [];
 
@@ -182,7 +194,10 @@ final class QueryChunkSourceTest extends ExporterTestCase
     {
         $this->seedUsers(3);
 
-        $source = new QueryChunkSource(User::query()->select([DB::raw('name')]), chunkSize: 2); // @phpstan-ignore staticMethod.dynamicCall
+        $query = User::query();
+        $query->select([DB::raw('name')]);
+
+        $source = new QueryChunkSource($query, chunkSize: 2);
 
         $ids = [];
 

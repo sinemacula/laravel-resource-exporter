@@ -39,7 +39,10 @@ final class ExportRowExpansionTest extends ExporterTestCase
         $this->seedUsers(2);
         $this->seedOrders(1, [5, 10]);
 
-        $csv = Exporter::export(User::query()->orderBy('id'), UserResource::class) // @phpstan-ignore staticMethod.dynamicCall
+        $query = User::query();
+        $query->orderBy('id');
+
+        $csv = Exporter::export($query, UserResource::class)
             ->schema(ExpandedOrdersExportSchema::class)
             ->request(Request::create('/'))
             ->chunk(1)
