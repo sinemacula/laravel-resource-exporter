@@ -57,6 +57,28 @@ final class ResourceExportTest extends ExporterTestCase
     }
 
     /**
+     * It negotiates against the container's request when none is passed.
+     *
+     * @return void
+     *
+     * @throws \Illuminate\Auth\Access\AuthorizationException
+     */
+    public function testFallsBackToTheContainerRequest(): void
+    {
+        $this->seedUsers(3);
+
+        self::assertNotNull($this->app);
+
+        $this->app->instance('request', $this->exportRequest());
+
+        $response = ResourceExport::forQuery(User::query(), UserResource::class)
+            ->withoutAuthorization()
+            ->paginatedJsonOrStreamedExport();
+
+        self::assertInstanceOf(StreamedResponse::class, $response);
+    }
+
+    /**
      * It streams the full dataset - more rows than one page - for an export
      * request.
      *

@@ -214,7 +214,7 @@ final class ResourceExport
     public function paginatedJsonOrStreamedExport(?Request $request = null): Response
     {
         $container = Container::getInstance();
-        $request ??= $container->make('request');
+        $request ??= $container->make(Request::class);
         $negotiator = $container->make(ExportNegotiator::class);
 
         $format = $negotiator->resolve($request);
