@@ -26,7 +26,7 @@ final class SourceFactory
     /**
      * Build the Source adapter for the given export subject.
      *
-     * @param  \Illuminate\Database\Eloquent\Builder<\Illuminate\Database\Eloquent\Model>|\Illuminate\Http\Resources\Json\JsonResource  $subject
+     * @param  \Illuminate\Database\Eloquent\Builder<covariant \Illuminate\Database\Eloquent\Model>|\Illuminate\Http\Resources\Json\JsonResource  $subject
      * @param  int  $chunkSize
      * @return \SineMacula\Exporter\Contracts\Source
      */

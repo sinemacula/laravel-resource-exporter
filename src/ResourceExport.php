@@ -50,6 +50,8 @@ use Symfony\Component\HttpFoundation\Response;
  *
  * @author      Ben Carey <bdmc@sinemacula.co.uk>
  * @copyright   2026 Sine Macula Limited.
+ *
+ * @template TModel of \Illuminate\Database\Eloquent\Model = \Illuminate\Database\Eloquent\Model
  */
 final class ResourceExport
 {
@@ -65,7 +67,7 @@ final class ResourceExport
     /** @var int The keyset chunk size used while streaming the full set */
     private int $chunkSize;
 
-    /** @var (\Closure(\Illuminate\Http\Request, \Illuminate\Database\Eloquent\Builder<\Illuminate\Database\Eloquent\Model>): mixed)|null The full-set authorization re-check */
+    /** @var (\Closure(\Illuminate\Http\Request, \Illuminate\Database\Eloquent\Builder<TModel>): mixed)|null The full-set authorization re-check */
     private ?\Closure $authorization = null;
 
     /** @var (\Closure(array<string, mixed>): void)|null The audit hook fired around a streamed export */
@@ -77,12 +79,12 @@ final class ResourceExport
     /**
      * Create a new query-aware export helper.
      *
-     * @param  \Illuminate\Database\Eloquent\Builder<\Illuminate\Database\Eloquent\Model>  $query
+     * @param  \Illuminate\Database\Eloquent\Builder<TModel>  $query
      * @param  class-string<\Illuminate\Http\Resources\Json\JsonResource>  $resourceClass
      */
     private function __construct(
 
-        /** @var \Illuminate\Database\Eloquent\Builder<\Illuminate\Database\Eloquent\Model> The query the export runs over */
+        /** @var \Illuminate\Database\Eloquent\Builder<TModel> The query the export runs over */
         private readonly Builder $query,
 
         /** @var class-string<\Illuminate\Http\Resources\Json\JsonResource> The resource class describing the export */
@@ -96,9 +98,11 @@ final class ResourceExport
     /**
      * Begin a query-aware export for the given query and resource class.
      *
-     * @param  \Illuminate\Database\Eloquent\Builder<\Illuminate\Database\Eloquent\Model>  $query
+     * @template TQueryModel of \Illuminate\Database\Eloquent\Model
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder<TQueryModel>  $query
      * @param  class-string<\Illuminate\Http\Resources\Json\JsonResource>  $resourceClass
-     * @return self
+     * @return self<TQueryModel>
      */
     public static function forQuery(Builder $query, string $resourceClass): self
     {
@@ -160,7 +164,7 @@ final class ResourceExport
     /**
      * Register the full-set authorization re-check for the export path.
      *
-     * @param  \Closure(\Illuminate\Http\Request, \Illuminate\Database\Eloquent\Builder<\Illuminate\Database\Eloquent\Model>): mixed  $callback
+     * @param  \Closure(\Illuminate\Http\Request, \Illuminate\Database\Eloquent\Builder<TModel>): mixed  $callback
      * @return $this
      */
     public function authorizeUsing(\Closure $callback): self

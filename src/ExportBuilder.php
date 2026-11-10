@@ -94,7 +94,7 @@ final class ExportBuilder // phpcs:ignore SineMacula.Metrics.MaxMethodCount.TooM
      * engine, whereas a direct construction falls back to empty defaults that
      * see no custom formats or casters.
      *
-     * @param  \Illuminate\Database\Eloquent\Builder<\Illuminate\Database\Eloquent\Model>|\Illuminate\Http\Resources\Json\JsonResource  $subject
+     * @param  \Illuminate\Database\Eloquent\Builder<covariant \Illuminate\Database\Eloquent\Model>|\Illuminate\Http\Resources\Json\JsonResource  $subject
      * @param  class-string<\Illuminate\Http\Resources\Json\JsonResource>|null  $resourceClass
      * @param  \SineMacula\Exporter\Http\MediaTypeRegistry  $registry
      * @param  \SineMacula\Exporter\Engine  $engine
@@ -104,7 +104,7 @@ final class ExportBuilder // phpcs:ignore SineMacula.Metrics.MaxMethodCount.TooM
      */
     public function __construct(
 
-        /** @var \Illuminate\Database\Eloquent\Builder<\Illuminate\Database\Eloquent\Model>|\Illuminate\Http\Resources\Json\JsonResource The export subject */
+        /** @var \Illuminate\Database\Eloquent\Builder<covariant \Illuminate\Database\Eloquent\Model>|\Illuminate\Http\Resources\Json\JsonResource The export subject */
         private readonly Builder|JsonResource $subject,
 
         /** @var class-string<\Illuminate\Http\Resources\Json\JsonResource>|null The resource class describing a query subject */
