@@ -121,10 +121,11 @@ final class SourceAdaptersTest extends ExporterTestCase
      */
     public function testPaginatorPageYieldsNonModelItems(): void
     {
-        $page   = new Paginator([1, 2, 3], perPage: 3, currentPage: 1);
+        $items  = [(object) ['id' => 1], (object) ['id' => 2], (object) ['id' => 3]];
+        $page   = new Paginator($items, perPage: 3, currentPage: 1);
         $source = (new PaginatorPageSource($page))->withRelations(['orders']);
 
-        self::assertSame([1, 2, 3], iterator_to_array($source->rows(), false));
+        self::assertSame($items, iterator_to_array($source->rows(), false));
     }
 
     /**
