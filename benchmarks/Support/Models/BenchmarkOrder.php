@@ -24,9 +24,6 @@ final class BenchmarkOrder extends Model implements \Stringable
     /** @var bool Whether the model maintains timestamps */
     public $timestamps = false;
 
-    /** @var string|null The backing table */
-    protected $table = 'benchmark_orders';
-
     /** @var array<string> The guarded attributes */
     protected $guarded = [];
 
