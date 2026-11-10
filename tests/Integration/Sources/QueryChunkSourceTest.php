@@ -302,7 +302,7 @@ final class QueryChunkSourceTest extends ExporterTestCase
              * @param  int  $chunkSize
              * @param  string|null  $column
              * @param  string|null  $alias
-             * @return \Illuminate\Support\LazyCollection<int, mixed>
+             * @return \Illuminate\Support\LazyCollection<int, \Illuminate\Database\Eloquent\Model>
              */
             #[\Override]
             public function lazyById($chunkSize = 1000, $column = null, $alias = null): LazyCollection // phpcs:ignore Squiz.Commenting.FunctionComment.ScalarTypeHintMissing
