@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.1.2](https://github.com/sinemacula/laravel-resource-exporter/compare/v3.1.1...v3.1.2) (2026-11-16)
+
+
+### Bug Fixes
+
+* require league/csv 9.27, the first release with Writer::from() ([#107](https://github.com/sinemacula/laravel-resource-exporter/issues/107)) ([923eea9](https://github.com/sinemacula/laravel-resource-exporter/commit/923eea917751b0fff13ec15a0e2d5359681dbf53))
+
 ## [3.1.1](https://github.com/sinemacula/laravel-resource-exporter/compare/v3.1.0...v3.1.1) (2026-11-10)
 
 
